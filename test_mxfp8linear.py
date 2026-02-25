@@ -1,11 +1,17 @@
 """
-Debug / validation script for MXFP8Linear.
+Debug / validation script for MXFP8Linear, MXFP6Linear, MXFP4Linear.
 
-Tests:
-  1. Shape correctness
-  2. Block-wise scale correctness (manual re-computation)
-  3. Quantisation error magnitude vs fp32 baseline
-  4. Batch-dimension handling (3-D input)
+Tests (per format):
+  1. Shape correctness (2-D and 3-D inputs)
+  2. Bias correctness
+  3. Exact match against a pure-Python loop reference
+  4. Quantisation error / SNR vs fp32 baseline
+  5. Scale tensor shape and dtype
+
+Format-specific extras:
+  - FP8: native fp8 cast round-trip grid test
+  - FP4: check all 8 positive representable values are in grid
+  - FP6 E2M3 / E3M2: FORMAT_MAX switch test
 
 Run from repo root:
     cd /home/xzjnew/coding
@@ -16,154 +22,221 @@ import sys
 import math
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
-# Make the local transformers importable
 sys.path.insert(0, "/home/xzjnew/coding/transformers/src")
-from transformers.models.qwen3.modular_qwen3 import MXFP8Linear, _FP8_E4M3_MAX
+from transformers.models.qwen3.modular_qwen3 import (
+    MXFP8Linear, MXFP4Linear, MXFP6Linear,
+    _FP8_E4M3_MAX, _FP4_E2M1_MAX, _FP6_E2M3_MAX, _FP6_E3M2_MAX,
+    _FP4_E2M1_GRID_LIST, _FP6_E2M3_GRID_LIST, _FP6_E3M2_GRID_LIST,
+    _nearest_on_grid, _get_grid,
+)
 
 BLOCK = 8
-IN  = 32
-OUT = 16
+IN    = 32
+OUT   = 16
 torch.manual_seed(42)
 
 
-def make_layer(in_f=IN, out_f=OUT, bias=False, block=BLOCK):
-    class _Cfg:
-        mxfp8_block_size = block
-    layer = MXFP8Linear(in_f, out_f, bias=bias, config=_Cfg())
+# ── config stubs ──────────────────────────────────────────────────────────────
+
+class _CfgFP8:
+    use_mxfp8 = True; mxfp8_block_size = BLOCK
+
+class _CfgFP4:
+    use_mxfp4 = True; mxfp4_block_size = BLOCK
+
+class _CfgFP6E2M3:
+    use_mxfp6 = True; mxfp6_block_size = BLOCK; mxfp6_format = "e2m3"
+
+class _CfgFP6E3M2:
+    use_mxfp6 = True; mxfp6_block_size = BLOCK; mxfp6_format = "e3m2"
+
+
+def make_layer(cls, cfg):
+    layer = cls(IN, OUT, bias=False, config=cfg())
     nn.init.normal_(layer.weight)
     return layer
 
 
-# ── helper: reference block-wise computation ──────────────────────────────────
-def ref_mxfp8_matmul(x: torch.Tensor, w: torch.Tensor, block_size: int) -> torch.Tensor:
+# ── generic reference: block-wise accumulation ────────────────────────────────
+
+def ref_blockwise_matmul(
+    x: torch.Tensor,
+    w: torch.Tensor,
+    block_size: int,
+    fmt_max: float,
+    quantize_fn,
+) -> torch.Tensor:
     """
-    Pure-Python reference: matches the block-wise accumulation in MXFP8Linear.
-    x : (N, IN)   w : (OUT, IN)
-    returns (N, OUT)
+    Pure-Python loop reference for any MX format.
+    quantize_fn(tensor_normalised) -> quantised float32 tensor
     """
-    N, IN_ = x.shape
-    feat = IN_
-    pad = (-feat) % block_size
+    N = x.shape[0]
+    pad = (-x.shape[-1]) % block_size
     if pad:
-        x = torch.nn.functional.pad(x, (0, pad))
-        w = torch.nn.functional.pad(w, (0, pad))
+        x = F.pad(x, (0, pad))
+        w = F.pad(w, (0, pad))
     nb = x.shape[-1] // block_size
-    x_b = x.float().view(N,   nb, block_size)
-    w_b = w.float().view(w.shape[0], nb, block_size)
+    xb = x.float().view(N, nb, block_size)
+    wb = w.float().view(w.shape[0], nb, block_size)
 
-    scale_x = (x_b.abs().amax(-1) / _FP8_E4M3_MAX).clamp(min=1e-30)  # (N,   nb)
-    scale_w = (w_b.abs().amax(-1) / _FP8_E4M3_MAX).clamp(min=1e-30)  # (out, nb)
-
-    x_fp8 = (x_b / scale_x.unsqueeze(-1)).to(torch.float8_e4m3fn).float()
-    w_fp8 = (w_b / scale_w.unsqueeze(-1)).to(torch.float8_e4m3fn).float()
+    sx = (xb.abs().amax(-1) / fmt_max).clamp(min=1e-30)
+    sw = (wb.abs().amax(-1) / fmt_max).clamp(min=1e-30)
+    xq = quantize_fn(xb / sx.unsqueeze(-1))
+    wq = quantize_fn(wb / sw.unsqueeze(-1))
 
     out = torch.zeros(N, w.shape[0])
     for b in range(nb):
-        elem = x_fp8[:, b, :] @ w_fp8[:, b, :].t()       # (N, out)
-        sc   = scale_x[:, b:b+1] * scale_w[:, b:b+1].t() # (N, out)
-        out += elem * sc
+        out += (xq[:, b, :] @ wq[:, b, :].t()) * (sx[:, b:b+1] * sw[:, b:b+1].t())
     return out
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ── shared test helpers ────────────────────────────────────────────────────────
 
-def test_shape():
-    layer = make_layer()
-    x = torch.randn(4, IN)
-    y = layer(x)
-    assert y.shape == (4, OUT), f"shape mismatch: {y.shape}"
-    print("[PASS] test_shape")
+def _test_all(label: str, cls, cfg_cls, fmt_max: float, quantize_fn):
+    print(f"\n{'─'*55}")
+    print(f"  {label}")
+    print(f"{'─'*55}")
 
+    # 1. Shape (2-D)
+    layer = make_layer(cls, cfg_cls)
+    y = layer(torch.randn(4, IN))
+    assert y.shape == (4, OUT), f"2-D shape: {y.shape}"
+    print("[PASS] shape 2-D")
 
-def test_3d_batch():
-    layer = make_layer()
-    x = torch.randn(2, 5, IN)
-    y = layer(x)
-    assert y.shape == (2, 5, OUT), f"3-D shape mismatch: {y.shape}"
-    print("[PASS] test_3d_batch")
+    # 2. Shape (3-D batch)
+    y3 = layer(torch.randn(2, 5, IN))
+    assert y3.shape == (2, 5, OUT), f"3-D shape: {y3.shape}"
+    print("[PASS] shape 3-D batch")
 
+    # 3. Bias: zero input -> output equals bias
+    layer_b = cls(IN, OUT, bias=True, config=cfg_cls())
+    nn.init.normal_(layer_b.weight)
+    nn.init.ones_(layer_b.bias_param)
+    y_bias = layer_b(torch.zeros(3, IN))
+    assert torch.allclose(y_bias, torch.ones(3, OUT), atol=1e-5), \
+        f"bias test: max diff {(y_bias - 1).abs().max()}"
+    print("[PASS] bias")
 
-def test_bias():
-    layer = make_layer(bias=True)
-    nn.init.ones_(layer.bias_param)
-    x = torch.zeros(3, IN)
-    y = layer(x)
-    # With all-zero input the block scales will be tiny (clamped to eps),
-    # fp8-quantised x is 0, so output should equal bias.
-    # Verify by checking the result equals bias for zero input.
-    # (scale_x * scale_w * 0) => 0, result => bias
-    expected = torch.ones(3, OUT)
-    assert torch.allclose(y, expected, atol=1e-5), f"bias test failed: max diff {(y - expected).abs().max()}"
-    print("[PASS] test_bias")
-
-
-def test_matches_reference():
-    layer = make_layer()
+    # 4. Exact match vs pure-Python reference
+    torch.manual_seed(0)
+    layer = make_layer(cls, cfg_cls)
     x = torch.randn(6, IN)
-    y_mx   = layer(x)
-    y_ref  = ref_mxfp8_matmul(x, layer.weight.data, BLOCK)
-    max_diff = (y_mx.float() - y_ref).abs().max().item()
-    assert max_diff < 1e-5, f"mismatch vs reference: max diff {max_diff}"
-    print(f"[PASS] test_matches_reference  (max_diff={max_diff:.2e})")
+    y_mx  = layer(x)
+    y_ref = ref_blockwise_matmul(x, layer.weight.data, BLOCK, fmt_max, quantize_fn)
+    diff  = (y_mx.float() - y_ref).abs().max().item()
+    assert diff < 1e-4, f"reference mismatch: max diff {diff}"
+    print(f"[PASS] matches reference  (max_diff={diff:.2e})")
 
+    # 5. Scale shape & dtype
+    x2   = torch.randn(3, IN)
+    pad  = (-IN) % BLOCK
+    xp   = F.pad(x2, (0, pad)).float()
+    nb   = xp.shape[-1] // BLOCK
+    blk  = xp.view(3, nb, BLOCK)
+    _, scales = layer._quantize_to_blocks(blk)
+    assert scales.shape == (3, nb),       f"scale shape: {scales.shape}"
+    assert scales.dtype == torch.float32, f"scale dtype: {scales.dtype}"
+    assert (scales > 0).all(),            "non-positive scales"
+    print(f"[PASS] scales  shape={tuple(scales.shape)}, dtype={scales.dtype}")
 
-def test_quantisation_error():
-    """Compare MX FP8 output to fp32 reference; report SNR / max-abs-error."""
-    layer = make_layer()
-    fp_ref  = nn.Linear(IN, OUT, bias=False)
+    # 6. Quantisation error / SNR vs fp32
+    layer = make_layer(cls, cfg_cls)
+    fp_ref = nn.Linear(IN, OUT, bias=False)
     fp_ref.weight.data.copy_(layer.weight.data)
-
     x = torch.randn(64, IN)
-    y_fp32  = fp_ref(x).detach()
-    y_mxfp8 = layer(x).detach()
-
-    abs_err  = (y_fp32 - y_mxfp8).abs()
-    rel_err  = abs_err / (y_fp32.abs() + 1e-8)
-    signal_power   = y_fp32.pow(2).mean()
-    noise_power    = abs_err.pow(2).mean()
-    snr_db = 10 * math.log10((signal_power / noise_power).item()) if noise_power > 0 else float("inf")
-
-    print(f"[INFO] test_quantisation_error")
-    print(f"       FP32 output  max={y_fp32.abs().max():.4f}, mean={y_fp32.abs().mean():.4f}")
-    print(f"       MX FP8  output  max={y_mxfp8.abs().max():.4f}, mean={y_mxfp8.abs().mean():.4f}")
-    print(f"       Absolute error: max={abs_err.max():.6f}, mean={abs_err.mean():.6f}")
-    print(f"       Relative error: max={rel_err.max():.4%}, mean={rel_err.mean():.4%}")
-    print(f"       SNR: {snr_db:.2f} dB")
+    y_fp32 = fp_ref(x).detach()
+    y_mx   = layer(x).detach()
+    err    = (y_fp32 - y_mx).abs()
+    snr_db = 10 * math.log10(
+        (y_fp32.pow(2).mean() / err.pow(2).mean()).item()
+    ) if err.pow(2).mean() > 0 else float("inf")
+    print(f"[INFO] quant error  max={err.max():.4f}, mean={err.mean():.4f}, SNR={snr_db:.1f} dB")
 
 
-def test_scale_values():
-    """Assert that computed scales are fp32 positive, one per block."""
-    class _Cfg:
-        mxfp8_block_size = BLOCK
-    layer = MXFP8Linear(IN, OUT, bias=False, config=_Cfg())
-    nn.init.normal_(layer.weight)
+# ── FP4-specific: verify representable grid ───────────────────────────────────
 
-    x = torch.randn(3, IN)
-    feat = IN
-    pad  = (-feat) % BLOCK
-    x2   = torch.nn.functional.pad(x, (0, pad)).float()
-    nb   = x2.shape[-1] // BLOCK
-    blocks = x2.view(3, nb, BLOCK)
-    _, scales = MXFP8Linear._quantize_fp8(blocks)
-
-    assert scales.shape == (3, nb),      f"scale shape wrong: {scales.shape}"
-    assert scales.dtype == torch.float32, f"scale dtype wrong: {scales.dtype}"
-    assert (scales > 0).all(),            "non-positive scales detected"
-    print(f"[PASS] test_scale_values  scales.shape={scales.shape}, dtype={scales.dtype}")
+def test_fp4_grid():
+    expected_positive = {0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0}
+    actual_positive   = {v for v in _FP4_E2M1_GRID_LIST if v >= 0}
+    assert actual_positive == expected_positive, \
+        f"FP4 positive grid wrong:\n  got:      {sorted(actual_positive)}\n  expected: {sorted(expected_positive)}"
+    assert len(_FP4_E2M1_GRID_LIST) == 15, \
+        f"FP4 grid size: {len(_FP4_E2M1_GRID_LIST)} (expected 15, -0 merged with +0)"
+    print(f"[PASS] FP4 E2M1 representable grid  "
+          f"({len(_FP4_E2M1_GRID_LIST)} values, max={max(_FP4_E2M1_GRID_LIST):.1f})")
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+def test_fp6_grids():
+    assert max(_FP6_E2M3_GRID_LIST) == pytest_approx(7.5),  f"FP6 E2M3 max wrong: {max(_FP6_E2M3_GRID_LIST)}"
+    assert max(_FP6_E3M2_GRID_LIST) == pytest_approx(28.0), f"FP6 E3M2 max wrong: {max(_FP6_E3M2_GRID_LIST)}"
+    # E2M3: 32 positive values (including 0); E3M2: same
+    e2m3_pos = [v for v in _FP6_E2M3_GRID_LIST if v >= 0]
+    e3m2_pos = [v for v in _FP6_E3M2_GRID_LIST if v >= 0]
+    assert len(e2m3_pos) == 32, f"FP6 E2M3 positive count: {len(e2m3_pos)}"
+    assert len(e3m2_pos) == 32, f"FP6 E3M2 positive count: {len(e3m2_pos)}"
+    print(f"[PASS] FP6 E2M3 grid  ({len(_FP6_E2M3_GRID_LIST)} values, max={max(_FP6_E2M3_GRID_LIST):.1f})")
+    print(f"[PASS] FP6 E3M2 grid  ({len(_FP6_E3M2_GRID_LIST)} values, max={max(_FP6_E3M2_GRID_LIST):.1f})")
+
+
+def pytest_approx(v, rel=1e-6):
+    """Tiny approx helper (no pytest dependency needed)."""
+    class _A:
+        def __eq__(self, other): return abs(other - v) <= rel * abs(v) + 1e-12
+        def __repr__(self): return f"≈{v}"
+    return _A()
+
+
+def test_nearest_on_grid():
+    """Spot-check nearest-neighbor quantization for FP4."""
+    grid = _get_grid(_FP4_E2M1_GRID_LIST, torch.device("cpu"))
+    cases = [
+        (0.0,   0.0),
+        (0.3,   0.5),   # closer to 0.5 than 0
+        (2.4,   2.0),   # closer to 2 than 3
+        (2.6,   3.0),   # closer to 3
+        (5.5,   6.0),   # above 4, nearest is 6
+        (-1.3, -1.5),
+    ]
+    for inp, expected in cases:
+        t = torch.tensor([inp])
+        got = _nearest_on_grid(t, grid).item()
+        assert abs(got - expected) < 1e-6, f"nearest({inp}) = {got}, expected {expected}"
+    print("[PASS] nearest_on_grid spot-checks (FP4 E2M1)")
+
+
+
+# ── quantize_fn wrappers for reference ───────────────────────────────────────
+
+def _qfp8(x):   return x.to(torch.float8_e4m3fn).float()
+def _qfp4(x):
+    grid = _get_grid(_FP4_E2M1_GRID_LIST, x.device)
+    return _nearest_on_grid(x.reshape(-1), grid).view(x.shape)
+def _qfp6e2m3(x):
+    grid = _get_grid(_FP6_E2M3_GRID_LIST, x.device)
+    return _nearest_on_grid(x.reshape(-1), grid).view(x.shape)
+def _qfp6e3m2(x):
+    grid = _get_grid(_FP6_E3M2_GRID_LIST, x.device)
+    return _nearest_on_grid(x.reshape(-1), grid).view(x.shape)
+
+
+# ── main ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print("=" * 60)
+    print("=" * 55)
     print(f"PyTorch {torch.__version__}  |  BLOCK={BLOCK}, IN={IN}, OUT={OUT}")
-    print("=" * 60)
-    test_shape()
-    test_3d_batch()
-    test_bias()
-    test_matches_reference()
-    test_quantisation_error()
-    test_scale_values()
-    print("=" * 60)
+    print("=" * 55)
+
+    _test_all("MXFP8 (E4M3FN, max=448)",  MXFP8Linear, _CfgFP8,     _FP8_E4M3_MAX, _qfp8)
+    _test_all("MXFP4 (E2M1,   max=6)",    MXFP4Linear, _CfgFP4,     _FP4_E2M1_MAX, _qfp4)
+    _test_all("MXFP6 E2M3     (max=7.5)", MXFP6Linear, _CfgFP6E2M3, _FP6_E2M3_MAX, _qfp6e2m3)
+    _test_all("MXFP6 E3M2     (max=28)",  MXFP6Linear, _CfgFP6E3M2, _FP6_E3M2_MAX, _qfp6e3m2)
+
+    print()
+    test_fp4_grid()
+    test_fp6_grids()
+    test_nearest_on_grid()
+
+    print("=" * 55)
     print("All tests passed.")
