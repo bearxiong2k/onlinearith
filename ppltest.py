@@ -33,7 +33,7 @@ MODEL_PATH  = "../Qwen3-0.6B"
 DATASET     = ("wikitext", "wikitext-2-raw-v1", "test")   # (name, config, split)
 MAX_LENGTH  = 4096   # max context window fed to the model
 STRIDE      = 512    # sliding-window stride (≤ MAX_LENGTH)
-RESULTS_OUT = "ppl_results.json"
+RESULTS_OUT = "ppl_results_MXFP8_MSD_B16.json"
 # ─────────────────────────────────────────────────────────────────────────────
 
 def get_device_and_dtype():

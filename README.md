@@ -243,6 +243,49 @@ For a complete characterization, run in this order:
 4. **Calibrated** (1 run after calibration, ~30 min):
    - Run calibration first (see Section 5), then PPL test
 
+### Batch Mode (All Setups in One Run)
+
+To run **all setups automatically** without manual config editing, use `ppl_batch.py`.
+It loads the model once, patches config in-memory for each setup, and saves results
+to separate JSON files. Existing results are skipped by default (resume-safe).
+
+```bash
+cd /home/xzjnew/coding/onlinearith
+source /home/xzjnew/coding/.venv_310/bin/activate
+
+# List all available setups (21 total)
+python ppl_batch.py --list
+
+# Run ALL setups (~10 hours total, ~28 min each)
+python ppl_batch.py
+
+# Run only specific setups by ID
+python ppl_batch.py --only 1 6 10 14
+
+# Re-run setups even if result files exist
+python ppl_batch.py --force
+
+# Resume after interruption (skips completed ones)
+python ppl_batch.py
+```
+
+The 21 setups cover:
+- **#1**: FP16 baseline
+- **#2-5**: MXFP8/6/4 only (no MSD)
+- **#6-9**: MXFP8/6/4 + MSD at default budget B=16
+- **#10-14**: MXFP8 budget sweep (B=8,12,20,24,32; B=16 reuses #6)
+- **#15-19**: MXFP4 budget sweep (B=8,12,20,24,32; B=16 reuses #9)
+- **#20-21**: Deep pipeline (MXFP8, MXFP4)
+
+All result files are named `ppl_results_{tag}.json` and saved in the `onlinearith/` directory.
+
+**Tip:** Run inside `tmux` or `screen` so it survives SSH disconnections:
+```bash
+tmux new -s ppl
+python ppl_batch.py
+# Ctrl+B then D to detach; tmux attach -t ppl to reconnect
+```
+
 ---
 
 ## 5. Running Calibration
@@ -444,7 +487,8 @@ When `msd_deep_pipeline=true`, precision is tracked through the MLP stages:
 
 | File | Purpose |
 |------|---------|
-| `ppltest.py` | Perplexity evaluation (sliding-window, WikiText-2) |
+| `ppltest.py` | Perplexity evaluation — single setup (edit config.json manually) |
+| `ppl_batch.py` | Perplexity evaluation — all 21 setups automated in one run |
 | `test_mxfp8linear.py` | Unit tests for MXFP layers and MSD truncation |
 | `qwen3test.py` | Quick generation sanity check |
 | `benchmarktest.py` | lm-eval harness (MMLU, GSM8K) |
