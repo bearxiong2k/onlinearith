@@ -189,8 +189,8 @@ Suggested sweep values: **8, 12, 16, 20, 24, 32**
 | `use_msd_truncation` | bool | false | Master switch for MSD simulation |
 | `msd_cycle_budget` | int | 16 | Global default cycle budget B_base |
 | `msd_online_delay` | int | 2 | MSD multiplier online delay δ (digits before first valid product) |
-| `msd_budget_dynamic_scale` | float | 1.0 | α in B_final = B_base + α·max(0, E_act − E_threshold) |
-| `msd_budget_dynamic_threshold` | float | 0.0 | E_threshold for dynamic budget activation override |
+| `msd_budget_dynamic_scale` | float | 1.0 | α in B_final = B_base + α·max(0, E_combined − E_threshold), where E_combined is the max combined log2 scale of activation and weight per (sample, output-channel) |
+| `msd_budget_dynamic_threshold` | float | 0.0 | E_threshold for dynamic combined-scale budget override |
 | `msd_budget_dynamic_mode` | str | "linear" | "linear" or "step" for dynamic budget override mode |
 | `msd_deep_pipeline` | bool | false | Enable MSD streaming through MLP (gate→silu→×up→down) |
 | `msd_pipeline_precision_loss` | int | 2 | Digits of precision lost per pipeline stage |
@@ -441,7 +441,9 @@ python onlinearith/test_mxfp8linear.py
 
 This runs:
 - **MXFP format tests:** Shape, bias, reference match, SNR, grids for MXFP8/6/4
-- **MSD truncation tests:** Known-answer truncation, delay computation, B=∞ lossless, B=0 zero output, monotonic error decrease
+- **BSD/NAF truncation tests:** NAF component conversion, digit width, known-answer BSD truncation, bidirectional error, sign symmetry
+- **MSD system tests:** Delay computation (inter/intra-block), B=∞ lossless, B=0 zero output, monotonic error decrease
+- **Combined-scale budget tests:** Per-output-channel budget differentiation with combined activation+weight scales, linear and step modes
 - **Calibration import test:** Verifies calibration module loads correctly
 
 ---
@@ -505,9 +507,11 @@ For each MLP linear layer `out[n,j] = Σ_b scale_x[n,b] · scale_w[j,b] · dot(x
 
 1. **Inter-block delays:** E_i = floor(log2(x_scale[b] · w_scale[b])), delay = E_max − E_i
 2. **Intra-block delays:** Per-element activation exponent differences within each block
-3. **Budget resolution:** B_final = B_base + α · max(0, E_act − E_threshold)
+3. **Budget resolution:** B_final = B_base + α · max(0, E_combined − E_threshold), where E_combined = max_b(floor(log2(x_scale[n,b] · w_scale[j,b]))) is computed per (sample, output-channel) using the combined activation+weight scales
 4. **Effective precision:** P = max(0, B_final − inter_delay − intra_delay − online_delay)
-5. **Truncation:** Each product is truncated to P most significant binary digits
+5. **Truncation (BSD/NAF):** Each product is truncated to P most significant BSD digits using Non-Adjacent Form (NAF) representation. NAF is the canonical, minimum-weight BSD encoding computed via:
+   - `x_h = x >> 1; s = x + x_h; naf_pos = s & ~x_h; naf_neg = x_h & ~s`
+   - NAF can shift the MSD position +1 vs binary (e.g. 7 = `111` binary but `100(-1)` NAF = 4 digit positions), making truncation error bidirectional
 6. **Accumulation:** Truncated products are summed, then scaled by shared block scales
 
 ### Deep Pipeline (Optional)
@@ -515,6 +519,7 @@ For each MLP linear layer `out[n,j] = Σ_b scale_x[n,b] · scale_w[j,b] · dot(x
 When `msd_deep_pipeline=true`, precision is tracked through the MLP stages:
 - gate_proj output → SiLU (−precision_loss digits) → element-wise multiply (−online_delay) → down_proj
 - This models the physical constraint that MSD digit streams lose precision at each pipeline stage
+- All truncation operations (including SiLU and element-wise multiply) use BSD/NAF truncation
 
 ---
 
@@ -529,6 +534,10 @@ When `msd_deep_pipeline=true`, precision is tracked through the MLP stages:
 4. **Memory for large models:** The MSD path creates a `(N, out, nb, bs)` tensor for per-element truncation. This is now **output-chunked** to stay within a 2 GiB budget, which solved the original 48 GB OOM on Qwen3-0.6B. Larger models should also work within the chunk limits.
 
 5. **MLP-only scope:** The simulation covers the `gate_proj → SiLU → ×up_proj → down_proj` pattern. Other operations (LayerNorm, residual adds, softmax) use standard precision.
+
+6. **NAF as BSD reference:** The BSD truncation simulation uses Non-Adjacent Form (NAF) — the canonical minimum-weight BSD encoding. The actual hardware digit stream during online arithmetic may differ from NAF due to computation order and intermediate residuals. NAF gives a deterministic, reproducible, and mathematically well-defined truncation model that captures the key BSD property (carry absorption and MSD position shift).
+
+7. **Combined-scale budget memory:** The `_resolve_channel_budgets` method creates a `(N, out, nb)` intermediate tensor for computing per-(sample, output-channel) combined log2 scales. For PPL evaluation (N=4096, out=3072, nb=32) this is ~1.5 GB; acceptable but worth noting for very large batch sizes.
 
 ---
 

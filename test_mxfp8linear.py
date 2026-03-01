@@ -30,7 +30,8 @@ from transformers.models.qwen3.modular_qwen3 import (
     _FP8_E4M3_MAX, _FP4_E2M1_MAX, _FP6_E2M3_MAX, _FP6_E3M2_MAX,
     _FP4_E2M1_GRID_LIST, _FP6_E2M3_GRID_LIST, _FP6_E3M2_GRID_LIST,
     _nearest_on_grid, _get_grid,
-    _msd_truncate, _compute_inter_block_delays, _compute_intra_block_delays,
+    _msd_truncate, _to_naf_components, _naf_digit_width,
+    _compute_inter_block_delays, _compute_intra_block_delays,
     MSDComputeContext, _MXFPLinearBase,
 )
 
@@ -248,16 +249,16 @@ def _make_msd_layer(budget=16):
 
 
 def test_msd_truncate_basic():
-    """Known-answer tests for _msd_truncate."""
+    """Known-answer tests for _msd_truncate (BSD/NAF truncation)."""
     print(f"\n{'─'*55}")
-    print("  MSD Truncation Primitive")
+    print("  MSD Truncation Primitive (BSD/NAF)")
     print(f"{'─'*55}")
 
-    # 7.0 = 0b111.0 = 3 significant bits. Truncate to 2 digits -> 6.0
+    # 7.0 in NAF = 100(-1) (4 NAF digits). Truncate to 2 -> keep positions 3,2 -> 8.0
     val = torch.tensor([7.0])
     result = _msd_truncate(val, torch.tensor([2.0]))
-    assert abs(result.item() - 6.0) < 1e-6, f"truncate(7.0, 2) = {result.item()}, expected 6.0"
-    print("[PASS] truncate(7.0, 2) = 6.0")
+    assert abs(result.item() - 8.0) < 1e-6, f"truncate(7.0, 2) = {result.item()}, expected 8.0"
+    print("[PASS] truncate(7.0, 2) = 8.0  (NAF: 100(-1) -> 100_ = 8)")
 
     # 0.0 -> always 0.0 regardless of num_digits
     result = _msd_truncate(torch.tensor([0.0]), torch.tensor([10.0]))
@@ -269,10 +270,10 @@ def test_msd_truncate_basic():
     assert result.item() == 0.0, f"truncate(42.0, 0) = {result.item()}"
     print("[PASS] truncate(*, 0) = 0.0")
 
-    # Negative values: -7.0 truncated to 2 digits -> -6.0
+    # Negative values: -7.0 truncated to 2 digits -> -8.0 (sign symmetry)
     result = _msd_truncate(torch.tensor([-7.0]), torch.tensor([2.0]))
-    assert abs(result.item() - (-6.0)) < 1e-6, f"truncate(-7.0, 2) = {result.item()}"
-    print("[PASS] truncate(-7.0, 2) = -6.0")
+    assert abs(result.item() - (-8.0)) < 1e-6, f"truncate(-7.0, 2) = {result.item()}"
+    print("[PASS] truncate(-7.0, 2) = -8.0  (sign-symmetric)")
 
     # Large num_digits: should be near-lossless
     result = _msd_truncate(torch.tensor([3.14159]), torch.tensor([23.0]))
@@ -446,6 +447,217 @@ def test_calibration_import():
     print("[PASS] All calibration functions are callable")
 
 
+def test_naf_components():
+    """Test NAF conversion correctness for known values."""
+    print(f"\n{'─'*55}")
+    print("  NAF Component Conversion")
+    print(f"{'─'*55}")
+
+    # 7 = 0b111 -> NAF = 100(-1), i.e. 8 - 1
+    # naf_pos should have bit 3 set (value 8), naf_neg should have bit 0 set (value 1)
+    x = torch.tensor([7], dtype=torch.int32)
+    pos, neg = _to_naf_components(x)
+    assert pos.item() - neg.item() == 7, f"NAF(7): pos={pos.item()}, neg={neg.item()}, diff={pos.item()-neg.item()}"
+    print(f"[PASS] NAF(7): pos={pos.item()}, neg={neg.item()}, reconstructs to {pos.item()-neg.item()}")
+
+    # 5 = 0b101 -> already NAF (no adjacent 1s), pos=5, neg=0
+    x = torch.tensor([5], dtype=torch.int32)
+    pos, neg = _to_naf_components(x)
+    assert pos.item() == 5 and neg.item() == 0, f"NAF(5): pos={pos.item()}, neg={neg.item()}"
+    print(f"[PASS] NAF(5): pos={pos.item()}, neg={neg.item()} (already NAF)")
+
+    # 3 = 0b11 -> NAF = 10(-1), i.e. 4 - 1
+    x = torch.tensor([3], dtype=torch.int32)
+    pos, neg = _to_naf_components(x)
+    assert pos.item() - neg.item() == 3, f"NAF(3): pos={pos.item()}, neg={neg.item()}"
+    print(f"[PASS] NAF(3): pos={pos.item()}, neg={neg.item()}, reconstructs to {pos.item()-neg.item()}")
+
+    # 0 -> pos=0, neg=0
+    x = torch.tensor([0], dtype=torch.int32)
+    pos, neg = _to_naf_components(x)
+    assert pos.item() == 0 and neg.item() == 0, f"NAF(0): pos={pos.item()}, neg={neg.item()}"
+    print("[PASS] NAF(0): pos=0, neg=0")
+
+    # Batch correctness: pos - neg == input for random values
+    x = torch.randint(0, 10000, (100,), dtype=torch.int32)
+    pos, neg = _to_naf_components(x)
+    reconstructed = pos - neg
+    assert (reconstructed == x).all(), "NAF batch reconstruction failed"
+    print("[PASS] NAF batch reconstruction: pos - neg == x for 100 random integers")
+
+    # NAF property: no adjacent non-zero digits (pos & neg have no adjacent bits set)
+    combined = pos | neg
+    # Check: combined & (combined >> 1) == 0 (no two adjacent bit positions set)
+    adjacent = combined & (combined >> 1)
+    assert (adjacent == 0).all(), "NAF adjacency property violated"
+    print("[PASS] NAF non-adjacency property holds for all 100 values")
+
+
+def test_naf_digit_width():
+    """Test NAF digit width computation."""
+    print(f"\n{'─'*55}")
+    print("  NAF Digit Width")
+    print(f"{'─'*55}")
+
+    # 7 = NAF 100(-1) -> width = 4 (positions 3,2,1,0 used; MSD at position 3)
+    x = torch.tensor([7], dtype=torch.int32)
+    pos, neg = _to_naf_components(x)
+    w = _naf_digit_width(pos, neg)
+    assert w.item() == 4, f"NAF width(7) = {w.item()}, expected 4"
+    print(f"[PASS] NAF width(7) = 4  (NAF: 100(-1), uses positions 0-3)")
+
+    # 5 = NAF 101 -> width = 3
+    x = torch.tensor([5], dtype=torch.int32)
+    pos, neg = _to_naf_components(x)
+    w = _naf_digit_width(pos, neg)
+    assert w.item() == 3, f"NAF width(5) = {w.item()}, expected 3"
+    print(f"[PASS] NAF width(5) = 3  (NAF: 101, uses positions 0-2)")
+
+    # 1 -> NAF: 1, width = 1
+    x = torch.tensor([1], dtype=torch.int32)
+    pos, neg = _to_naf_components(x)
+    w = _naf_digit_width(pos, neg)
+    assert w.item() == 1, f"NAF width(1) = {w.item()}, expected 1"
+    print(f"[PASS] NAF width(1) = 1")
+
+    # 0 -> width = 0
+    x = torch.tensor([0], dtype=torch.int32)
+    pos, neg = _to_naf_components(x)
+    w = _naf_digit_width(pos, neg)
+    assert w.item() == 0, f"NAF width(0) = {w.item()}, expected 0"
+    print(f"[PASS] NAF width(0) = 0")
+
+
+def test_msd_truncate_bsd_properties():
+    """Test BSD-specific truncation properties that differ from binary."""
+    print(f"\n{'─'*55}")
+    print("  BSD/NAF Truncation Properties")
+    print(f"{'─'*55}")
+
+    # 1) NAF MSD shift: 7 = NAF 100(-1), 4 digits. Keep all 4 -> 7.0
+    result = _msd_truncate(torch.tensor([7.0]), torch.tensor([4.0]))
+    assert abs(result.item() - 7.0) < 1e-6, f"truncate(7.0, 4) = {result.item()}, expected 7.0"
+    print("[PASS] truncate(7.0, 4) = 7.0  (full NAF width)")
+
+    # Keep 3 -> positions 3,2,1 -> 1*8 + 0*4 + 0*2 = 8.0
+    result = _msd_truncate(torch.tensor([7.0]), torch.tensor([3.0]))
+    assert abs(result.item() - 8.0) < 1e-6, f"truncate(7.0, 3) = {result.item()}, expected 8.0"
+    print("[PASS] truncate(7.0, 3) = 8.0  (NAF: drop LSD -1 digit)")
+
+    # 2) Bidirectional error: BSD truncation can overshoot (error > 0 for positive value)
+    # truncate(7.0, 2) = 8.0 -> error = +1 (positive, unlike binary which always rounds toward 0)
+    result = _msd_truncate(torch.tensor([7.0]), torch.tensor([2.0]))
+    error = result.item() - 7.0
+    assert error > 0, f"Expected positive error for truncate(7.0,2), got error={error:.6f}"
+    print(f"[PASS] Bidirectional error: truncate(7.0, 2) = {result.item()}, error = +{error:.1f}")
+
+    # 3) Binary-NAF agreement for NAF-clean values: 5 = 101 binary = 101 NAF (same)
+    # truncate(5.0, 2) = ? In NAF, 5 = 101, width=3, keep 2 -> drop bit 0 -> 100 = 4.0
+    result = _msd_truncate(torch.tensor([5.0]), torch.tensor([2.0]))
+    assert abs(result.item() - 4.0) < 1e-6, f"truncate(5.0, 2) = {result.item()}, expected 4.0"
+    print("[PASS] truncate(5.0, 2) = 4.0  (NAF-clean: 101 -> 10_ = 4)")
+
+    # 4) Sign symmetry: truncate(x, p) == -truncate(-x, p)
+    test_values = [7.0, 3.14, 0.5, 13.0, 100.0]
+    for v in test_values:
+        for p in [2.0, 4.0, 8.0]:
+            pos_r = _msd_truncate(torch.tensor([v]), torch.tensor([p])).item()
+            neg_r = _msd_truncate(torch.tensor([-v]), torch.tensor([p])).item()
+            assert abs(pos_r + neg_r) < 1e-6, \
+                f"Sign symmetry failed: truncate({v},{p})={pos_r}, truncate({-v},{p})={neg_r}"
+    print("[PASS] Sign symmetry: truncate(x,p) == -truncate(-x,p) for all test values")
+
+    # 5) 3.0 in NAF = 10(-1), width=3. Keep 2 -> drop bottom -> 10_ = 4.0
+    result = _msd_truncate(torch.tensor([3.0]), torch.tensor([2.0]))
+    assert abs(result.item() - 4.0) < 1e-6, f"truncate(3.0, 2) = {result.item()}, expected 4.0"
+    print("[PASS] truncate(3.0, 2) = 4.0  (NAF: 10(-1) -> 10_ = 4)")
+
+    # 6) Large precision = near-lossless for various values
+    for v in [1.0, 2.5, 7.7, 100.3, 0.0625]:
+        result = _msd_truncate(torch.tensor([v]), torch.tensor([23.0]))
+        assert abs(result.item() - v) < 1e-4, \
+            f"Near-lossless failed: truncate({v}, 23) = {result.item()}"
+    print("[PASS] Large precision (23 digits) is near-lossless for various values")
+
+
+def test_combined_scale_budget():
+    """Test that dynamic budget uses combined activation+weight scales per output channel."""
+    print(f"\n{'─'*55}")
+    print("  Combined-Scale Dynamic Budget")
+    print(f"{'─'*55}")
+
+    # Create a layer with known weight pattern:
+    # Output channel 0 has large weights, channel 1 has small weights
+    # Note: MX scales = max_abs / FORMAT_MAX, so combined log2 is typically negative.
+    # We set a negative threshold to make the dynamic budget differentiate channels.
+    class Cfg(_CfgFP8_MSD):
+        msd_cycle_budget = 16
+        msd_budget_dynamic_scale = 2.0
+        msd_budget_dynamic_threshold = -20.0  # negative: differentiates channels
+        msd_budget_dynamic_mode = "linear"
+    
+    layer = MXFP8Linear(IN, OUT, bias=False, config=Cfg())
+    layer._msd_config = Cfg()
+    layer.layer_name = "test_combined_layer"
+    # Set channel 0 weights to be very large, channel 1 to be very small
+    with torch.no_grad():
+        layer.weight.data.zero_()
+        layer.weight.data[0, :] = 100.0   # large weight channel
+        layer.weight.data[1, :] = 0.001   # small weight channel
+
+    # Uniform activation input
+    x = torch.ones(1, IN) * 1.0
+
+    # Prepare blocks to get scales
+    N = 1
+    x_2d = x.float().reshape(N, IN)
+    w_2d = layer.weight.float()
+    x_q, x_scales, _ = layer._prepare_blocks(x_2d, N)
+    w_q, w_scales, _ = layer._prepare_blocks(w_2d, OUT)
+
+    # Call _resolve_channel_budgets with combined scales
+    b_final = layer._resolve_channel_budgets(None, x_scales, w_scales, N)
+    assert b_final.shape == (N, OUT), f"b_final shape = {b_final.shape}"
+    print(f"[PASS] b_final shape = {tuple(b_final.shape)}")
+
+    # Channel 0 (large weights) should get higher budget than channel 1 (small weights)
+    b_ch0 = b_final[0, 0].item()
+    b_ch1 = b_final[0, 1].item()
+    print(f"  Channel 0 (large W) budget: {b_ch0:.2f}")
+    print(f"  Channel 1 (small W) budget: {b_ch1:.2f}")
+    assert b_ch0 > b_ch1, \
+        f"Large-weight channel should get higher budget: ch0={b_ch0:.2f} vs ch1={b_ch1:.2f}"
+    print("[PASS] Large-weight channel gets higher dynamic budget")
+
+    # Test step mode: threshold between the two channels' combined exponents
+    class CfgStep(_CfgFP8_MSD):
+        msd_cycle_budget = 16
+        msd_budget_dynamic_scale = 5.0
+        msd_budget_dynamic_threshold = -20.0  # ch0 ~= -11 > -20; ch1 ~= -28 < -20
+        msd_budget_dynamic_mode = "step"
+
+    layer_step = MXFP8Linear(IN, OUT, bias=False, config=CfgStep())
+    layer_step._msd_config = CfgStep()
+    layer_step.layer_name = "test_step_layer"
+    with torch.no_grad():
+        layer_step.weight.data.zero_()
+        layer_step.weight.data[0, :] = 100.0
+        layer_step.weight.data[1, :] = 0.001
+
+    w_2d_s = layer_step.weight.float()
+    w_q_s, w_scales_s, _ = layer_step._prepare_blocks(w_2d_s, OUT)
+    b_final_step = layer_step._resolve_channel_budgets(None, x_scales, w_scales_s, N)
+    b_s0 = b_final_step[0, 0].item()
+    b_s1 = b_final_step[0, 1].item()
+    print(f"  Step mode - Channel 0 budget: {b_s0:.2f}")
+    print(f"  Step mode - Channel 1 budget: {b_s1:.2f}")
+    # Channel 0 with large combined scale should exceed threshold and get +alpha
+    # Channel 1 with small combined scale may not exceed threshold
+    assert b_s0 >= b_s1, \
+        f"Step mode: large-W channel budget should >= small-W: ch0={b_s0:.2f} vs ch1={b_s1:.2f}"
+    print("[PASS] Step mode: large-weight channel budget >= small-weight channel")
+
+
 # ── main ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -466,11 +678,15 @@ if __name__ == "__main__":
     # ── MSD-specific tests ──────────────────────────────────────────────────
     print()
     test_msd_truncate_basic()
+    test_naf_components()
+    test_naf_digit_width()
+    test_msd_truncate_bsd_properties()
     test_inter_block_delays()
     test_intra_block_delays()
     test_msd_budget_infinity()
     test_msd_budget_zero()
     test_msd_budget_sweep_monotonic()
+    test_combined_scale_budget()
     test_calibration_import()
 
     print("=" * 55)
