@@ -228,7 +228,7 @@ def main():
 
         # Run calibration (GPU-accelerated, output-chunked)
         t0 = time.perf_counter()
-        calibration_data = calibrate_channel_budgets(
+        calibration_data, channel_stats = calibrate_channel_budgets(
             model, tokenizer, cal_texts,
             target_snr_db=args.target_snr,
             max_length=args.max_length,
@@ -248,6 +248,15 @@ def main():
         for layer_budgets in calibration_data.values():
             all_budgets.extend(layer_budgets)
 
+        # Aggregate channel stats across all layers for the summary
+        all_e_combined = []
+        all_eff_prec = []
+        for layer_st in channel_stats.values():
+            if isinstance(layer_st.get("e_combined_mean"), list):
+                all_e_combined.extend(layer_st["e_combined_mean"])
+            if isinstance(layer_st.get("eff_precision_mean"), list):
+                all_eff_prec.extend(layer_st["eff_precision_mean"])
+
         result = {
             "format": tag,
             "description": desc,
@@ -264,10 +273,14 @@ def main():
                 "total_channels": len(all_budgets),
                 "budget_min": min(all_budgets),
                 "budget_max": max(all_budgets),
-                "budget_mean": sum(all_budgets) / len(all_budgets),
+                "budget_mean": round(sum(all_budgets) / len(all_budgets), 2),
+                "e_combined_mean": round(sum(all_e_combined) / len(all_e_combined), 2) if all_e_combined else None,
+                "e_combined_range": [round(min(all_e_combined), 2), round(max(all_e_combined), 2)] if all_e_combined else None,
+                "eff_precision_mean": round(sum(all_eff_prec) / len(all_eff_prec), 2) if all_eff_prec else None,
                 "wall_time_sec": round(elapsed, 2),
             },
             "msd_calibration_data": calibration_data,
+            "channel_stats": channel_stats,
         }
 
         with open(result_file, "w") as f:

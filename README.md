@@ -64,7 +64,7 @@ All configurations are controlled via `Qwen3-0.6B/config.json`. The table below 
 
 | # | Setup | Description |
 |---|-------|-------------|
-| 14 | MXFP8 + MSD + Calibrated | Per-channel B_base from calibration (see Section 5) |
+| — | Any MSD setup + `--calibration` | Per-channel B_base from calibration (see Section 5). Use `ppltest.py --setup <ID> --calibration <file>`. |
 
 ---
 
@@ -182,19 +182,78 @@ Suggested sweep values: **8, 12, 16, 20, 24, 32**
 
 ---
 
-## 3. MSD Config Fields Reference
+## 3. Budget System Architecture
+
+The cycle budget $B$ determines how many clock cycles each output-channel accumulation runs before early termination. The system uses a **three-tier resolution** that combines offline calibration with runtime dynamic adjustment:
+
+### Tier A: Uniform Budget (default)
+
+When no calibration data is loaded, every output channel in every layer uses the same global budget:
+
+$$B_{\text{base}}[j] = \texttt{msd\_cycle\_budget} \quad \forall j$$
+
+This is the simplest mode — set `msd_cycle_budget` in config.json and all channels get that budget. Used in Tier 2 and Tier 3 setups.
+
+### Tier B: Calibrated Budget (per-channel, offline)
+
+When `msd_calibration_data` is present (produced by `calibrate.py`), each output channel gets its own $B_{\text{base}}$ determined by binary search over a target SNR:
+
+$$B_{\text{base}}[j] = \text{calibrated\_budget}[j] \quad \text{(per layer, per output channel)}$$
+
+**Algorithm** (in `calibration_msd.py`):
+1. Run forward passes over calibration data with MSD disabled (exact MXFP mode)
+2. Hook into each MXFP layer to collect block-quantized activations and weights
+3. For each output channel $j$, binary search over $B \in [4, 48]$ (12 iterations):
+   - At candidate budget $B$, compute truncated dot-product using the same `_msd_truncate` function used at inference
+   - Measure per-channel SNR: $\text{SNR}_j = 10 \log_{10}\frac{\text{signal\_power}_j}{\text{noise\_power}_j}$
+   - Adjust: if $\text{SNR}_j \geq \text{target\_snr\_db}$ → budget sufficient; else increase
+4. Return the minimum budget meeting the SNR target (conservative upper bound) plus per-channel dynamic range statistics
+
+Channels with high activation dynamic range or large weight magnitudes get higher budgets; quiet channels get lower budgets — enabling hardware-native budget differentiation.
+
+### Tier C: Dynamic Adjustment (runtime, always-on)
+
+On top of whichever $B_{\text{base}}$ is active (uniform or calibrated), a runtime dynamic delta is added based on the actual combined activation+weight scales observed during inference:
+
+$$B_{\text{final}}[n,j] = B_{\text{base}}[j] + \Delta B[n,j]$$
+
+Where:
+- $E_{\text{combined}}[n,j] = \max_b \lfloor \log_2(x\_scale[n,b] \cdot w\_scale[j,b]) \rfloor$ — per (sample, output-channel)
+- **Linear mode** (default): $\Delta B = \alpha \cdot \max(0, E_{\text{combined}} - E_{\text{threshold}})$
+- **Step mode**: $\Delta B = \alpha$ if $E_{\text{combined}} > E_{\text{threshold}}$, else $0$
+
+With the default config ($\alpha = 1.0$, $E_{\text{threshold}} = 0.0$), $\Delta B$ equals the combined scale exponent, giving extra cycles to high-magnitude channels at runtime. This captures sample-dependent dynamic range that offline calibration cannot predict.
+
+### How the Tiers Compose
+
+```
+Tier A (uniform)  ──OR──  Tier B (calibrated)
+            │                     │
+            └─── B_base[j] ──────┘
+                      │
+              + Tier C (dynamic Δ)  ← always applied
+                      │
+                  B_final[n,j]
+```
+
+The `_resolve_channel_budgets()` method in `_MXFPLinearBase` implements this composition:
+1. Load `B_base` from calibration data (Tier B) or uniform config (Tier A)
+2. Compute `delta_b` from combined log2 scales (Tier C)
+3. Return `B_final = B_base + delta_b` with shape `(N, out)` — per-sample, per-output-channel
+
+### Config Fields Reference
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `use_msd_truncation` | bool | false | Master switch for MSD simulation |
-| `msd_cycle_budget` | int | 16 | Global default cycle budget B_base |
-| `msd_online_delay` | int | 2 | MSD multiplier online delay δ (digits before first valid product) |
-| `msd_budget_dynamic_scale` | float | 1.0 | α in B_final = B_base + α·max(0, E_combined − E_threshold), where E_combined is the max combined log2 scale of activation and weight per (sample, output-channel) |
-| `msd_budget_dynamic_threshold` | float | 0.0 | E_threshold for dynamic combined-scale budget override |
-| `msd_budget_dynamic_mode` | str | "linear" | "linear" or "step" for dynamic budget override mode |
+| `msd_cycle_budget` | int | 16 | Global default cycle budget $B_{\text{base}}$ (Tier A) |
+| `msd_online_delay` | int | 2 | MSD multiplier online delay $\delta$ (digits before first valid product) |
+| `msd_budget_dynamic_scale` | float | 1.0 | $\alpha$ for Tier C dynamic adjustment |
+| `msd_budget_dynamic_threshold` | float | 0.0 | $E_{\text{threshold}}$ for Tier C dynamic adjustment |
+| `msd_budget_dynamic_mode` | str | "linear" | `"linear"` or `"step"` for Tier C mode |
 | `msd_deep_pipeline` | bool | false | Enable MSD streaming through MLP (gate→silu→×up→down) |
 | `msd_pipeline_precision_loss` | int | 2 | Digits of precision lost per pipeline stage |
-| `msd_calibration_data` | dict/null | null | Per-layer per-channel calibrated B_base values |
+| `msd_calibration_data` | dict/null | null | Per-layer per-channel calibrated $B_{\text{base}}$ (Tier B) |
 
 ---
 
@@ -310,7 +369,27 @@ via `--setup ID`. The setup ID numbering is identical across both scripts.
    The output file is auto-named `ppl_results_{tag}.json` from the setup tag.
    Use `--output custom_name.json` to override.
 
-3. **Advanced: custom config.json (no --setup):**
+3. **With calibrated budgets (--calibration):**
+   ```bash
+   # First run calibration (see Section 5):
+   python calibrate.py --setup 1
+
+   # Then run PPL with calibrated budgets injected:
+   python ppltest.py --nproc 8 --setup 6 --calibration calibration_MXFP8.json
+
+   # Output auto-named: ppl_results_MXFP8_MSD_B16_calib.json
+   # Override with --output if desired:
+   python ppltest.py --setup 6 --calibration calibration_MXFP8.json --output custom.json
+   ```
+   The `--calibration` flag loads per-channel budgets from a calibration JSON file
+   (produced by `calibrate.py`) and injects them into the model config's
+   `msd_calibration_data` field. This replaces the uniform `msd_cycle_budget`
+   with per-channel Tier B budgets (see Section 3). Requirements:
+   - Must be used with `--setup` (not raw config.json mode)
+   - The selected setup should have `use_msd_truncation: true` (if not, it will be auto-enabled with a warning)
+   - Calibration data is cleared from config after the run completes
+
+4. **Advanced: custom config.json (no --setup):**
    If `--setup` is omitted, `ppltest.py` uses whatever config is in
    `Qwen3-0.6B/config.json` and saves to the hardcoded `RESULTS_OUT` constant.
    ```bash
@@ -318,13 +397,13 @@ via `--setup ID`. The setup ID numbering is identical across both scripts.
    python ppltest.py --nproc 8
    ```
 
-4. **Expected runtime:**
+5. **Expected runtime:**
    - Single GPU: ~25-28 min per run (578 windows, ~180 tokens/sec)
    - 8× RTX 5090: ~3-4 min per run (~7-8× speedup)
 
 ### Naming Convention for Result Files
 
-Use this pattern: `ppl_results_{FORMAT}[_MSD_B{budget}][_pipeline][_calibrated].json`
+Use this pattern: `ppl_results_{FORMAT}[_MSD_B{budget}][_pipeline][_calib].json`
 
 Examples:
 - `ppl_results_MXFP8.json` — MXFP8 only (already exists)
@@ -332,7 +411,7 @@ Examples:
 - `ppl_results_MXFP8_MSD_B8.json` — MXFP8 + MSD, budget=8
 - `ppl_results_MXFP4_MSD_B16.json` — MXFP4 + MSD, budget=16
 - `ppl_results_MXFP8_MSD_B16_pipeline.json` — MXFP8 + MSD + deep pipeline
-- `ppl_results_MXFP8_MSD_calibrated.json` — MXFP8 + calibrated budgets
+- `ppl_results_MXFP8_MSD_B16_calib.json` — MXFP8 + MSD + calibrated budgets (via `--calibration`)
 
 ### Suggested Test Order
 
@@ -351,7 +430,10 @@ For a complete characterization, run in this order:
    - Measure pipeline precision loss impact
 
 4. **Calibrated** (1 run after calibration):
-   - Run calibration first (see Section 5), then PPL test
+   - Run calibration first (see Section 5), then:
+   ```bash
+   python ppltest.py --nproc 8 --setup 6 --calibration calibration_MXFP8.json
+   ```
 
 ### Batch Mode (All Setups in One Run)
 
@@ -485,27 +567,22 @@ Uses `init_distributed_lite()` — no NCCL, ranks work independently.
 
 ### Using Calibration Results with PPL Tests
 
-After calibration, copy the `msd_calibration_data` field from the calibration JSON into `Qwen3-0.6B/config.json`:
+Use the `--calibration` flag in `ppltest.py` to inject calibrated budgets directly — no manual `config.json` editing needed:
 
 ```bash
-# Example: use MXFP8 calibration with PPL test
-python -c "
-import json
-with open('calibration_MXFP8.json') as f:
-    cal = json.load(f)
-with open('../Qwen3-0.6B/config.json') as f:
-    cfg = json.load(f)
-cfg['msd_calibration_data'] = cal['msd_calibration_data']
-cfg['use_msd_truncation'] = True
-cfg['use_mxfp8'] = True
-with open('../Qwen3-0.6B/config.json', 'w') as f:
-    json.dump(cfg, f, indent=2)
-print('Done')
-"
+# Run calibration first (produces calibration_MXFP8.json):
+python calibrate.py --setup 1
 
-# Then run PPL test (setup 14 = MXFP8 + MSD + Calibrated)
-python ppltest.py --nproc 8 --setup 14
+# Then PPL test with calibrated budgets:
+python ppltest.py --nproc 8 --setup 6 --calibration calibration_MXFP8.json
+
+# Output: ppl_results_MXFP8_MSD_B16_calib.json
+# The _calib suffix is added automatically when --calibration is used
 ```
+
+`--calibration` loads the `msd_calibration_data` from the specified JSON file and overrides the setup's uniform budget with per-channel Tier B budgets (see Section 3). The calibration data is automatically cleared from config after the run.
+
+**Note:** `ppl_batch.py` does not support calibration — use `ppltest.py` for calibrated runs.
 
 ### Interpreting Results
 
@@ -516,25 +593,53 @@ Each `calibration_{tag}.json` contains:
   "format": "MXFP8",
   "summary": {
     "num_layers": 84,
+    "total_channels": ...,
     "budget_min": 8,
     "budget_max": 32,
     "budget_mean": 16.5,
+    "e_combined_mean": 3.2,
+    "e_combined_range": [-5.0, 12.0],
+    "eff_precision_mean": 10.5,
     "wall_time_sec": 120.0
   },
   "msd_calibration_data": {
     "model.layers.0.mlp.gate_proj": [12, 14, 16, ...],
-    "model.layers.0.mlp.up_proj": [10, 12, 14, ...],
-    "model.layers.0.mlp.down_proj": [14, 16, 18, ...],
+    ...
+  },
+  "channel_stats": {
+    "model.layers.0.mlp.gate_proj": {
+      "e_combined_mean": [3.1, 2.8, 4.5, ...],
+      "e_combined_max":  [8.0, 7.0, 10.0, ...],
+      "e_combined_min":  [-2.0, -3.0, 0.0, ...],
+      "e_combined_std":  [1.2, 1.5, 0.8, ...],
+      "inter_delay_mean": [2.1, 1.8, 3.0, ...],
+      "intra_delay_mean": 2.3,
+      "eff_precision_mean": [10.5, 11.0, 9.2, ...],
+      "eff_precision_min":  [4.0, 5.0, 3.0, ...]
+    },
     ...
   }
 }
 ```
 
-Channels with large activation outliers get higher budgets; channels with small, uniform-scale data get lower budgets — enabling hardware-native unstructured sparsity.
+**`channel_stats`** provides per-channel dynamic range statistics vital for hardware design:
+
+| Stat | Shape | Description |
+|------|-------|-------------|
+| `e_combined_mean` | per-channel | Average combined log2 scale across calibration samples |
+| `e_combined_max/min` | per-channel | Peak/minimum combined scale — shows dynamic range |
+| `e_combined_std` | per-channel | Standard deviation — shows variability |
+| `inter_delay_mean` | per-channel | Average inter-block delay (block scale differences) |
+| `intra_delay_mean` | scalar | Average intra-block delay (element-level exponent spread) |
+| `eff_precision_mean` | per-channel | Average effective precision = B − total_delay |
+| `eff_precision_min` | per-channel | Worst-case effective precision (minimum across elements and samples) |
+
+Channels with large `e_combined` have high result magnitudes and get higher budgets; channels with high `inter_delay_mean` lose more cycles to alignment. The `eff_precision_mean` is the actual number of accurate BSD digits produced — the key metric for understanding truncation quality.
 
 ### To Remove Calibration
 
-Set `msd_calibration_data` to `null` in config.json to revert to uniform budgets:
+When using `--calibration`, cleanup is automatic. For manual config.json usage,
+set `msd_calibration_data` to `null` to revert to uniform budgets:
 ```json
 {
   "msd_calibration_data": null
