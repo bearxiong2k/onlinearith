@@ -58,12 +58,19 @@ from dist_utils import (
     is_main,
     maybe_relaunch_with_torchrun,
     restrict_gpus,
+    suppress_warnings,
 )
-from ppl_batch import (
+from experiment_config import (
+    BASELINE_CONFIG,
     SETUPS,
-    _BASELINE_OVERRIDES,
     apply_config,
+    format_config_banner,
+    get_active_flags,
+    get_config_snapshot,
+    peak_memory_str,
     reconfigure_mlp_layers,
+    reset_peak_memory,
+    reset_to_baseline,
 )
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -73,19 +80,6 @@ MAX_LENGTH  = 4096   # max context window fed to the model
 STRIDE      = 512    # sliding-window stride (<= MAX_LENGTH)
 RESULTS_OUT = "ppl_results_MXFP8_MSD_B16.json"
 # ─────────────────────────────────────────────────────────────────────────────
-
-
-def peak_memory_str(device: torch.device) -> str:
-    """Return peak allocated memory as a human-readable string."""
-    if device.type == "cuda":
-        bytes_ = torch.cuda.max_memory_allocated(device)
-        return f"{bytes_ / 1024**3:.2f} GB"
-    return "N/A (CPU)"
-
-
-def reset_peak_memory(device: torch.device):
-    if device.type == "cuda":
-        torch.cuda.reset_peak_memory_stats(device)
 
 
 def precompute_windows(seq_len: int, max_length: int, stride: int):
@@ -173,6 +167,7 @@ def main():
 
     # ── 1. Distributed init ──────────────────────────────────────────────────
     rank, world_size, local_rank, device = init_distributed()
+    suppress_warnings(rank)
     dtype = torch.float16 if device.type == "cuda" else torch.float32
 
     if is_main(rank):
@@ -184,7 +179,7 @@ def main():
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, local_files_only=True)
 
-    model_kwargs: dict = {"local_files_only": True, "torch_dtype": dtype}
+    model_kwargs: dict = {"local_files_only": True, "dtype": dtype}
     # Each rank loads onto its own GPU -- no device_map="auto"
     model = AutoModelForCausalLM.from_pretrained(MODEL_PATH, **model_kwargs)
     model.to(device)
@@ -198,18 +193,11 @@ def main():
     # ── 3. Apply setup config (if --setup given) ─────────────────────────────
     if selected_setup is not None:
         sid, tag, desc, overrides = selected_setup
-        apply_config(model.config, _BASELINE_OVERRIDES)
+        reset_to_baseline(model.config)
         apply_config(model.config, overrides)
         reconfigure_mlp_layers(model, device)
         if is_main(rank):
-            active_flags = []
-            for k in ["use_mxfp8", "use_mxfp6", "use_mxfp4", "use_msd_truncation",
-                       "msd_cycle_budget", "msd_deep_pipeline"]:
-                v = getattr(model.config, k, None)
-                if v is not None and v is not False:
-                    active_flags.append(f"{k}={v}")
-            print(f"Setup #{sid}: {desc}")
-            print(f"Config: {', '.join(active_flags) or '(baseline fp16)'}")
+            print(format_config_banner(model.config, setup_id=sid, setup_desc=desc))
 
     # ── 3b. Inject calibration data (if --calibration given) ─────────────────
     if cal_data_dict is not None:
@@ -345,6 +333,7 @@ def main():
             "config": {"max_length": MAX_LENGTH, "stride": STRIDE, "dtype": str(dtype),
                        "world_size": world_size,
                        "calibration_file": args.calibration if args.calibration else None},
+            "config_snapshot": get_config_snapshot(model.config),
             "metrics": {
                 "token_perplexity": round(token_ppl, 4),
                 "word_perplexity":  round(word_ppl,  4),

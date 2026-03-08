@@ -29,9 +29,6 @@ Usage:
     python calibrate.py --nproc 4 --force                    # re-run existing
 """
 
-import sys
-sys.path.insert(0, "/home/xzj/coding/transformers/src")
-
 import argparse
 import json
 import time
@@ -50,11 +47,15 @@ from dist_utils import (
     is_main,
     maybe_relaunch_with_torchrun,
     restrict_gpus,
+    suppress_warnings,
 )
-from ppl_batch import (
-    _BASELINE_OVERRIDES,
+from experiment_config import (
+    BASELINE_CONFIG,
     apply_config,
+    format_config_banner,
+    get_active_flags,
     reconfigure_mlp_layers,
+    reset_to_baseline,
 )
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -110,6 +111,7 @@ def main():
 
     # ── Distributed init (no NCCL — ranks work independently) ──
     rank, world_size, local_rank, device = init_distributed_lite()
+    suppress_warnings(rank)
     dtype = torch.float16 if device.type == "cuda" else torch.float32
 
     # ── List mode ──
@@ -169,7 +171,7 @@ def main():
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, local_files_only=True)
     model = AutoModelForCausalLM.from_pretrained(
-        MODEL_PATH, local_files_only=True, torch_dtype=dtype
+        MODEL_PATH, local_files_only=True, dtype=dtype
     )
     model.to(device)
     model.eval()
@@ -214,17 +216,14 @@ def main():
             continue
 
         # Reset to baseline, then apply this setup's MXFP overrides
-        apply_config(model.config, _BASELINE_OVERRIDES)
+        reset_to_baseline(model.config)
         apply_config(model.config, overrides)
         reconfigure_mlp_layers(model, device)
 
         # Show active config
-        active_flags = []
-        for k in ["use_mxfp8", "use_mxfp6", "use_mxfp4", "mxfp6_format"]:
-            v = getattr(model.config, k, None)
-            if v is not None and v is not False:
-                active_flags.append(f"{k}={v}")
-        print(f"[rank {rank}]   Config: {', '.join(active_flags)}")
+        banner = format_config_banner(model.config, setup_id=sid, setup_desc=desc)
+        for line in banner.splitlines():
+            print(f"[rank {rank}]   {line}")
 
         # Run calibration (GPU-accelerated, output-chunked)
         t0 = time.perf_counter()
