@@ -141,6 +141,10 @@ calibration workflow:
                              "Tier B budgets. Requires --setup with an MSD-enabled setup "
                              "(use_msd_truncation will be auto-enabled with a warning "
                              "if not). Example: --calibration calibration_MXFP8.json")
+    parser.add_argument("--detail-layer", type=int, default=2, metavar="L",
+                        help="Transformer layer index for which full per-channel "
+                             "MSD performance detail is recorded in the output JSON. "
+                             "All other layers only get compact summaries. (default: 2)")
     args = parser.parse_args()
 
     # ── List mode (no GPU needed) ──
@@ -307,7 +311,7 @@ calibration workflow:
     # ── 7b. Collect MSD performance statistics (rank 0 only) ─────────────────
     msd_perf = None
     if is_main(rank) and hasattr(model, "get_perf_stats"):
-        msd_perf = model.get_perf_stats()
+        msd_perf = model.get_perf_stats(detail_layer=args.detail_layer)
 
     # ── 8. Compute & report metrics (rank 0 only) ───────────────────────────
     if is_main(rank):
@@ -383,12 +387,38 @@ calibration workflow:
             print(f"\n{'MSD PERFORMANCE STATISTICS':^52}")
             print(SEP)
             print(f"  Layers profiled  : {g.get('num_layers', 0)}")
-            print(f"  Zero elements    : {g.get('zero_element_ratio', 0):.4%}")
+            print(f"  MAC sparsity     : {g.get('mac_sparsity', 0):.4%}")
+            print(f"  Active MACs      : {g.get('active_macs', 0):,} / {g.get('total_macs', 0):,}")
             print(f"  Mean eff. prec.  : {g.get('mean_effective_precision', 0):.2f} digits")
+            print(f"  Active eff. prec.: {g.get('active_p_eff_mean', 0):.2f} digits")
             print(f"  Global util.     : {g.get('global_utilization', 0):.4%}")
             print(f"  Zero blocks      : {g.get('zero_block_ratio', 0):.4%}")
             print(f"  Partial blocks   : {g.get('partial_block_ratio', 0):.4%}")
             print(f"  Full blocks      : {g.get('full_block_ratio', 0):.4%}")
+            print(SEP)
+
+            # ── Per-layer summary table ──
+            pl = msd_perf.get("per_layer", {})
+            if pl:
+                HDR = f"  {'Layer':<40s}  p_eff  util%  mac_sp%  zero_blk%"
+                print(f"\n  Per-layer summary (detail_layer={args.detail_layer}):")
+                print(HDR)
+                print(f"  {'-'*73}")
+                for lname, ldata in pl.items():
+                    s = ldata.get("summary", {})
+                    bl = s.get("bit_level", {})
+                    cl = s.get("channel_level", {})
+                    ml = s.get("mac_level", {})
+                    bkl = s.get("block_level", {})
+                    # Truncate long layer names
+                    short = lname if len(lname) <= 40 else lname[:18] + ".." + lname[-18:]
+                    p_eff_v = bl.get("p_eff_mean", 0)
+                    util_v = cl.get("utilization_mean", 0) * 100
+                    mac_sp_v = ml.get("mac_sparsity", 0) * 100
+                    zblk_v = bkl.get("zero_block_ratio", 0) * 100
+                    detail_tag = " *" if "channel_detail" in ldata else ""
+                    print(f"  {short:<40s}  {p_eff_v:5.1f}  {util_v:5.1f}  {mac_sp_v:6.2f}   {zblk_v:6.2f}{detail_tag}")
+                print(f"  (* = channel detail in JSON for --detail-layer={args.detail_layer})")
             print(SEP)
 
         out_path = Path(__file__).parent / results_out
