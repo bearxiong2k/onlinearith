@@ -632,23 +632,27 @@ Input Token IDs
   Embedding
       │
       ▼
-  ┌─────────────────────────────┐
-  │  Decoder Layer (×28)         │
-  │                              │
-  │  ┌── Self-Attention ──┐     │  ← Standard nn.Linear (no MSD)
-  │  │  q/k/v/o_proj      │     │
-  │  └────────────────────┘     │
-  │           │                  │
-  │  ┌── MLP (MSD-aware) ──┐   │
-  │  │                      │   │
-  │  │  gate_proj ─→ SiLU   │   │  ← MXFP + MSD truncated dot-product
-  │  │     ×                 │   │  ← Optional deep pipeline
-  │  │  up_proj ─────┘       │   │
-  │  │     │                 │   │
-  │  │  down_proj            │   │
-  │  └──────────────────────┘   │
-  └─────────────────────────────┘
-      │
+  ┌───────────────────────────────────────────┐
+  │  Decoder Layer (×28)                       │
+  │                                            │
+  │  ┌── Self-Attention ──┐                   │  ← Standard nn.Linear (no MSD)
+  │  │  q/k/v/o_proj      │                   │
+  │  └────────────────────┘                   │
+  │           │                                │
+  │  ┌── MLP (MSD-aware) ────────────────┐    │
+  │  │                                    │    │
+  │  │  x ──┬── gate_proj ─→ SiLU_PWL    │    │  ← MXFP + MSD truncated dot-product
+  │  │      │       │                     │    │
+  │  │      │       ⊙ ← gating_mul       │    │  ← BSD metadata propagation
+  │  │      │       │                     │    │
+  │  │      └── up_proj ─────┘            │    │
+  │  │              │                     │    │
+  │  │          down_proj                 │    │  ← BSD-input GEMM (Mode 1, 2)
+  │  │              │                     │    │    or standard GEMM (MSD-only)
+  │  └──────────────┼────────────────────┘    │
+  │                 │                          │
+  └─────────────────┼─────────────────────────┘
+                    │
       ▼
   LM Head → Logits
 ```
@@ -666,12 +670,22 @@ For each MLP linear layer `out[n,j] = Σ_b scale_x[n,b] · scale_w[j,b] · dot(x
    - NAF can shift the MSD position +1 vs binary (e.g. 7 = `111` binary but `100(-1)` NAF = 4 digit positions), making truncation error bidirectional
 6. **Accumulation:** Truncated products are summed, then scaled by shared block scales
 
-### Deep Pipeline (Optional)
+### FFN BSD Penetration & Deep Pipeline
 
-When `msd_deep_pipeline=true`, precision is tracked through the MLP stages:
-- gate_proj output → SiLU (−precision_loss digits) → element-wise multiply (−online_delay) → down_proj
-- This models the physical constraint that MSD digit streams lose precision at each pipeline stage
-- All truncation operations (including SiLU and element-wise multiply) use BSD/NAF truncation
+When `msd_bsd_penetration` or `msd_deep_pipeline` is enabled, the entire FFN operates
+in the MSD time domain with BSD (NAF) representation throughout:
+
+- **Mode 1 (BSD Penetration):** Each GEMM has independent budget. Data stays in BSD
+  between stages with per-element precision metadata (BSDMetadata). SiLU uses PWL
+  sigmoid approximation (8 segments). Gating multiply tracks min-precision of both
+  inputs. down_proj receives BSD input without MXFP re-quantization.
+
+- **Mode 2 (Deep Pipeline):** gate→SiLU→gating is a single pipeline with unified
+  budget B_pipe. GEMM budget = B_pipe − δ_SiLU(6) − δ_online(2). down_proj gets
+  independent budget from `msd_cycle_budget`.
+
+See [FFN_SIMULATION.md](FFN_SIMULATION.md) for the full stage-by-stage algorithm,
+precision propagation diagrams, and hardware correspondence.
 
 ---
 
@@ -679,17 +693,19 @@ When `msd_deep_pipeline=true`, precision is tracked through the MLP stages:
 
 1. **Attention not covered:** Only MLP projections (gate/up/down_proj) use MXFP + MSD. Attention projections (q/k/v/o_proj) remain standard nn.Linear. This is by design — attention is a separable concern.
 
-2. **Deep pipeline uses scalar budget proxy:** The pipeline precision tracking uses the global `msd_cycle_budget` as a scalar proxy rather than per-element effective precision from the actual truncated dot-product. This simplification is intentional and may be refined based on PPL results.
+2. **Not thread-safe (but process-safe):** The `MSDComputeContext` uses a class-level singleton pattern (`_active`). This would break under concurrent forward passes within a single process (e.g., `nn.DataParallel`). However, it is safe under `torchrun` / DDP because each rank is a separate process with its own class variable.
 
-3. **Not thread-safe (but process-safe):** The `MSDComputeContext` uses a class-level singleton pattern (`_active`). This would break under concurrent forward passes within a single process (e.g., `nn.DataParallel`). However, it is safe under `torchrun` / DDP because each rank is a separate process with its own class variable.
+3. **Memory for large models:** The MSD path creates a `(N, out, nb, bs)` tensor for per-element truncation. This is now **output-chunked** with a configurable target (`msd_chunk_target_mib`, default 512 MiB). The actual peak memory per chunk is roughly 3x this value due to multiple coexisting intermediates. Reduce `msd_chunk_target_mib` in config.json if encountering OOM on smaller GPUs.
 
-4. **Memory for large models:** The MSD path creates a `(N, out, nb, bs)` tensor for per-element truncation. This is now **output-chunked** with a configurable target (`msd_chunk_target_mib`, default 512 MiB). The actual peak memory per chunk is roughly 3x this value due to multiple coexisting intermediates. Reduce `msd_chunk_target_mib` in config.json if encountering OOM on smaller GPUs.
+4. **MLP-only scope:** The simulation covers the `gate_proj → SiLU → ×up_proj → down_proj` pattern. Other operations (LayerNorm, residual adds, softmax) use standard precision.
 
-5. **MLP-only scope:** The simulation covers the `gate_proj → SiLU → ×up_proj → down_proj` pattern. Other operations (LayerNorm, residual adds, softmax) use standard precision.
+5. **NAF as BSD reference:** The BSD truncation simulation uses Non-Adjacent Form (NAF) — the canonical minimum-weight BSD encoding. The actual hardware digit stream during online arithmetic may differ from NAF due to computation order and intermediate residuals. NAF gives a deterministic, reproducible, and mathematically well-defined truncation model that captures the key BSD property (carry absorption and MSD position shift).
 
-6. **NAF as BSD reference:** The BSD truncation simulation uses Non-Adjacent Form (NAF) — the canonical minimum-weight BSD encoding. The actual hardware digit stream during online arithmetic may differ from NAF due to computation order and intermediate residuals. NAF gives a deterministic, reproducible, and mathematically well-defined truncation model that captures the key BSD property (carry absorption and MSD position shift).
+6. **Combined-scale budget memory:** The `_resolve_channel_budgets` method creates a `(N, out, nb)` intermediate tensor for computing per-(sample, output-channel) combined log2 scales. For PPL evaluation (N=4096, out=3072, nb=32) this is ~1.5 GB; acceptable but worth noting for very large batch sizes.
 
-7. **Combined-scale budget memory:** The `_resolve_channel_budgets` method creates a `(N, out, nb)` intermediate tensor for computing per-(sample, output-channel) combined log2 scales. For PPL evaluation (N=4096, out=3072, nb=32) this is ~1.5 GB; acceptable but worth noting for very large batch sizes.
+7. **PWL SiLU approximation accuracy:** The 8-segment PWL sigmoid is a coarse approximation. The simulation focuses on cycle-cost fidelity (correctly modelling the 6-cycle latency and precision loss) rather than exact numerical agreement with the future hardware implementation. Increasing `msd_silu_pwl_segments` to 16 improves numerical accuracy at the cost of a larger hardware LUT.
+
+8. **No FIFO/pipeline stall modelling:** The simulation assumes instant data availability after the modelled cycle delays. Real hardware would use FIFO buffers between pipeline stages and could experience backpressure stalls. The statistics collected are sufficient to model these effects post-hoc.
 
 ---
 
@@ -698,8 +714,9 @@ When `msd_deep_pipeline=true`, precision is tracked through the MLP stages:
 | File | Purpose |
 |------|---------|
 | `ppltest.py` | Perplexity evaluation — single setup, multi-GPU via `--nproc` |
-| `ppl_batch.py` | Perplexity evaluation — all 21 setups, multi-GPU via `--nproc` |
+| `ppl_batch.py` | Perplexity evaluation — all setups, multi-GPU via `--nproc` |
 | `dist_utils.py` | Distributed helpers (NCCL init, all_reduce, barrier, gather) |
+| `experiment_config.py` | Centralised setup definitions, config utilities, MLP reconfiguration |
 | `test_distributed.py` | Verification tests for multi-GPU infrastructure |
 | `test_mxfp8linear.py` | Unit tests for MXFP layers and MSD truncation |
 | `qwen3test.py` | Quick generation sanity check |
@@ -710,3 +727,6 @@ When `msd_deep_pipeline=true`, precision is tracked through the MLP stages:
 | `perf_viz.py` | MSD inference performance statistics visualization (charts from PPL result JSON) |
 | `ppl_results_*.json` | Saved PPL evaluation results (one per setup) |
 | `ppl_batch_summary.json` | Consolidated batch summary with all metrics |
+| `FFN_SIMULATION.md` | Detailed explanation of MSD-first online arithmetic across the FFN layer |
+| `STATISTICS.md` | Inference performance statistics & calibration data analysis |
+| `Silu-msd_plan.md` | Hardware-perspective SiLU unit design (PWL approximation) |

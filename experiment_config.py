@@ -41,6 +41,9 @@ MXFP_MSD_FIELDS: list[str] = [
     "msd_budget_dynamic_mode",
     "msd_deep_pipeline",
     "msd_pipeline_precision_loss",
+    "msd_bsd_penetration",
+    "msd_pipeline_budget",
+    "msd_silu_pwl_segments",
     "msd_calibration_data",
     "msd_chunk_target_mib",
 ]
@@ -63,6 +66,9 @@ BASELINE_CONFIG: dict = {
     "msd_budget_dynamic_mode": "linear",
     "msd_deep_pipeline": False,
     "msd_pipeline_precision_loss": 2,
+    "msd_bsd_penetration": False,
+    "msd_pipeline_budget": 24,
+    "msd_silu_pwl_segments": 8,
     "msd_calibration_data": None,
     "msd_chunk_target_mib": 512,
 }
@@ -79,15 +85,21 @@ _MSD_DEFAULTS: dict = {
     "msd_budget_dynamic_mode": "linear",
     "msd_deep_pipeline": False,
     "msd_pipeline_precision_loss": 2,
+    "msd_bsd_penetration": False,
+    "msd_pipeline_budget": 24,
+    "msd_silu_pwl_segments": 8,
     "msd_calibration_data": None,
 }
 
 
-def _msd(budget: int = 16, pipeline: bool = False, **extra) -> dict:
+def _msd(budget: int = 16, pipeline: bool = False,
+         bsd_pen: bool = False, pipeline_budget: int = 24, **extra) -> dict:
     """Return an MSD overrides dict with the given budget and pipeline flag."""
     d = dict(_MSD_DEFAULTS)
     d["msd_cycle_budget"] = budget
     d["msd_deep_pipeline"] = pipeline
+    d["msd_bsd_penetration"] = bsd_pen
+    d["msd_pipeline_budget"] = pipeline_budget
     d.update(extra)
     return d
 
@@ -162,12 +174,25 @@ SETUPS: list[tuple[int, str, str, dict]] = [
     (19, "MXFP4_MSD_B32",    "MXFP4 + MSD B=32",
      {"use_mxfp4": True, **_msd(32)}),
 
-    # ── Tier 4: Deep pipeline ──
-    (20, "MXFP8_MSD_B16_pipeline", "MXFP8 + MSD B=16 + pipeline",
-     {"use_mxfp8": True, **_msd(16, pipeline=True)}),
+    # ── Tier 4: BSD Penetration ──
+    (20, "MXFP8_MSD_B16_bsdpen", "MXFP8 + MSD B=16 + BSD penetration",
+     {"use_mxfp8": True, **_msd(16, bsd_pen=True)}),
 
-    (21, "MXFP4_MSD_B16_pipeline", "MXFP4 + MSD B=16 + pipeline",
-     {"use_mxfp4": True, **_msd(16, pipeline=True)}),
+    (21, "MXFP4_MSD_B16_bsdpen", "MXFP4 + MSD B=16 + BSD penetration",
+     {"use_mxfp4": True, **_msd(16, bsd_pen=True)}),
+
+    # ── Tier 5: Deep Pipeline ──
+    (22, "MXFP8_MSD_B16_pipeline", "MXFP8 + MSD B=16 + pipeline (B_pipe=24)",
+     {"use_mxfp8": True, **_msd(16, pipeline=True, pipeline_budget=24)}),
+
+    (23, "MXFP4_MSD_B16_pipeline", "MXFP4 + MSD B=16 + pipeline (B_pipe=24)",
+     {"use_mxfp4": True, **_msd(16, pipeline=True, pipeline_budget=24)}),
+
+    (24, "MXFP8_MSD_B16_pipeline32", "MXFP8 + MSD B=16 + pipeline (B_pipe=32)",
+     {"use_mxfp8": True, **_msd(16, pipeline=True, pipeline_budget=32)}),
+
+    (25, "MXFP4_MSD_B16_pipeline32", "MXFP4 + MSD B=16 + pipeline (B_pipe=32)",
+     {"use_mxfp4": True, **_msd(16, pipeline=True, pipeline_budget=32)}),
 ]
 
 
@@ -259,8 +284,10 @@ def get_active_flags(config) -> str:
 
     # Pipeline
     if getattr(config, "msd_deep_pipeline", False):
-        ploss = getattr(config, "msd_pipeline_precision_loss", 2)
-        parts.append(f"pipeline (ploss={ploss})")
+        pbud = getattr(config, "msd_pipeline_budget", 24)
+        parts.append(f"pipeline (B_pipe={pbud})")
+    elif getattr(config, "msd_bsd_penetration", False):
+        parts.append("BSD penetration")
 
     # Calibration
     cal = getattr(config, "msd_calibration_data", None)
