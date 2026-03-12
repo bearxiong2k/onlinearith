@@ -1,0 +1,689 @@
+# MSD Inference Performance Statistics & Calibration Data Analysis
+
+This document covers the statistical data produced by the MSD-first simulation:
+calibration results (offline budget search) and inference performance statistics
+(runtime hardware model).
+
+---
+
+## 1. Inference Performance Statistics (MSD Hardware Model)
+
+When MSD truncation is active during PPL evaluation, hierarchical performance statistics
+are automatically collected and saved in the result JSON under `msd_perf_stats`. These
+statistics reflect **actual runtime behaviour** during inference (not calibration-time
+properties) and are designed to feed future hardware simulation:
+
+- **Latency** = f(total cycles, budget allocation)
+- **Energy** = f(MAC sparsity, block-level gating, effective precision)
+
+The statistics capture both sources of early termination in the MSD-first architecture:
+
+1. **Whole-block early termination** — blocks where ALL partial products have p_eff=0 can be
+   entirely gated off in hardware (zero power consumption for that block)
+2. **Within-block partial skipping** — individual elements within an active block may still
+   have p_eff=0 or reduced precision, saving energy at the bit level
+
+### 1.1 Hierarchy
+
+The statistics cover five levels, from fine to coarse:
+
+| Level | Granularity | What it measures |
+|-------|-------------|------------------|
+| **Bit level** | per-element | Effective precision (p_eff) distribution — how many BSD digits each partial product actually computed, both overall and conditional on the element being active |
+| **Block level** | per-block (n,j,b) | Zero / partial / full block activation counts, plus mean active element fraction within partial blocks |
+| **Channel level** | per-output-channel | Total budget cycles vs effective cycles consumed, utilization ratio |
+| **MAC level** | per-element | Total / active / skipped multiply-accumulate operations — the primary energy metric |
+| **Global** | whole-model | Aggregate sparsity ratios, mean precision, block breakdown, total MAC counts |
+
+### 1.2 Layer Summaries vs Channel Detail
+
+To keep result files manageable (the previous format stored per-channel arrays for every layer,
+producing multi-megabyte JSON), the statistics use a **two-tier output pattern** matching the
+calibration system:
+
+- **Layer summaries** (compact scalars) are produced for **every** MXFP layer
+- **Per-channel detail arrays** are produced only for layers belonging to a single transformer
+  layer index, controlled by `--detail-layer` (default: 2)
+
+Use `--detail-layer` in `ppltest.py` to select which layer gets full channel-level detail:
+
+```bash
+python ppltest.py --nproc 8 --setup 6 --detail-layer 2
+```
+
+Layers matching `model.layers.<detail_layer>.` (e.g., `model.layers.2.mlp.gate_proj`,
+`model.layers.2.mlp.up_proj`, `model.layers.2.mlp.down_proj`) get both `summary` and
+`channel_detail` in the output JSON. All other layers get only `summary`.
+
+### 1.3 Output Structure
+
+In the PPL result JSON (`ppl_results_*.json`):
+
+```json
+{
+  "msd_perf_stats": {
+    "global": {
+      "num_layers": 84,
+      "total_macs": 123456789,
+      "active_macs": 111111111,
+      "mac_sparsity": 0.1000,
+      "mean_effective_precision": 12.30,
+      "active_p_eff_mean": 13.67,
+      "total_budget_cycles": 98765432.0,
+      "effective_cycles": 74074074.0,
+      "global_utilization": 0.7500,
+      "total_blocks": 1234567,
+      "zero_blocks": 1234,
+      "zero_block_ratio": 0.001,
+      "partial_blocks": 234567,
+      "partial_block_ratio": 0.190,
+      "full_blocks": 998766,
+      "full_block_ratio": 0.809
+    },
+    "per_layer": {
+      "model.layers.0.mlp.gate_proj": {
+        "summary": {
+          "bit_level": {
+            "p_eff_mean": 12.30,
+            "p_eff_std": 4.50,
+            "active_p_eff_mean": 13.67,
+            "p_eff_histogram": {
+              "bin_labels": ["0", "1-4", "5-8", "9-12", "13-16", "17-24", "25-32", "33+"],
+              "counts": [12345, 5000, 8000, 20000, 30000, 15000, 5000, 1000]
+            }
+          },
+          "block_level": {
+            "total_blocks": 50000,
+            "zero_block_ratio": 0.001,
+            "partial_block_ratio": 0.190,
+            "full_block_ratio": 0.809,
+            "partial_block_mean_active_frac": 0.625
+          },
+          "channel_level": {
+            "budget_mean": 16.50,
+            "effective_cycles_total": 800000.0,
+            "utilization_mean": 0.7500
+          },
+          "mac_level": {
+            "total_macs": 1600000,
+            "active_macs": 1440000,
+            "mac_sparsity": 0.1000
+          }
+        }
+      },
+      "model.layers.2.mlp.gate_proj": {
+        "summary": { "...same structure as above..." },
+        "channel_detail": {
+          "bit_level": {
+            "p_eff_mean": [12.3, 11.8, 13.1, "..."],
+            "p_eff_std": [4.5, 4.2, 4.8, "..."],
+            "active_p_eff_mean": [13.7, 12.9, 14.0, "..."],
+            "p_eff_histogram": {
+              "bin_labels": ["0", "1-4", "5-8", "..."],
+              "counts": [[12, 5, 8, "..."], ["..."]]
+            }
+          },
+          "block_level": {
+            "zero_block_count": [10, 5, 15, "..."],
+            "partial_block_count": [200, 180, 220, "..."],
+            "full_block_count": [800, 820, 780, "..."],
+            "zero_block_ratio": [0.01, 0.005, 0.015, "..."],
+            "partial_block_ratio": [0.20, 0.18, 0.22, "..."],
+            "full_block_ratio": [0.79, 0.815, 0.765, "..."],
+            "partial_block_active_frac": [0.63, 0.58, 0.71, "..."]
+          },
+          "channel_level": {
+            "total_budget_cycles": [16500.0, 16200.0, "..."],
+            "effective_cycles": [12375.0, 12150.0, "..."],
+            "skipped_cycles": [4125.0, 4050.0, "..."],
+            "utilization": [0.75, 0.74, "..."]
+          },
+          "mac_level": {
+            "total_elements": [6000, 6000, "..."],
+            "zero_elements": [600, 720, "..."],
+            "mac_sparsity": [0.10, 0.12, "..."]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Note the structural difference: `model.layers.0.mlp.gate_proj` has only `summary` (compact
+scalars), while `model.layers.2.mlp.gate_proj` (matching `--detail-layer 2`) also has
+`channel_detail` with per-output-channel arrays.
+
+### 1.4 Console Output
+
+During `ppltest.py`, a compact summary is printed to the console:
+
+```
+          MSD PERFORMANCE STATISTICS
+----------------------------------------------------
+  Layers profiled  : 84
+  MAC sparsity     : 10.00%
+  Active MACs      : 111,111,111 / 123,456,789
+  Mean eff. prec.  : 12.30 digits
+  Active eff. prec.: 13.67 digits
+  Global util.     : 75.00%
+  Zero blocks      : 0.10%
+  Partial blocks   : 19.00%
+  Full blocks      : 80.90%
+----------------------------------------------------
+
+  Per-layer summary (detail_layer=2):
+  Layer                                     p_eff  util%  mac_sp%  zero_blk%
+  -------------------------------------------------------------------------
+  model.layers.0.mlp.gate_proj               12.3   75.0   10.00     0.10
+  model.layers.0.mlp.up_proj                 11.8   72.5   12.30     0.15
+  ...                                          ...   ...     ...      ...
+  model.layers.2.mlp.gate_proj               12.5   74.2   10.50     0.12 *
+  model.layers.2.mlp.up_proj                 12.1   73.8   11.20     0.14 *
+  model.layers.2.mlp.down_proj               13.0   76.1    9.80     0.08 *
+  ...                                          ...   ...     ...      ...
+  (* = channel detail in JSON for --detail-layer=2)
+----------------------------------------------------
+```
+
+### 1.5 Interpreting the Statistics
+
+The statistics are organized around two complementary energy-saving mechanisms:
+
+**Early termination case 1: Whole-block gating (block level)**
+
+When ALL elements in a block (n,j,b) have p_eff=0, the entire block can be power-gated
+in hardware — no computation, no switching activity, maximum energy savings per block.
+
+- `zero_block_ratio` — fraction of blocks that are entirely gated off
+- `full_block_ratio` — fraction of blocks where every element computes (no gating)
+- `partial_block_ratio` — fraction of blocks with mixed activity
+
+**Early termination case 2: Within-block partial skipping (bit + MAC level)**
+
+Even within an active block, individual elements may have p_eff=0 (skipped) or reduced
+precision (fewer BSD digits computed). This provides fine-grained energy savings.
+
+- `mac_sparsity` — fraction of all element-level MACs that are completely skipped
+  (p_eff=0). Computed as: mac_sparsity = zero_elements / total_elements. This is the
+  primary energy saving metric at element granularity.
+- `active_macs` — count of elements where p_eff > 0 (actual work done).
+  active_macs = total_elements - zero_elements.
+- `active_p_eff_mean` — mean effective precision *only for active elements* (where
+  p_eff > 0). This separates the "skipped entirely" savings from the "computed but
+  with fewer digits" savings. For energy modelling: skipped elements cost zero,
+  active elements cost proportional to active_p_eff_mean.
+- `partial_block_mean_active_frac` — within partial blocks, the average fraction of
+  elements that are active (between 0 and 1). A value of 0.5 means partial blocks
+  have half their elements active on average. This metric captures the fine-grained
+  sparsity structure within mixed-activity blocks.
+
+**Precision distribution (bit level)**
+
+- `p_eff_mean` — mean effective precision across ALL elements (including zeros).
+  Relates to average computation cost per element.
+- `p_eff_std` — standard deviation of effective precision.
+- `p_eff_histogram` — distribution of effective precision values across 8 bins:
+  [0], [1-4], [5-8], [9-12], [13-16], [17-24], [25-32], [33+]. Peaks at "0"
+  indicate aggressive early termination; peaks at high bins indicate the budget
+  is being fully utilized.
+
+**Cycle accounting (channel level)**
+
+- `budget_mean` — mean cycle budget assigned per dot-product (averaged across
+  all output channels and samples for a layer).
+- `utilization_mean` — ratio of effective cycles (sum of all p_eff values) to
+  total budget cycles allocated. Lower utilization = more early termination =
+  greater energy and latency savings.
+- `effective_cycles_total` — total "work done" in cycle units across all
+  samples and channels for this layer.
+
+**Energy hierarchy summary:**
+
+| Saving mechanism | Metric | Granularity | Hardware mapping |
+|-----------------|--------|-------------|------------------|
+| Block gating | zero_block_ratio | Block (n,j,b) | Power-gate entire block's MAC array |
+| Element skipping | mac_sparsity | Element (n,j,b,k) | Skip individual MAC operation |
+| Precision reduction | active_p_eff_mean | Element (active only) | Fewer digit cycles per active MAC |
+| Partial block savings | partial_block_mean_active_frac | Block (partial only) | Fraction of MACs active in mixed blocks |
+| Cycle utilization | utilization_mean | Channel (j) | Ratio of useful-to-allocated cycles |
+
+### 1.6 Layer Summary Statistics
+
+Each layer gets a compact dict of scalar statistics under `"summary"`, organized into four
+hierarchy levels. These are sufficient to understand cross-layer trends without storing
+per-channel arrays.
+
+**Bit level (`summary.bit_level`):**
+
+| Stat | Calculation | Purpose |
+|------|-------------|--------|
+| `p_eff_mean` | Mean of p_eff over all elements and channels | Average computation cost per element |
+| `p_eff_std` | Mean of per-channel p_eff standard deviations | Precision spread |
+| `active_p_eff_mean` | Mean of p_eff only for elements where p_eff > 0 | Cost per active element (excludes skipped) |
+| `p_eff_histogram` | Element counts in 8 precision bins, aggregated across channels | Distribution shape for this layer |
+
+Where:
+
+> p_eff[n,j,b,k] = max(0, B_final[n,j] - inter_delay[n,j,b] - intra_delay[n,b,k] - online_delay)
+
+is the effective precision (BSD digits computed) for element (n,j,b,k).
+
+The conditional metric `active_p_eff_mean` is useful because it separates two distinct
+energy mechanisms: elements with p_eff=0 are *completely skipped* (zero cost), while
+elements with p_eff > 0 have a cost proportional to their effective precision. Knowing
+both the skip rate (mac_sparsity) and the per-active-element cost (active_p_eff_mean)
+enables a more accurate energy model than using the overall mean alone.
+
+**Block level (`summary.block_level`):**
+
+| Stat | Calculation | Purpose |
+|------|-------------|--------|
+| `total_blocks` | Total blocks processed by this layer | Denominator for ratios |
+| `zero_block_ratio` | Fraction of blocks where ALL elements have p_eff=0 | Fully-gatable blocks |
+| `partial_block_ratio` | Fraction of blocks with mixed p_eff (some zero, some active) | Blocks with partial savings |
+| `full_block_ratio` | Fraction of blocks where ALL elements have p_eff > 0 | Blocks with no element-level gating |
+| `partial_block_mean_active_frac` | Mean of (active_count / block_size) across partial blocks | Fine-grained sparsity in mixed blocks |
+
+Block classification:
+- A block (n,j,b) with `block_size` elements is **zero** if all `block_size` elements
+  have p_eff=0 — the block is entirely skippable in hardware.
+- A block is **full** if all `block_size` elements have p_eff > 0 — every element
+  must be computed.
+- A block is **partial** if some elements have p_eff=0 and others don't — the
+  block must be activated, but individual element-level gating can save energy.
+
+The `partial_block_mean_active_frac` metric captures how much work remains within
+partial blocks. A value of 0.3 means on average only 30% of elements within partial
+blocks are active, so 70% of the energy in those blocks can be saved via element-level
+gating. This is the fine-grained complement to the coarse block-level zero_block_ratio.
+
+**Channel level (`summary.channel_level`):**
+
+| Stat | Calculation | Purpose |
+|------|-------------|--------|
+| `budget_mean` | total_budget_sum / total_blocks -- average budget per dot-product | Cycle allocation efficiency |
+| `effective_cycles_total` | Sum of all p_eff values across all elements | Total "work done" for this layer |
+| `utilization_mean` | Mean across channels of (effective_cycles / total_budget) | How much of the allocated budget was used |
+| `max_budget` | Max of b_final[n,j] across all samples and channels | Worst-case cycles allocated (layer latency indicator) |
+| `max_total_delay` | Max of (inter_delay + intra_delay + online_delay) across all (n,j,b,k) | Worst-case start delay before computation begins |
+
+Utilization reflects the combined effect of all delay sources and early termination.
+A utilization of 0.6 means 40% of allocated cycles were wasted on delays or early
+termination — representing 40% energy savings from the budget's perspective.
+
+**MAC level (`summary.mac_level`):**
+
+| Stat | Calculation | Purpose |
+|------|-------------|--------|
+| `total_macs` | Total element-level MACs (= total_elements = N * nb * bs * out) | Maximum possible computation |
+| `active_macs` | Elements where p_eff > 0 (= total_elements - zero_elements) | Actual computation performed |
+| `mac_sparsity` | zero_elements / total_elements | Fraction of MACs completely skipped |
+
+MAC sparsity is the most direct energy metric: each skipped MAC consumes zero switching
+energy. The total energy saving from MAC-level sparsity is proportional to
+mac_sparsity * energy_per_MAC.
+
+### 1.7 Channel Detail Statistics
+
+Full per-channel arrays under `"channel_detail"` are collected only for the MLP projections
+(gate/up/down) of the `--detail-layer` (default: layer 2). This provides diagnostic data
+for channel-level analysis without bloating the JSON.
+
+The channel detail contains the same four hierarchy levels as the summary, but with
+per-output-channel arrays instead of scalar aggregates:
+
+| Section | Arrays | Shape |
+|---------|--------|-------|
+| `bit_level` | p_eff_mean, p_eff_std, active_p_eff_mean, p_eff_histogram | (out,) or (out, 8) |
+| `block_level` | zero/partial/full_block_count, ratios, partial_block_active_frac | (out,) |
+| `channel_level` | total_budget_cycles, effective_cycles, skipped_cycles, utilization, max_budget, max_total_delay | (out,) |
+| `mac_level` | total_elements, zero_elements, mac_sparsity | (out,) |
+
+These arrays enable scatter-plot visualization of channel-level correlations (e.g.,
+MAC sparsity vs utilization, p_eff_mean vs budget).
+
+### 1.8 Visualizing Performance Statistics
+
+Use `perf_viz.py` to produce diagnostic charts from any PPL result JSON that contains
+`msd_perf_stats`:
+
+```bash
+python perf_viz.py ppl_results_MXFP8_MSD_B16.json
+python perf_viz.py ppl_results_MXFP8_MSD_B16_calib.json --output-dir perf_charts/
+python perf_viz.py ppl_results_MXFP8_MSD_B16.json --no-show
+```
+
+Charts produced (saved as PNGs):
+
+| Chart | Scope | What it shows |
+|-------|-------|---------------|
+| Layer p_eff overview | All layers | Mean and active effective precision per layer |
+| Layer utilization | All layers | Budget utilization percentage per layer |
+| Layer MAC sparsity | All layers | Fraction of skipped MACs per layer |
+| Layer block breakdown | All layers | Stacked zero/partial/full block ratios |
+| Layer max latency | All layers | Max budget and max total delay per layer (latency indicators) |
+| Channel p_eff histogram | Detail layer | Distribution of per-channel effective precision |
+| Channel utilization histogram | Detail layer | Distribution of per-channel utilization |
+| Channel MAC sparsity histogram | Detail layer | Distribution of per-channel MAC sparsity |
+| Channel p_eff vs utilization | Detail layer | Correlation between precision and utilization |
+| Channel max delay histogram | Detail layer | Distribution of per-channel max delay and max budget |
+
+---
+
+## 2. Calibration Data
+
+Calibration determines optimal per-channel cycle budgets (B_base) based on actual weight/activation statistics. `calibrate.py` supports **multi-GPU via `--nproc`** (like `ppl_batch.py`) and covers all 4 MXFP formats.
+
+### 2.1 Available Calibration Setups
+
+| ID | Tag | Description |
+|----|-----|-------------|
+| 1 | `MXFP8` | MXFP8 (E4M3FN) |
+| 2 | `MXFP6_E2M3` | MXFP6 E2M3 |
+| 3 | `MXFP6_E3M2` | MXFP6 E3M2 |
+| 4 | `MXFP4` | MXFP4 (E2M1) |
+
+### 2.2 Quick Start
+
+```bash
+cd /home/xzj/coding/onlinearith
+source /home/xzj/coding/.venv3_10/bin/activate
+
+# List calibration setups
+python calibrate.py --list
+
+# Single format on single GPU
+python calibrate.py --setup 1
+
+# All 4 formats on 4 GPUs (~1 min total)
+python calibrate.py --nproc 4
+
+# Specific GPUs
+python calibrate.py --nproc 4 --gpus 4,5,6,7
+
+# Subset of formats
+python calibrate.py --nproc 2 --gpus 4,5 --only 1 4
+
+# Custom SNR target (higher = more budget = less error)
+python calibrate.py --nproc 4 --gpus 4,5,6,7 --target-snr 40
+
+# Re-run even if result files exist
+python calibrate.py --nproc 4 --gpus 4,5,6,7 --force
+
+# Single specific GPU
+python calibrate.py --gpus 3 --setup 1
+```
+
+Output files are named `calibration_{tag}.json` and saved in `onlinearith/`.
+
+### 2.3 Parallelism Strategy
+
+| # GPUs | Behavior |
+|--------|----------|
+| 1 | Runs all selected formats sequentially on one GPU |
+| 2-4 | Formats partitioned round-robin across GPUs |
+| >4 | Extra GPUs sit idle (only 4 formats available) |
+
+Uses `init_distributed_lite()` — no NCCL, ranks work independently.
+
+### 2.4 Calibration Parameters
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--target-snr` | 30.0 | Target SNR in dB. Higher = more budget = less truncation error. Try 20, 30, 40. |
+| `--num-texts` | 20 | Number of calibration paragraphs from WikiText-2 validation set |
+| `--max-length` | 512 | Max token length per calibration sample |
+| `--batch-size` | 4 | Batch size for calibration forward passes |
+| `--online-delay` | 2 | MSD online delay δ (should match inference config) |
+| `--detail-layer` | 2 | Transformer layer index for full per-channel statistics. The 3 MLP projections (gate/up/down) of this layer get channel-wise detail; all others get compact summaries only. |
+
+### 2.5 Expected Runtime
+
+- Single GPU: ~2-5 min per format (depends on `--num-texts` and `--max-length`)
+- 4× RTX 5090: ~2-5 min total (all 4 formats in parallel)
+
+### 2.6 Using Calibration Results with PPL Tests
+
+Use the `--calibration` flag in `ppltest.py` to inject calibrated budgets directly — no manual `config.json` editing needed:
+
+```bash
+# Run calibration first (produces calibration_MXFP8.json):
+python calibrate.py --setup 1
+
+# Then PPL test with calibrated budgets:
+python ppltest.py --nproc 8 --setup 6 --calibration calibration_MXFP8.json
+
+# Output: ppl_results_MXFP8_MSD_B16_calib.json
+# The _calib suffix is added automatically when --calibration is used
+```
+
+`--calibration` loads the `msd_calibration_data` from the specified JSON file and overrides the setup's uniform budget with per-channel Tier B budgets (see Budget System Architecture in the main README). The calibration data is automatically cleared from config after the run.
+
+**Note:** `ppl_batch.py` does not support calibration — use `ppltest.py` for calibrated runs.
+
+### 2.7 Interpreting Calibration Results
+
+Each `calibration_{tag}.json` has four main sections:
+
+1. **`global_summary`** — aggregate statistics across all layers
+2. **`layer_stats`** — compact per-layer summary (scalars only, ~15 fields per layer)
+3. **`channel_detail`** — full per-channel arrays for one specific layer (the detail layer)
+4. **`msd_calibration_data`** — per-channel budgets for all layers (used by `ppltest.py --calibration`)
+
+#### Output JSON Structure
+
+```json
+{
+  "format": "MXFP8",
+  "calibration_params": {
+    "target_snr_db": 30.0,
+    "num_texts": 20,
+    "max_length": 512,
+    "batch_size": 4,
+    "online_delay": 2,
+    "detail_layer": 2
+  },
+  "global_summary": {
+    "num_layers": 84,
+    "total_channels": 200704,
+    "budget_min": 4,
+    "budget_max": 32,
+    "budget_mean": 16.5,
+    "mean_snr": 32.5,
+    "min_snr": 30.0,
+    "e_combined_mean": -18.1,
+    "eff_precision_mean": 10.5,
+    "signal_power_db_mean": 0.6,
+    "wall_time_sec": 120.0
+  },
+  "layer_stats": {
+    "model.layers.0.mlp.gate_proj": {
+      "budget_mean": 7.2, "budget_min": 4, "budget_max": 12,
+      "budget_std": 1.5, "budget_p25": 6, "budget_p50": 7, "budget_p75": 8,
+      "budget_histogram": {"4": 10, "5": 50, "6": 300, "7": 800, "8": 400},
+      "frac_at_min_budget": 0.004, "frac_at_max_budget": 0.0,
+      "snr_mean": 32.5, "snr_min": 30.0,
+      "e_combined_mean": -18.1, "e_combined_std": 1.2,
+      "e_combined_range": [-22.0, -12.0],
+      "inter_delay_mean": 2.1, "intra_delay_mean": 2.03,
+      "eff_precision_mean": 0.9, "eff_precision_min": 0.0,
+      "signal_power_db_mean": 0.6, "signal_power_db_range": [-10.0, 5.0]
+    }
+  },
+  "channel_detail": {
+    "detail_layer": 2,
+    "model.layers.2.mlp.gate_proj": {
+      "budget": [7, 8, 6, "..."],
+      "snr_at_budget": [31.2, 30.5, 32.0, "..."],
+      "e_combined_mean": [-17.8, -19.2, "..."],
+      "e_combined_std": [1.1, 1.3, "..."],
+      "inter_delay_mean": [2.0, 2.3, "..."],
+      "eff_precision_mean": [1.2, 0.8, "..."],
+      "signal_power_db": [-12.3, -8.1, "..."]
+    },
+    "model.layers.2.mlp.up_proj": { "..." : "..." },
+    "model.layers.2.mlp.down_proj": { "..." : "..." }
+  },
+  "msd_calibration_data": {
+    "model.layers.0.mlp.gate_proj": [7, 8, 6, "..."],
+    "...": "...(all 84 layers)"
+  }
+}
+```
+
+#### Layer-wise Summary Statistics (`layer_stats`)
+
+Each layer gets a compact dict of scalar statistics. These are sufficient to understand
+cross-layer trends without storing per-channel arrays.
+
+**Budget distribution:**
+
+| Stat | Calculation | Purpose |
+|------|-------------|---------|
+| `budget_mean` | `mean(B[j])` over all output channels | Average budget assigned to this layer |
+| `budget_min` / `budget_max` | `min(B[j])` / `max(B[j])` | Budget extremes |
+| `budget_std` | `std(B[j])` | Budget spread — large std means diverse channel requirements |
+| `budget_p25` / `budget_p50` / `budget_p75` | 25th, 50th, 75th percentile of `{B[j]}` | Distribution shape (skew detection) |
+| `budget_histogram` | Count of channels at each discrete budget value, as `{"B": count}` | Full distribution in compact form |
+| `frac_at_min_budget` | Fraction of channels where `B[j] = 4` (search lower bound) | Detects saturation at minimum — these channels may not need as much budget as they got |
+| `frac_at_max_budget` | Fraction of channels where `B[j] = 48` (search upper bound) | Detects saturation at maximum — these channels may need *more* budget than the search range allows |
+
+**SNR validation:**
+
+| Stat | Calculation | Purpose |
+|------|-------------|---------|
+| `snr_mean` | `mean(SNR[j])` over all output channels | Average calibration quality |
+| `snr_min` | `min(SNR[j])` | Worst-case channel — should be >= `target_snr_db` |
+
+Where:
+
+> SNR[j] = 10 · log10( mean_n(exact[j]²) / mean_n((exact[j] − truncated[j])²) )
+
+is the signal-to-noise ratio at the converged budget for output channel `j`. Here `exact[j]` is the full-precision block-scaled dot-product result and `truncated[j]` is the result after MSD truncation at budget `B[j]`. The expectation `mean_n` averages over all N_cal calibration token positions.
+
+**Combined exponent:**
+
+| Stat | Calculation | Purpose |
+|------|-------------|---------|
+| `e_combined_mean` | `mean_j( mean_n( E_combined[n,j] ) )` | Mean dynamic range across channels |
+| `e_combined_std` | Mean of per-channel standard deviations of `E_combined` | Temporal variability of dynamic range |
+| `e_combined_range` | `[min(E_combined), max(E_combined)]` over all (n, j) | Global dynamic range envelope |
+
+Where:
+
+> E_combined[n,j] = max over blocks b of floor(log2(x_scale[n,b]) + log2(w_scale[j,b]))
+
+is the combined activation+weight scale exponent for sample `n`, output channel `j`. The max is taken over blocks `b`, giving the dominant block's magnitude. This is the primary driver of budget assignment — channels with higher `E_combined` produce larger intermediate results and need more precision digits to maintain accuracy.
+
+**Delays:**
+
+| Stat | Calculation | Purpose |
+|------|-------------|---------|
+| `inter_delay_mean` | `mean` over all (j, n, b) of `inter_delay[n,j,b]` | Average alignment cost from block scale differences |
+| `intra_delay_mean` | `mean` over all (n, b, k) of `intra_delay[n,b,k]` | Average element-level exponent spread (scalar, same for all channels) |
+
+Where:
+- `inter_delay[n,j,b]`: the inter-block alignment delay, where each block's combined scale may differ and the MSD pipeline must align all blocks to the dominant block, costing delay cycles for smaller blocks:
+
+  > inter_delay[n,j,b] = E_max[n,j] − floor(log2(x_scale[n,b] · w_scale[j,b]))
+
+- `intra_delay[n,b,k]`: the intra-block delay from element-level activation exponent differences within each block; elements with smaller magnitudes start producing significant digits later:
+
+  > intra_delay[n,b,k] = e_max[n,b] − floor(log2(|x_q[n,b,k]|))
+
+**Effective precision:**
+
+| Stat | Calculation | Purpose |
+|------|-------------|---------|
+| `eff_precision_mean` | `mean` over all (j, n, b, k) of `p_eff[n,j,b,k]` | Average useful precision after delay overhead |
+| `eff_precision_min` | `min` over all (j, n, b, k) of `p_eff[n,j,b,k]` | Worst-case precision across all elements |
+
+Where:
+
+> p_eff[n,j,b,k] = max(0, B[j] − inter_delay[n,j,b] − intra_delay[n,b,k] − δ)
+
+is the effective precision — the number of BSD digits actually computed for element `(n,j,b,k)`. Here `δ` is the MSD online delay (default 2). The effective precision represents the *useful computation cycles* remaining after accounting for all three sources of delay. A low `eff_precision_mean` relative to `budget_mean` indicates that delays consume most of the budget.
+
+**Signal power:**
+
+| Stat | Calculation | Purpose |
+|------|-------------|---------|
+| `signal_power_db_mean` | `mean_j( 10 · log10( mean_n(exact[j]²) ) )` | Mean signal magnitude scale |
+| `signal_power_db_range` | `[min, max]` of per-channel signal power in dB | Signal magnitude spread |
+
+This shows the intrinsic magnitude of the exact dot-product results. Channels with high signal power have large outputs and typically correlate with higher budgets since the absolute truncation error must be proportionally small to maintain the SNR target.
+
+#### Channel-wise Detail Statistics (`channel_detail`)
+
+Full per-channel arrays are collected only for the 3 MLP projections (gate/up/down) of the
+`--detail-layer` (default: layer 2). This provides detailed diagnostic data without bloating
+the JSON.
+
+| Stat | Shape | Description |
+|------|-------|-------------|
+| `budget` | `(out,)` | Calibrated `B[j]` per channel (same as `msd_calibration_data` for this layer) |
+| `snr_at_budget` | `(out,)` | Actual SNR (dB) at converged budget — primary validation metric |
+| `e_combined_mean` | `(out,)` | Per-channel mean `E_combined` — main budget driver |
+| `e_combined_std` | `(out,)` | Per-channel temporal variability of `E_combined` |
+| `inter_delay_mean` | `(out,)` | Per-channel mean inter-block alignment delay |
+| `eff_precision_mean` | `(out,)` | Per-channel mean effective precision |
+| `signal_power_db` | `(out,)` | Per-channel signal power in dB |
+
+These arrays enable scatter-plot visualization of channel-level correlations using
+`calibration_viz.py`.
+
+### 2.8 Visualizing Calibration Results
+
+Use `calibration_viz.py` to produce diagnostic charts from any calibration JSON:
+
+```bash
+python calibration_viz.py calibration_MXFP8.json
+python calibration_viz.py calibration_MXFP8.json --output-dir calib_charts/
+python calibration_viz.py calibration_MXFP8.json --no-show
+```
+
+Charts produced (saved as PNGs):
+
+| Chart | Scope | What it shows |
+|-------|-------|---------------|
+| Layer budget overview | All layers | Mean budget per layer with min-max range bars |
+| Layer SNR overview | All layers | Mean and min SNR per layer with target line |
+| Budget histogram | Detail layer | Distribution of discrete budget values per projection |
+| Budget vs e_combined | Detail layer | How combined exponent drives budget assignment |
+| Budget vs signal power | Detail layer | How signal magnitude relates to budget |
+| SNR distribution | Detail layer | Per-channel SNR histogram with target line |
+| Eff. precision vs budget | Detail layer | How much budget translates to useful precision |
+| Inter-delay vs e_combined | Detail layer | Alignment cost vs dynamic range |
+
+### 2.9 Removing Calibration
+
+When using `--calibration`, cleanup is automatic. For manual config.json usage,
+set `msd_calibration_data` to `null` to revert to uniform budgets:
+```json
+{
+  "msd_calibration_data": null
+}
+```
+
+---
+
+## 3. Design Comparison
+
+| Aspect | Calibration Stats (Section 2) | Inference Perf Stats (Section 1) |
+|--------|-------------------------------|-----------------------------------|
+| **Phase** | Offline budget search | Runtime inference |
+| **Purpose** | Validate budget quality (SNR target met?) | Hardware simulation (latency, energy) |
+| **Perspective** | Algorithm quality | Hardware behaviour |
+| **Key metrics** | snr_at_budget (dB) | mac_sparsity, utilization, zero_block_ratio |
+| **Conversion** | Budget → SNR | Statistics → latency/energy (future) |
+| **Layer detail** | `--detail-layer` for calibration | `--detail-layer` for ppltest |
+
+The conversion from these raw statistics to actual latency (ns) and energy (pJ) is left for
+future work and will depend on the specific hardware implementation (clock frequency, voltage,
+gate-level power model). The comprehensive hierarchy (bit → block → channel → MAC → global)
+is designed so that energy models at any granularity can be built from these statistics:
+
+- **Coarse model:** energy ~ (1 - mac_sparsity) × total_macs × energy_per_MAC
+- **Medium model:** energy ~ Σ_layers (active_macs × active_p_eff_mean × energy_per_digit)
+- **Fine model:** per-block energy = f(block_type, active_count, element_precisions)
