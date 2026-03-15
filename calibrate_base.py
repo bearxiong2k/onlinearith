@@ -13,6 +13,8 @@ from dist_utils import (
     file_barrier,
     init_distributed_lite,
     is_main,
+    restrict_gpus,
+    maybe_relaunch_with_torchrun,
 )
 from experiment_config import apply_config, reconfigure_mlp_layers, reset_to_baseline
 
@@ -132,29 +134,8 @@ def main():
     args, unparsed = parser.parse_known_args()
 
     # ── torchrun auto-launcher ──
-    if args.nproc > 1 and "LOCAL_RANK" not in os.environ:
-        import os
-        import subprocess
-        import sys
-        
-        env = os.environ.copy()
-        if args.gpus:
-            env["CUDA_VISIBLE_DEVICES"] = args.gpus
-        
-        cmd = [
-            sys.executable, "-m", "torch.distributed.run",
-            f"--nproc_per_node={args.nproc}",
-            "--master_port=0",
-        ] + [sys.executable, __file__] + sys.argv[1:]
-        
-        try:
-            cmd.remove(f"--nproc={args.nproc}")
-        except ValueError:
-            pass
-        
-        print(f"🚀 Auto-launching torchrun: {' '.join(cmd)}\n")
-        subprocess.run(cmd, env=env)
-        return
+    restrict_gpus(args.gpus)
+    maybe_relaunch_with_torchrun(args.nproc)
 
     import os
     rank, world_size, local_rank, device = init_distributed_lite()
