@@ -311,6 +311,7 @@ calibration workflow:
     local_nll_sum  = 0.0
     local_tokens   = 0
     local_chunk_nlls = []
+    SYNC_EVERY = 10   # barrier every N windows to cap cumulative rank drift
 
     t_start = time.perf_counter()
 
@@ -333,6 +334,13 @@ calibration workflow:
         del input_ids, target_ids, outputs
         if win_idx % 20 == 19:
             torch.cuda.empty_cache()
+
+        # Periodic barrier: prevent cumulative timing drift across ranks from
+        # exceeding the NCCL timeout.  Without this, small per-window timing
+        # differences accumulate over hundreds of windows (29+ hours), causing
+        # faster ranks to reach the final all_reduce >10 min before slower ones.
+        if world_size > 1 and (win_idx + 1) % SYNC_EVERY == 0:
+            barrier()
 
     elapsed = time.perf_counter() - t_start
 
