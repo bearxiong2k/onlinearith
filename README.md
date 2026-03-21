@@ -1322,12 +1322,42 @@ For each MLP linear layer `out[n,j] = Σ_b scale_x[n,b] · scale_w[j,b] · dot(x
    - NAF can shift the MSD position +1 vs binary (e.g. 7 = `111` binary but `100(-1)` NAF = 4 digit positions), making truncation error bidirectional
 6. **Accumulation:** Truncated products are summed, then scaled by shared block scales
 
-### Deep Pipeline (Optional)
+### Deep Pipeline Mode
 
-When `msd_deep_pipeline=true`, precision is tracked through the MLP stages:
-- gate_proj output → SiLU (−precision_loss digits) → element-wise multiply (−online_delay) → down_proj
-- This models the physical constraint that MSD digit streams lose precision at each pipeline stage
-- All truncation operations (including SiLU and element-wise multiply) use BSD/NAF truncation
+Deep pipeline mode simulates explicit MSD digit timing flow through FFN stages: `gate_proj → SiLU → multiply → down_proj`.
+
+**Key features:**
+- Explicit first-cycle timing metadata tracks when MSD digits arrive at each stage
+- PWL (Piecewise Linear) SiLU with 8-segment approximation (5-cycle latency: 3 for PWL MAC + 2 for multiply)
+- Two-domain budget ownership: stage-1 shared budget for intermediate channels + down_proj budget for output channels
+- Two-pass calibration: stage-1 then down_proj
+
+**Configuration:**
+```json
+{
+  "msd_deep_pipeline": true,
+  "use_msd_truncation": true,
+  "msd_cycle_budget": 16,
+  "msd_silu_num_segments": 8,
+  "msd_silu_pwl_mac_delay": 3,
+  "msd_silu_mul_delay": 2,
+  "msd_pipeline_gate_mul_delay": 2
+}
+```
+
+**Usage:**
+```bash
+# Enable deep pipeline in setup
+python ppltest.py --setup 20 --nproc 8
+
+# Calibrate deep pipeline budgets (two-pass)
+python calibrate.py --deep-pipeline --nproc 4
+
+# Run with calibrated budgets
+python ppltest.py --setup 20 --calibration calibration_deep_pipeline.json --nproc 8
+```
+
+See [DEEP_PIPELINE.md](DEEP_PIPELINE.md) for detailed design documentation.
 
 ---
 
@@ -1335,17 +1365,15 @@ When `msd_deep_pipeline=true`, precision is tracked through the MLP stages:
 
 1. **Attention not covered:** Only MLP projections (gate/up/down_proj) use MXFP + MSD. Attention projections (q/k/v/o_proj) remain standard nn.Linear. This is by design — attention is a separable concern.
 
-2. **Deep pipeline uses scalar budget proxy:** The pipeline precision tracking uses the global `msd_cycle_budget` as a scalar proxy rather than per-element effective precision from the actual truncated dot-product. This simplification is intentional and may be refined based on PPL results.
+2. **Not thread-safe (but process-safe):** The `MSDComputeContext` uses a class-level singleton pattern (`_active`). This would break under concurrent forward passes within a single process (e.g., `nn.DataParallel`). However, it is safe under `torchrun` / DDP because each rank is a separate process with its own class variable.
 
-3. **Not thread-safe (but process-safe):** The `MSDComputeContext` uses a class-level singleton pattern (`_active`). This would break under concurrent forward passes within a single process (e.g., `nn.DataParallel`). However, it is safe under `torchrun` / DDP because each rank is a separate process with its own class variable.
+3. **Memory for large models:** The MSD path creates a `(N, out, nb, bs)` tensor for per-element truncation. This is now **output-chunked** with a configurable target (`msd_chunk_target_mib`, default 512 MiB). The actual peak memory per chunk is roughly 3x this value due to multiple coexisting intermediates. Reduce `msd_chunk_target_mib` in config.json if encountering OOM on smaller GPUs.
 
-4. **Memory for large models:** The MSD path creates a `(N, out, nb, bs)` tensor for per-element truncation. This is now **output-chunked** with a configurable target (`msd_chunk_target_mib`, default 512 MiB). The actual peak memory per chunk is roughly 3x this value due to multiple coexisting intermediates. Reduce `msd_chunk_target_mib` in config.json if encountering OOM on smaller GPUs.
+4. **MLP-only scope:** The simulation covers the `gate_proj → SiLU → ×up_proj → down_proj` pattern. Other operations (LayerNorm, residual adds, softmax) use standard precision.
 
-5. **MLP-only scope:** The simulation covers the `gate_proj → SiLU → ×up_proj → down_proj` pattern. Other operations (LayerNorm, residual adds, softmax) use standard precision.
+5. **NAF as BSD reference:** The BSD truncation simulation uses Non-Adjacent Form (NAF) — the canonical minimum-weight BSD encoding. The actual hardware digit stream during online arithmetic may differ from NAF due to computation order and intermediate residuals. NAF gives a deterministic, reproducible, and mathematically well-defined truncation model that captures the key BSD property (carry absorption and MSD position shift).
 
-6. **NAF as BSD reference:** The BSD truncation simulation uses Non-Adjacent Form (NAF) — the canonical minimum-weight BSD encoding. The actual hardware digit stream during online arithmetic may differ from NAF due to computation order and intermediate residuals. NAF gives a deterministic, reproducible, and mathematically well-defined truncation model that captures the key BSD property (carry absorption and MSD position shift).
-
-7. **Combined-scale budget memory:** The `_resolve_channel_budgets` method creates a `(N, out, nb)` intermediate tensor for computing per-(sample, output-channel) combined log2 scales. For PPL evaluation (N=4096, out=3072, nb=32) this is ~1.5 GB; acceptable but worth noting for very large batch sizes.
+6. **Combined-scale budget memory:** The `_resolve_channel_budgets` method creates a `(N, out, nb)` intermediate tensor for computing per-(sample, output-channel) combined log2 scales. For PPL evaluation (N=4096, out=3072, nb=32) this is ~1.5 GB; acceptable but worth noting for very large batch sizes.
 
 ---
 

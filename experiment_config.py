@@ -40,9 +40,13 @@ MXFP_MSD_FIELDS: list[str] = [
     "msd_budget_dynamic_threshold",
     "msd_budget_dynamic_mode",
     "msd_deep_pipeline",
-    "msd_pipeline_precision_loss",
     "msd_calibration_data",
     "msd_chunk_target_mib",
+    # Deep pipeline PWL SiLU
+    "msd_silu_num_segments",
+    "msd_silu_pwl_mac_delay",
+    "msd_silu_mul_delay",
+    "msd_pipeline_gate_mul_delay",
 ]
 
 # ── Baseline config: everything off, all fields at their Qwen3Config defaults
@@ -62,9 +66,12 @@ BASELINE_CONFIG: dict = {
     "msd_budget_dynamic_threshold": 0.0,
     "msd_budget_dynamic_mode": "linear",
     "msd_deep_pipeline": False,
-    "msd_pipeline_precision_loss": 2,
     "msd_calibration_data": None,
     "msd_chunk_target_mib": 1536,
+    "msd_silu_num_segments": 8,
+    "msd_silu_pwl_mac_delay": 3,
+    "msd_silu_mul_delay": 2,
+    "msd_pipeline_gate_mul_delay": 2,
 }
 
 
