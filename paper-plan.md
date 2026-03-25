@@ -1,25 +1,303 @@
-This work studies a **CIM-oriented accelerator for the FFN layer of large language models**. The main goal is to reduce FFN computation without relying on conventional structured sparsification, which often hurts LLM accuracy and interacts poorly with low-precision MX-style quantization. Our approach therefore treats **MSD-first digit-pipelined online arithmetic with BSD inner representation** as an execution mechanism inside a CIM macro, rather than as the sole identity of the work. In other words, this is presented as a **CIM paper that uses online arithmetic to make calibrated compute truncation practical**, not as an online-arithmetic paper detached from CIM concerns.
+# Revised paper plan
 
-The key motivation is that many existing low-cost inference flows effectively perform **quantization first and sparsification second**, even though the two operations are not cleanly orthogonal in LLM FFNs. Our central idea is to avoid that loose sequential treatment. Instead, we use **projection-checkpoint truncation with calibrated per-channel budgets** so that the amount of digit work is decided by distortion-aware calibration and realized by bounded local counters during execution. In this view, fine-grained compute reduction is not realized as irregular skipping of weights or activations, but as a **regular checkpoint stop schedule** that remains compatible with CIM organization.
+## 0. Paper position
 
-The current version of the work intentionally separates **two parallel contribution lines**. The first line is **checkpoint-based truncation**. After experiments, we find that truncation is best placed at **projection checkpoints**, because this gives the best balance among model quality, hardware latency, and control cost. The second line is **FFN-deep pipelining with pipelined scatter**. Even when truncation is resolved at checkpoints, the FFN is still executed as one producer-consumer streamline so that timing continuity is preserved across `gate_proj`, `up_proj`, `SiLU`, gating, the stage-1-to-stage-2 scatter boundary, and `down_proj`. The new scatter step is important: once a gated intermediate channel finishes, it can be issued immediately toward the destination `down_proj` shard that owns the corresponding output channels, instead of waiting for the whole intermediate slice to complete. These two lines address different problems: checkpoint truncation determines **how much computation is performed**, while deep pipelining plus scatter determines **how that computation is transported, overlapped, and localized**.
+This should remain a **CIM paper about the FFN layer of LLMs**, not an online-arithmetic paper in disguise.
 
-The simulator already supports this interpretation on top of a modified Qwen3-0.6B stack. It implements **MXFP block quantization** (block size 32), uniform and calibrated cycle budgeting, inter-block and intra-channel delay modeling, pipelined scatter timing, and hardware-facing performance tracing. The same MSD truncation primitive is reused by both calibration and inference, which keeps the optimization target consistent with the distortion model seen at runtime. In deep-pipeline mode, the simulator carries a float-valued numeric carrier together with timing metadata such as the **first valid MSD arrival**, so FFN-wide transaction-level timing can be modeled without the cost of a full persistent BSD-stream simulation across the entire model. This remains important because it keeps full-model perplexity evaluation and hardware trace extraction practical at LLM scale.
+The paper's central thesis is now:
 
-Under this formulation, the FFN is modeled as a **producer-consumer dataflow with an explicit scatter boundary**. `gate_proj` and `up_proj` act as producer stages, the nonlinear and gating operations are explicit in-pipeline stages, the gated intermediate stream is then **scatter-issued** to the destination `down_proj` shard, and `down_proj` is treated as a consumer stage that receives both the numeric value and its carried timing metadata. This lets the simulator model alignment delay, stage latency, scatter overlap, and arrival skew explicitly, while still staying scalable enough for real LLM inference. The nonlinear part is represented by an **8-segment PWL SiLU block**, and timing is propagated across the whole FFN rather than reset independently at every local operator or at the slice boundary.
+> Fine-grained FFN compute reduction can be made CIM-compatible by using checkpoint-based MSD truncation as a bounded stop schedule, while an FFN-deep BSD-stream pipeline with pipelined scatter preserves timing continuity, overlaps communication with late producer completion, and keeps `down_proj` reduction local.
 
-Algorithmically, the budget system is now intentionally simpler. A **uniform budget** is the simplest baseline. **SNR-calibrated budgets** solve for the minimum per-channel cycle allocation that satisfies a target distortion bound. **Fixed-sum calibration** starts from the SNR-min solution and redistributes cycles across channels to reduce total layer error while preserving exactly the same total hardware budget. In this iteration, all runtime **dynamic budget deltas are removed**; the budgets used by the hardware are the calibrated static budgets stored with the macro.
+The updated simulator strengthens this thesis because it now tracks **exact BSD streams** rather than an abstract float carrier with timing metadata.
 
-With this setup, the main comparison group is now well defined: **dense MX baseline, Wanda 2:4 baseline, uniform-budget MSD, SNR-calibrated budget, and fixed-sum calibrated budget**. Optional activation-only and weight-only calibration heuristics can still be added to isolate the benefit of using **combined activation+weight statistics** rather than only one side when assigning budgets. This comparison set keeps the story focused. The claim is not that every sparsity method is bad, but that **checkpoint truncation inside an FFN pipeline is a more CIM-compatible way to reduce work than traditional structured sparsification at similar quality targets**.
+## 1. The three claims the paper must prove
 
-At the hardware level, the concrete demonstration target is a **32-channel FFN streamline macro**. This macro is described in CIM language: standard online-arithmetic cells form the compute substrate, but the architectural contribution lies in how a CIM-style macro organizes calibrated stop schedules together with a deep FFN pipeline and a pipelined scatter boundary. The macro contains small alignment FIFOs, an 8-segment PWL SiLU block, producer stages for the FFN input projections, a **pipeline scatter/reduce-scatter interface** between the gated intermediate stream and `down_proj`, and a local consumer tile for the owned `down_proj` channels. Early termination is therefore implemented as a **static calibrated counter-based stop decision**, not as a runtime dynamic-budget predictor. This is the hardware interpretation of fine-grained compute reduction: it becomes a regular scheduling problem instead of an irregular skip-control problem.
+Every section should support one of only three claims.
 
-The scale-up story is also clarified by this description. One 32-channel streamline macro is the **detailed design unit**. A full FFN layer is supported by replicating the macro across the large intermediate dimension and across the ownership groups of `down_proj` output channels in a tensor-parallel CIM style. The gated intermediate result of each owner lane is **scatter-issued as soon as it becomes ready**, so stage-1 completion, inter-slice communication, and stage-2 local reduction overlap naturally. Because each `down_proj` shard owns its local outputs, the addition tree remains local after the scatter boundary, which ties the deep-pipeline story directly to tile design and scaling.
+### Claim 1: Calibrated checkpoint truncation improves the quality / compute frontier
 
-The current simulation results are still preliminary, but they already point to the right direction. SNR-based calibration can keep perplexity nearly lossless at about **30% utilization**, and fixed-sum calibration improves quality further. At the same time, near-lossless operating points show only about **1% zero blocks**, which suggests that the main benefit is not simply shutting down whole blocks. The larger effect comes from reducing **active digit work and active cycles** inside partially useful computation while overlapping transport across the scatter boundary. This is an important signal for future refinement, because it means the hardware story should emphasize **cheap static cycle control, pipelined scatter, and bounded stop scheduling**, not coarse block gating or dynamic delta logic.
+At similar quality targets, calibrated static budgets should outperform:
 
-Taken together, the current work should be understood as a **CIM-oriented FFN accelerator study** in which **MX quantization and calibrated compute reduction are fused through checkpoint-based MSD truncation**, while an **FFN-deep producer-consumer pipeline with pipelined scatter** preserves timing continuity, localizes reduction, and reduces conversion overhead. The algorithmic side decides where limited cycle budget should be spent, the hardware side shows how a regular 32-channel macro can realize that policy, and the simulation side connects perplexity to hardware-facing traces. This version is intentionally stable: later improvements can refine the circuit details, energy model, and calibration policy without changing the core claim of the project.
+- uniform cycle budgets
+- post-quantization structured sparsity such as Wanda 2:4 after MXFP8
 
-A compact sentence you can keep reusing is:
+The point is not that every sparsity method fails. The point is that checkpoint truncation is a more natural compute-reduction primitive for a CIM-organized FFN pipeline.
 
-> We present a CIM-oriented FFN macro that uses checkpoint-based MSD-first truncation and an FFN-deep producer-consumer pipeline with pipelined scatter to turn fine-grained compute reduction into a bounded, calibrated stop schedule.
+### Claim 2: Pipelined scatter converts staggered completion into latency benefit
+
+Different owner lanes finish at different cycles. The paper must show that the design does not reintroduce a barrier at the stage-1 / stage-2 boundary. Instead, ready BSD streams are scatter-issued immediately, and local `down_proj` consumers start work early.
+
+### Claim 3: The hardware mechanism is cheap and regular
+
+Runtime support should reduce to:
+
+- local SRAM-stored budgets
+- short down-counters
+- shallow FIFOs
+- local routing and local reduction
+
+This claim is what makes the work appropriate for ICCAD and CIM, rather than only an algorithm paper with a hardware sketch.
+
+## 2. Major updates that should be explicit in this revision
+
+### 2.1 Exact BSD-stream simulator
+
+Replace the old simulator description everywhere.
+
+Old framing to remove:
+
+- float-valued carrier plus timing metadata as the primary FFN-wide abstraction
+
+New framing to use:
+
+- exact BSD-stream tracking across `gate_proj`, `up_proj`, PWL SiLU, gating, scatter, and `down_proj`
+- ready times and overlap metrics derived from the actual stream
+- quality and hardware-facing traces produced by the same execution primitive
+
+This should appear in the method section, the simulator section, and the paper contribution summary.
+
+### 2.2 Two orthogonal contribution lines
+
+Keep the architecture split clean:
+
+1. checkpoint-based truncation decides **how much** digit work executes
+2. FFN-deep pipeline plus scatter decides **how** that work is transported, overlapped, and localized
+
+Do not let the paper drift back to a single merged mechanism.
+
+### 2.3 No runtime dynamic-budget predictor
+
+Be explicit that this version removes:
+
+- runtime budget deltas
+- combined-scale LUT in the runtime control path
+- dynamic add path for budget adjustment
+
+This simplification is a feature, not a weakness, because it sharpens the hardware claim.
+
+## 3. Paper structure
+
+A good section order is:
+
+### 3.1 Introduction
+
+Need to establish:
+
+- FFN dominates compute and is difficult to sparsify cleanly under low-precision MX-style quantization
+- quantization-first then sparsification-second is not a clean decomposition in LLM FFNs
+- the paper instead uses checkpoint-based truncation realized through exact MSD/BSD execution inside a CIM macro
+- pipelined scatter is the mechanism that turns staggered completion into overlap and local reduction
+
+The introduction should preview the three claims explicitly.
+
+### 3.2 Background and problem formulation
+
+Cover:
+
+- MX block quantization and BSD / online-arithmetic execution
+- why structured sparsity interacts awkwardly with quantized FFNs
+- why projection checkpoints are the right truncation locations
+- why the stage-1 to stage-2 slice boundary matters for latency and scale-up
+
+### 3.3 Algorithm: calibrated checkpoint budgets
+
+Describe:
+
+- uniform budget baseline
+- SNR-calibrated budgets
+- fixed-sum calibrated redistribution
+- optional activation-only and weight-only heuristics as ablations
+
+This section should emphasize that runtime execution uses the precomputed static budgets.
+
+### 3.4 Architecture: FFN macro with pipelined scatter
+
+This is the core hardware section.
+
+Need to show:
+
+- 32-channel detailed macro as the design unit
+- stage-1 owner lanes for `gate_proj` and `up_proj`
+- PWL SiLU, align, and gating multiply
+- explicit scatter / reduce-scatter boundary
+- local stage-2 `down_proj` consumer bank
+- counter-based ET with SRAM-loaded budgets
+- local ownership and scale-up across larger FFN dimensions
+
+### 3.5 Exact BSD-stream simulator and trace methodology
+
+This section should now be stronger and shorter than before because the modeling choice is cleaner.
+
+Need to explain:
+
+- exact BSD-stream propagation across the FFN
+- how ready times, skew, scatter events, FIFO occupancy, and local reduction are measured
+- what remains modeled at the event or hardware-estimation level
+- a small validation check for scheduler / buffering fidelity
+
+### 3.6 Results
+
+Organize results in this order:
+
+1. calibration predictiveness and smoothness
+2. static-budget robustness
+3. perplexity frontiers against baselines
+4. scatter / overlap / latency evidence
+5. net hardware activity and overhead
+
+This ordering makes the logic progressive: first justify the budgets, then show quality, then show why the hardware benefits are real.
+
+### 3.7 Discussion and limits
+
+Use this section to clarify:
+
+- why near-lossless points with about 1 percent zero blocks imply the main benefit is not coarse block gating
+- why stage-2 ET may be optional in the mainline design
+- what later work could refine without changing the core claim
+
+## 4. Required experiment package for the main body
+
+The main paper should include the following experiments in the core results section.
+
+### 4.1 Calibration package
+
+Required:
+
+- average budget versus target SNR
+- signal-power predictiveness
+- timing-side predictiveness for scatter-window formation
+- static-budget robustness across splits and calibration-set size
+
+### 4.2 Quality frontiers
+
+Required baselines:
+
+- dense MX baseline
+- Wanda 2:4 after MXFP8
+- uniform-budget MSD
+- SNR-calibrated budget
+- fixed-sum calibrated budget
+
+Recommended ablation:
+
+- activation-only versus weight-only versus combined assignment signal
+
+### 4.3 Scatter and latency package
+
+Required metrics:
+
+- ready-time skew
+- stage-1 completion histogram
+- scatter issue histogram
+- FIFO occupancy
+- consumer early-start fraction
+- overlap ratio
+- barrier-free latency reduction
+
+### 4.4 Net-overhead package
+
+Required table:
+
+- stage-1 and stage-2 MAC activity
+- SRAM reads
+- SiLU activity
+- FIFO and route-control overhead
+- ET counter and metadata storage
+- net latency / energy improvement
+
+### 4.5 Small design-space sanity check
+
+Include at least one small sweep over:
+
+- tile shape
+- FIFO depth
+- or shard count
+
+The goal is just to show that the chosen macro point is reasonable and not hiding a bottleneck.
+
+## 5. Main figures and tables
+
+A compact main-body package could be:
+
+- **Figure 1:** FFN macro overview with explicit scatter boundary
+- **Figure 2:** ET controller and timing example with exact BSD streams
+- **Figure 3:** calibration smoothness, predictiveness, and robustness
+- **Figure 4:** perplexity versus compute frontiers across baselines
+- **Figure 5:** scatter / overlap / latency evidence
+- **Table 1:** hardware overhead and metadata summary
+- **Table 2:** near-lossless operating-point comparison
+
+Appendix candidates:
+
+- activation-only and weight-only details
+- per-layer breakdowns
+- additional tile-shape and FIFO-depth sensitivity
+
+## 6. Reviewer questions to pre-answer in the writing
+
+### Q1. Why is this a CIM paper rather than an online-arithmetic paper?
+
+Answer in the intro and hardware section:
+
+- the paper is about a CIM-style FFN macro
+- the contribution is the organization of stop schedules, local routing, local reduction, and scatter overlap
+- online arithmetic is the execution substrate that makes calibrated truncation practical
+
+### Q2. Are the static budgets robust, or are they overfit to calibration data?
+
+Answer with the robustness experiment:
+
+- held-out evaluation split
+- calibration-set-size sweep
+- report both quality and trace stability
+
+### Q3. Is scatter a real latency mechanism or only a diagramming choice?
+
+Answer with the overlap metrics:
+
+- consumer early-start fraction
+- overlap ratio
+- barrier-free latency reduction
+- representative FIFO and issue traces
+
+### Q4. Is the hardware overhead small after buffering and control are counted?
+
+Answer with the net-overhead table:
+
+- include FIFO, control, and metadata storage explicitly
+- avoid reporting only skipped MACs
+
+### Q5. Could the gains come from any nonuniform budget heuristic?
+
+Answer with the assignment-signal ablation:
+
+- activation-only
+- weight-only
+- combined signal
+- fixed-sum redistribution
+
+## 7. Writing guardrails
+
+To keep the paper focused, avoid the following mistakes.
+
+- Do not present the work as a general online-arithmetic paper detached from CIM macro design.
+- Do not merge scatter and ET into one vague mechanism.
+- Do not emphasize structured sparsity as a straw man; keep the comparison fair and specific.
+- Do not spend too much space on optional stage-2 ET unless it materially changes the frontier.
+- Do not leave the simulator description in its old float-carrier form.
+- Do not claim savings only in terms of skipped blocks, because the current evidence suggests the main effect is reduced active digit work.
+
+## 8. Compact abstract-level message
+
+A reusable compact sentence for the abstract, intro, and conclusion is:
+
+> We present a CIM-oriented FFN macro that uses checkpoint-based MSD truncation to realize calibrated static stop schedules, and an FFN-deep BSD-stream pipeline with pipelined scatter to overlap communication with staggered producer completion while keeping `down_proj` reduction local.
+
+## 9. End-state the paper should reach
+
+After revision, a reviewer should be able to summarize the paper in one line:
+
+- calibration decides where limited cycle budget should go
+- the exact BSD-stream macro shows how that policy executes in hardware
+- scatter converts staggered completion into measurable latency benefit
+- the added runtime mechanism is simple enough to be believable in a CIM setting
