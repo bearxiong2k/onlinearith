@@ -114,26 +114,7 @@ Collect:
 
 The main message is that pipelined scatter spreads communication over a multi-cycle window instead of creating a full-vector barriered burst.
 
-### 4.4 Exponent/control lead-time metrics
-
-Because exponent/control can arrive earlier, measure:
-- lead time between exponent/control arrival and mantissa-window completion
-- fraction of local delay-resolution or shift-selection work completed before mantissa accumulation begins
-- consumer-side setup latency hidden by early exponent/control transport
-
-These are the main consumer-overlap metrics for the current design.
-
-### 4.5 `down_proj` local-consumer metrics
-
-Report:
-- local multiplier utilization
-- local accumulator / addition-tree utilization
-- mantissa accumulation start cycle and finish cycle under the chosen simple consumer policy
-- optional comparison against a more aggressive speculative partial-start policy, only as a side experiment if desired
-
-The current mainline result should not rely on a complex speculative `down_proj` schedule.
-
-### 4.6 Compute reduction and net overhead
+### 4.4 Compute reduction and net overhead
 
 Report both savings and cost.
 
@@ -185,12 +166,6 @@ The final accounting should be net, not just “skipped work.”
 - route metadata
 - exponent/control traffic
 - local setup logic
-
-### Table 2 — Macro-level utilization summary
-- MAC utilization
-- local consumer utilization
-- scatter occupancy statistics
-- total FFN latency
 
 ## 6. One-sentence summary for the evaluation section
 
