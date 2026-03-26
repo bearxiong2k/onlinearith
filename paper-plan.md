@@ -4,10 +4,6 @@
 
 This is a **CIM paper about the FFN layer of LLMs**. Online arithmetic is the execution mechanism that makes the design practical, but it is not the paper’s standalone identity. The paper should read as a CIM-oriented accelerator study that uses MSD-first BSD execution to realize calibrated compute reduction with a hardware-friendly schedule.
 
-The central problem statement is:
-- conventional structured sparsification interacts poorly with low-precision MX-style FFN inference
-- the useful compute reduction opportunity is often not whole-block elimination
-- a better fit for CIM is to reduce **active digit work** through calibrated checkpoint truncation and to transport the remaining work through a regular FFN pipeline
 
 ## 2. Core technical idea
 
