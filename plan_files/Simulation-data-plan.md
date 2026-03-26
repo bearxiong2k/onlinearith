@@ -10,7 +10,7 @@ The simulator should reflect the current execution model directly.
 - Enforce the current timing rule: after within-lane alignment, all owner lanes produce their **first valid mantissa MSD on the same cycle**.
 - Let calibrated budgets determine the **stream tail length** of each channel.
 - Carry a separate **exponent/control stream** that can be issued no later than the mantissa stream and may arrive earlier.
-- Include scatter arbitration, FIFO occupancy, and backpressure so that source timing remains deterministic while destination arrival still reflects network contention.
+- Include data transfer simulation in the full architecture scaled up to full FFN, to show advantage of MSD pipeline over current CIM using bf16 or fp32 for intermediate data. 
 - Model `down_proj` as a local consumer stage that can use early exponent/control arrival for delay resolution and setup, while keeping mantissa-side reduction on the simpler local policy.
 
 ## 2. Calibration and robustness results
@@ -106,13 +106,11 @@ These plots should make the same-start / decaying-tail behavior obvious.
 
 Collect:
 - issue-time histogram for mantissa flits
-- issue-time histogram for exponent/control packets
 - per-destination FIFO occupancy
-- backpressure cycles
 - scatter completion time for each layer
-- effective bandwidth requirement under pipelined scatter
+- effective bandwidth requirement compared with bf16, fp32
 
-The main message is that pipelined scatter spreads communication over a multi-cycle window instead of creating a full-vector barriered burst.
+The main message is that MSD pipelined scatter first involve less data and spreads communication over a multi-cycle window instead of creating a full-vector barriered burst.
 
 ### 4.4 Compute reduction and net overhead
 
