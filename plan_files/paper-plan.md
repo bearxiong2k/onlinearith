@@ -1,12 +1,22 @@
 # paper plan
 
-Title: Significance-Guided Useful-Window Scheduling for a CIM-Macro-Based Weight-Stationary LLM FFN Accelerator
+Title: Temporal Significance Scheduling for low-cost CIM LLM FFN Inference
 
-This work studies a **CIM accelerator for the FFN layers of large language models**. The paper should be framed around **one integrated thesis**: sequentially composing low-precision quantization and sparsification is a poor abstraction for FFN acceleration, especially for regular CIM organizations; instead, the cheap metadata already produced by MX quantization should be converted directly into a **temporal execution schedule**. We therefore use MX scale metadata, element exponent and offline-calibrated budgets to decide **when each contribution becomes useful and how long it should keep running**. The resulting **useful execution windows** are then realized in a regular CIM-friendly online-arithmetic pipeline.
+This work studies a **CIM accelerator for the FFN layers of large language models**.
 
-Many low-cost inference flows effectively adopt a **quantization-first, sparsification-second** recipe. Existing studies and our own planned validation suggest that quantization and sparsification are not cleanly orthogonal in LLM FFNs, and that loose sequential treatment can incur extra quality loss—especially when quantization is applied before structured sparsification. That flow remains attractive in CIM-oriented designs because conventional dynamic sparsity maps poorly to regular macros. Our goal is to replace post-quantization irregular skipping with a **hardware-executable significance schedule**.
+Existing CIM-oriented low-cost FFN inference is often expressed through sparsity masks or peak-sparsity claims that are either loosely defined algorithmically or difficult to execute on regular arrays. We argue that, for MX-quantized LLM FFNs, the better abstraction is not post-quantization sparsification but **temporal significance scheduling:** MX scales, element exponents, and calibrated budgets are converted directly into useful execution windows, yielding a regular hardware-executable schedule with better quality/work tradeoff.
 
-Under this view, dynamic fine-grained sparsity is expressed as **Significance-Guided Useful-Window scheduling**. The method uses the same quantization metadata that is already available in MX inference, but interprets it as **temporal significance metadata**. MX block scales provide coarse timing information, per-element exponent provide fine timing information, and the online arithmetic pipeline contributes a fixed path delay. Offline calibration resolves how much cycle budget should be spent, while online scheduling resolves where that budget should be spent in time.
+**Temporal Significance Scheduling** consists of two parts. The first **online** part is a **hierarchical arrival time offset**, which is resolved from MX block scale factor and element exponent from activation and weight combined.The second **offline** part is a **execution window** based on calibration on activation and weight combined.
+
+To realize this **Temporal Significance Scheduling** effectively, we implement online arithmetic in CIM which offer a MSD-first digit-pipelined stream. The MSD-first digit stream based on BSD intermediate representation enabled a stable pipeline through sequential operations, which is the proper object for the **execution window**. Also the temporal alignment from **hierarchical arrival time offset** can be correctly kept through the layers due to stable online delay.
+
+With a **channel-parallel, block-serial** microarchitecture, we realize **temporal significance scheduling** as three level savings in hardware:
+
+- **whole-block skip** when all elements in a block are out of **execution window**
+- **element skip** when a specific element is out of **execution window**
+- **partial-window execution** when part of the element is out of **execution window**
+
+All owner lanes / channels remain aligned at the tile level, but block computation is **reused over time** instead of being fully spatially unrolled. This preserves the algorithmic behavior while fitting CIM resource constraints.
 
 For each MLP linear layer
 
@@ -31,7 +41,7 @@ E_i = \left\lfloor \log_2(\mathrm{scale}_x[n,b] \cdot \mathrm{scale}_w[j,b]) \ri
 These terms are then converted into the hardware-facing form
 
 \[
-t_{\mathrm{arr}} = d_{\mathrm{inter}} + d_{\mathrm{intra}} + d_{\mathrm{online}},
+t_{\mathrm{arr}} = d_{\mathrm{inter}} + d_{\mathrm{intra}},
 \qquad
 L = \max(0, B - t_{\mathrm{arr}}),
 \]
@@ -39,69 +49,38 @@ L = \max(0, B - t_{\mathrm{arr}}),
 and the actual executable object is the **useful execution window**
 
 \[
-W = [t_{\mathrm{arr}},\; t_{\mathrm{arr}} + L).
+W = (t_{\mathrm{arr}},\; t_{\mathrm{arr}} + L).
 \]
 
 With this formulation, the three hardware savings modes become one unified concept:
 
 - **whole-block skip** when all elements in a block have `L = 0`
 - **element skip** when a specific element has `L = 0`
-- **partial-window execution** when `0 < L < L_full`
+- **partial-window execution** when `0 < L < B`
 
-The hardware should therefore be described as a **channel-parallel, block-serial** FFN microarchitecture. All owner lanes / channels remain aligned at the tile level, but block computation is **reused over time** instead of being fully spatially unrolled. This preserves the algorithmic behavior while fitting CIM resource constraints. In other words, **serial block execution is the chosen realization, not the paper’s top-level idea**. The top-level idea is still temporal significance scheduling through useful execution windows.
-
-At the hardware level, the cleanest implementation remains a **two-plane micro-tile**:
+At the hardware level, targeting at LLM FFN, the cleanest implementation remains a **two-plane micro-tile**:
 
 - a **control plane** that computes useful windows one block ahead from budgets, scale metadata, and digit-arrival offsets
 - a **data plane** that executes only those windows with block-local serial engines, then exposes a real scatter boundary between stage-1 production and local `down_proj` consumption
 
-Under this organization, `gate_proj` and `up_proj` act as stage-1 producer paths, the nonlinear and gating operations are explicit in-pipeline stages, and `down_proj` is a stage-2 consumer that receives both the intermediate value and its timing/control context. The nonlinear part is represented by an **8-segment PWL SiLU block** that also supports MSD-first online arithmetic. The projection weights remain locally stored. Stage-1 dot products use serial-parallel online arithmetic, while gate fusion uses serial-serial online multiplication.
+Under this organization, `gate_proj` and `up_proj` act as stage-1 producer paths, the nonlinear and gating operations are explicit in-pipeline stages, and `down_proj` is a stage-2 consumer that receives both the intermediate value and its timing/control context. The nonlinear part is represented by an **8-segment PWL SiLU block** that also supports MSD-first online arithmetic. The projection weights remain locally stored. Stage-1 dot products use serial-parallel online arithmetic, while gate fusion uses serial-serial online multiplication. In this way, representation conversion only occur on boundary of FFN layer, reducing overhead introduced by online arithmetic.
 
-This framing also clarifies the streaming story. The FFN should be presented as a **producer-consumer dataflow**, not as three disconnected kernels. Useful-window scheduling reduces the number of digits that are actually generated, while the intermediate representation stays in a **BSD mantissa stream plus a narrow exponent/control stream**. This can help the transport story in two ways: it can reduce the amount of useful intermediate traffic, and it can turn the FFN middle into a **multi-cycle scatter workload** rather than a dense vector burst. That said, the transport claim should be stated carefully: the paper should claim **net** communication benefit only after control, FIFO, metadata, and setup overhead are counted explicitly.
+This framing also clarifies the streaming story. The FFN should be presented as a **producer-consumer dataflow**, not as three disconnected kernels. Window scheduling reduces the number of digits that are actually generated, while the intermediate representation stays in a **BSD mantissa stream plus a narrow exponent/control stream**.
 
 The simulator already supports this interpretation on top of a modified **Qwen3-0.6B** stack. It implements **MXFP block quantization** (block size 32), uniform and calibrated cycle budgeting derived from combined activation and weight scales, inter-block and intra-block delay modeling, stream/scatter tracing, and full-model perplexity evaluation. This is important because the paper’s empirical story is not only about numerical quality; it is also about whether the temporal schedule maps to a believable hardware trace.
 
-Algorithmically, the budget system remains hierarchical. A **uniform budget** is the simplest control baseline. **SNR-calibrated budgets** solve for the minimum per-channel allocation that satisfies a target distortion bound. **Fixed-sum calibration** starts from the SNR-min solution and redistributes cycles across channels to reduce total layer error while preserving exactly the same total hardware budget.
+Algorithmically, the budget system remains hierarchical. A **uniform budget** is the simplest control baseline which adopt uniform window. **SNR-calibrated budgets** solve for the minimum per-channel allocation that satisfies a target distortion bound. **Fixed-sum calibration** starts from the SNR-min solution and redistributes cycles across channels to reduce total layer error while preserving exactly the same total hardware budget.
 
 The comparison group should now be defined directly from the motivation. The key baselines are:
 
-- **dense MX baseline**
-- **post-MX structured sparsity baseline** (the concrete paper baseline can still be Wanda 2:4)
-- **ordering control** when possible: sparsify-then-quantize versus quantize-then-sparsify
-- **uniform useful-window budget**
-- **SNR-calibrated useful-window budget**
-- **fixed-sum calibrated useful-window budget**
+- dense MX baseline
+- CIM-style activation-gated baseline
+- strong offline structured 2:4 baseline
+- your uniform / SNR / fixed-sum useful-window methods
 
-The claim is that, for CIM-friendly FFN execution, **significance-guided useful-window scheduling is a more accurate and more regular alternative to sequential quantization+sparsification at similar work budgets**.
+So the paper says:
 
-The paper should read as **one line with two layers**:
+- practice-relevant baseline: we beat the kind of low-cost sparsity mechanisms CIM papers actually use
+- strong algorithmic baseline: we remain competitive against a much stronger structured baseline
 
-- the **algorithmic layer** resolves temporal significance into useful execution windows
-- the **architectural layer** realizes those windows through a channel-parallel, block-serial FFN pipeline
-
-The algorithm decides **how much work is worth doing** and **when**; the architecture decides **how that work is executed and transported** without breaking regular CIM structure.
-
-Taken together, the work should be understood as a **CIM FFN accelerator study** in which **MX quantization, dynamic compute reduction, and intermediate transport are fused through temporal significance scheduling**.
-
-## Contribution framing
-
-Our contributions are threefold.
-
-1. Formulation contribution.
-We formulate significance-guided useful-window scheduling for MX-quantized FFNs, converting block-scale metadata, element-wise exponent, and calibrated per-channel budgets into arrival times and useful execution windows. This unifies whole-block skip, element skip, and partial-window execution under one hardware-executable temporal formulation.
-
-1. Architecture contribution.
-We design a two-plane CIM micro-tile that realizes useful-window scheduling on LLM FFN with one-block-ahead control and a channel-parallel, block-serial data plane. The design turns useful windows into local enable control, preserves regular weight-stationary execution, and exposes a smoothed multi-cycle workload scatter boundary.
-
-1. Evidence contribution.
-We show, on an end-to-end LLM FFN evaluation flow, that useful-window scheduling gives a better quality/work tradeoff than post-MX structured sparsity and naive uniform budgeting at matched work, recovers dense MX at full budget, and remains beneficial after storage, control, scatter, and setup overhead are counted.
-
-## Writing guidance for the main paper
-
-The motivation and validation figures should reflect this framing directly.
-
-- **Figure 1** should contrast sequential quantization+sparsification with temporal significance scheduling via useful windows.
-- **Figure 4** should explicitly validate the original premise through an ordering ablation and a full-budget sanity check.
-- The hardware overview should describe the design as **channel-parallel, block-serial**, while using **useful-window scheduling** as the algorithmic headline.
-
-If this framing is kept consistent, the paper reads as one coherent story rather than a truncation paper plus a separate pipeline paper.
+The claim is that, for CIM FFN acceleration, **the problem is not how to append a sparsification step after quantization; the problem is that sparsity masks are the wrong abstraction. We instead convert existing MX metadata into temporal significance scheduling that CIM hardware can execute through online arithmetic.**.
