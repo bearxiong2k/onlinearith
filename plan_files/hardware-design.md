@@ -1,7 +1,7 @@
 # Two-plane micro-tile for channel-parallel, block-serial useful-window execution
 
 - a **control plane** that resolves temporal significance metadata into **useful execution windows** one block ahead
-- a **data plane** that realizes those windows with **channel-parallel, block-serial** engines, then exposes a **control-first scatter boundary** between gating and `down_proj`
+- a **data plane** that realizes those windows with **channel-parallel, block-serial** engines, then exposes a **smoothed multi-cycle workload scatter boundary** between gating and `down_proj`
 
 This wording should stay consistent with the paper-level story:
 
@@ -31,7 +31,7 @@ A good paper-facing block diagram is:
 
 ```text
 ACT_BUF[2]
-  -> MX decode / BSD recode / leading-digit detect
+  -> MX decode / BSD recode / Delay scheduler
   -> shared activation load bus
   -> H x owner-lane pair
        -> UW_SCHED (shadow + active useful-window config)
@@ -41,7 +41,7 @@ ACT_BUF[2]
        -> up-path align FIFO
        -> serial-serial gate multiplier
        -> lane align FIFO + stream FIFO + header generator
-  -> control-first scatter boundary
+  -> multi-cycle workload scatter boundary
        -> CTRL_MCAST (narrow exponent/control multicast)
        -> DATA_ARB + DIGIT_MCAST + per-shard ingress FIFOs
   -> S x local down_proj shard
@@ -62,7 +62,7 @@ channel_acc[k+1] = OLA(channel_acc[k], sb[k])
 
 That is the right RTL story.
 
-Second, the **scatter boundary is a real streaming interface**, not a full-vector barrier. Control and mantissa are separated there on purpose.
+Second, the **scatter boundary is a real streaming interface**, not a full-vector barrier.
 
 ## 2. Temporal significance metadata and local storage
 
@@ -77,7 +77,7 @@ So the “shared activation bus” is a **decode-once, distribute-once load bus*
 That gives each leaf independent local access to activation digits and makes the paper’s scheduling rule physically meaningful. I would define:
 
 ```text
-t_arr[b][j] = D_b + λx[j] + λw[b][j] + δpath
+t_arr[b][j] = D_b + λx[j] + δpath
 L[b][j]     = min(full_precision_len[b][j], max(0, Bc - t_arr[b][j]))
 W[b][j]     = [t_arr[b][j], t_arr[b][j] + L[b][j])
 ```
@@ -85,8 +85,7 @@ W[b][j]     = [t_arr[b][j], t_arr[b][j] + L[b][j])
 where:
 
 - `D_b` is the block-level arrival delay from inter-block exponent alignment
-- `λx[j]` is the activation leading-digit delay
-- `λw[b][j]` is the stored weight leading-digit delay
+- `λx[j]` is the activation digit-arrival delay
 - `Bc` is the calibrated budget for channel `c`
 - `δpath` is the fixed leaf-to-lane output delay after retiming
 - `W[b][j]` is the **useful execution window** for element `j` in block `b`
@@ -96,7 +95,7 @@ This is the clean hardware form of the paper’s idea: temporal significance met
 I would store:
 
 - in **ET SRAM**: `Bc` per owner channel
-- in **weight metadata SRAM**: block exponent, `λw[b][j]`, and `full_precision_len[b][j]`
+- in **weight metadata SRAM**: block exponent and `full_precision_len[b][j]`
 - in each owner lane: one current and one shadow `win_cfg`
 - in each owner lane: one current activation latch file for the active block, with optional ping-pong if recode latency is nontrivial
 
@@ -292,7 +291,7 @@ T_first,block-serial ≈ Σ_{b=0}^{N-2} W_b + t_first,last_block + δa
 T_done,block-serial  ≈ Σ_{b=0}^{N-1} W_b + O(δa)
 ```
 
-## 5. FFN middle pipeline and control-first scatter interface
+## 5. FFN middle pipeline and multi-cycle workload scatter interface
 
 After channel accumulation, the lane pair performs the FFN middle section locally.
 
@@ -368,22 +367,9 @@ ctrl_hdr = {
 
 I would make `len_hint` optional. The exact stream end can always be signaled by `last` on the final data flit, which is more robust than insisting on a perfect precomputed length.
 
-## 7. Control-first scatter boundary
+## 7. Multi-cycle workload scatter boundary
 
-The scatter boundary has two independent fabrics.
-
-### 7.1 Narrow exponent/control multicast
-
-This is an early, narrow multicast path that carries:
-
-- stream ID
-- channel ID
-- exponent/control metadata
-- route mask
-
-Its job is to reach the `down_proj` shards **before** the first mantissa digit when possible.
-
-### 7.2 Mantissa digit multicast
+### 7.1 Mantissa digit multicast
 
 Mantissa uses a separate time-multiplexed digit network.
 
@@ -418,10 +404,7 @@ Each shard contains:
 - a **setup/context engine**
 - a **P-way SP online multiplier bank**
 - **local row accumulators**
-- an optional **down_proj-side useful-window module** if you later extend temporal significance scheduling into stage 2
 - a **full OTFC** only at egress
-
-The setup/context engine is what makes the control-first scatter claim concrete: exponent and routing metadata can arrive early, prepare local state, and reduce the cost of the later mantissa stream.
 
 ## 9. What is actually turned off
 
@@ -465,7 +448,6 @@ A few design choices make this much more believable than a conceptual datapath.
    The shared bus loads one-block latch files, so useful-window start/stop control is real.
 
 3. **Control and data are physically separated.**  
-   That makes the control-first scatter claim concrete.
 
 4. **Block-serial reuse is explicit.**  
    The same block engine is reused over time, so the realization matches the paper’s channel-parallel, block-serial wording.
@@ -486,7 +468,7 @@ For the paper, I would split the hardware section into four subsections:
 2. **Channel-parallel, block-serial stage-1 execution**  
    32-leaf engines, subtree gating, block-local tree, channel accumulator
 
-3. **FFN middle pipeline and control-first scatter interface**  
+3. **FFN middle pipeline and multi-cycle workload scatter interface**  
    prefix OTFC, PWL SiLU, gate multiplier, lane alignment, header generation, control/data multicast
 
 4. **Local `down_proj` consumer**  
