@@ -104,6 +104,59 @@ def precompute_windows(seq_len: int, max_length: int, stride: int):
     return windows
 
 
+def _load_text_manifest(manifest_path: Path) -> list[str]:
+    """
+    Load evaluation texts from a manifest file.
+
+    Supported formats:
+      - .json   : ["text", ...] or {"texts": [...]} or [{"text": ...}, ...]
+      - .jsonl  : one JSON value/object per line (string or {"text": ...})
+      - others  : plain text split by blank lines (fallback to non-empty lines)
+    """
+    suffix = manifest_path.suffix.lower()
+
+    def _normalize(items):
+        out = []
+        for item in items:
+            if isinstance(item, str):
+                text = item.strip()
+            elif isinstance(item, dict) and isinstance(item.get("text"), str):
+                text = item["text"].strip()
+            else:
+                continue
+            if text:
+                out.append(text)
+        return out
+
+    if suffix == ".json":
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            data = data.get("texts", [])
+        if not isinstance(data, list):
+            raise ValueError(f"JSON manifest must be a list or contain 'texts': {manifest_path}")
+        texts = _normalize(data)
+    elif suffix == ".jsonl":
+        rows = []
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                rows.append(json.loads(line))
+        texts = _normalize(rows)
+    else:
+        raw = manifest_path.read_text(encoding="utf-8")
+        chunks = [c.strip() for c in raw.split("\n\n") if c.strip()]
+        if len(chunks) <= 1:
+            chunks = [c.strip() for c in raw.splitlines() if c.strip()]
+        texts = chunks
+
+    if not texts:
+        raise ValueError(f"No non-empty texts found in manifest: {manifest_path}")
+    return texts
+
+
 def main():
     # ── 0. Parse args & setup selection ──────────────────────────────────────
     parser = argparse.ArgumentParser(
@@ -153,6 +206,9 @@ calibration workflow:
     parser.add_argument("--limit-samples", type=int, default=None, metavar="N",
                         help="Light mode: limit the number of dataset text samples to process "
                              "for a faster evaluation. Keeps all statistic formulas unchanged.")
+    parser.add_argument("--text-manifest", type=str, default=None, metavar="FILE",
+                        help="Optional manifest file with evaluation texts. If set, "
+                            "bypasses dataset loading and uses these texts directly.")
     parser.add_argument("--lite", action="store_true",
                         help="Lite stats mode: collect only utilization, zero-block%%, "
                              "mean p_eff, and max latency per layer.  Skips expensive "
@@ -275,22 +331,45 @@ calibration workflow:
     else:
         results_out = RESULTS_OUT
 
-    # ── 4. Load & encode dataset ─────────────────────────────────────────
-    ds_name, ds_config, ds_split = DATASET
-    if is_main(rank):
-        print(f"\nLoading dataset: {ds_name}/{ds_config} ({ds_split}) ...")
+    # ── 4. Load & encode dataset/text manifest ───────────────────────────
+    manifest_path = None
+    if args.text_manifest:
+        manifest_path = Path(args.text_manifest).expanduser().resolve()
+        if not manifest_path.exists():
+            print(f"Error: text manifest not found: {manifest_path}")
+            cleanup_distributed()
+            return
 
-    test_data = load_dataset(ds_name, ds_config, split=ds_split)
+        try:
+            all_samples = _load_text_manifest(manifest_path)
+        except Exception as exc:
+            print(f"Error: failed to read text manifest: {exc}")
+            cleanup_distributed()
+            return
 
-    total_samples = len(test_data["text"])
+        dataset_display = f"manifest ({manifest_path})"
+        dataset_label = f"manifest:{manifest_path}"
+        if is_main(rank):
+            print(f"\nLoading evaluation texts from manifest: {manifest_path}")
+    else:
+        ds_name, ds_config, ds_split = DATASET
+        if is_main(rank):
+            print(f"\nLoading dataset: {ds_name}/{ds_config} ({ds_split}) ...")
+
+        test_data = load_dataset(ds_name, ds_config, split=ds_split)
+        all_samples = test_data["text"]
+        dataset_display = f"{ds_name}/{ds_config} ({ds_split})"
+        dataset_label = f"{ds_name}/{ds_config}/{ds_split}"
+
+    total_samples = len(all_samples)
     if args.limit_samples is not None:
         if is_main(rank):
             print(f"\nLight mode enabled: limiting to first {args.limit_samples} samples out of {total_samples} total samples.")
-        samples = test_data["text"][:args.limit_samples]
+        samples = all_samples[:args.limit_samples]
     else:
         if is_main(rank):
-            print(f"\nProcessing all {total_samples} samples from the dataset.")
-        samples = test_data["text"]
+            print(f"\nProcessing all {total_samples} samples from the selected source.")
+        samples = all_samples
 
     raw_text  = "\n\n".join(samples)
 
@@ -399,7 +478,7 @@ calibration workflow:
         print(f"\n{SEP}")
         print(f"{'PERPLEXITY EVALUATION RESULTS':^52}")
         print(SEP)
-        print(f"  Dataset          : {ds_name}/{ds_config} ({ds_split})")
+        print(f"  Dataset          : {dataset_display}")
         print(f"  Model            : {MODEL_PATH}")
         print(f"  Scored tokens    : {total_tokens:,}  (stride={STRIDE})")
         print(f"  GPUs used        : {world_size}")
@@ -421,10 +500,11 @@ calibration workflow:
 
         results = {
             "model": MODEL_PATH,
-            "dataset": f"{ds_name}/{ds_config}/{ds_split}",
+            "dataset": dataset_label,
             "config": {"max_length": MAX_LENGTH, "stride": STRIDE, "dtype": str(dtype),
                        "world_size": world_size,
-                       "calibration_file": args.calibration if args.calibration else None},
+                       "calibration_file": args.calibration if args.calibration else None,
+                       "text_manifest": str(manifest_path) if manifest_path else None},
             "config_snapshot": get_config_snapshot(model.config),
             "metrics": {
                 "token_perplexity": round(token_ppl, 4),
