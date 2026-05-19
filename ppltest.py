@@ -75,7 +75,7 @@ from experiment_config import (
 )
 
 # ── Config ────────────────────────────────────────────────────────────────────
-MODEL_PATH  = "../Qwen3-0.6B"
+MODEL_PATH  = "../Qwen3-8B"
 DATASET     = ("wikitext", "wikitext-2-raw-v1", "test")   # (name, config, split)
 MAX_LENGTH  = 4096   # max context window fed to the model
 STRIDE      = 512    # sliding-window stride (<= MAX_LENGTH)
@@ -102,6 +102,59 @@ def precompute_windows(seq_len: int, max_length: int, stride: int):
         if end_loc == seq_len:
             break
     return windows
+
+
+def _load_text_manifest(manifest_path: Path) -> list[str]:
+    """
+    Load evaluation texts from a manifest file.
+
+    Supported formats:
+      - .json   : ["text", ...] or {"texts": [...]} or [{"text": ...}, ...]
+      - .jsonl  : one JSON value/object per line (string or {"text": ...})
+      - others  : plain text split by blank lines (fallback to non-empty lines)
+    """
+    suffix = manifest_path.suffix.lower()
+
+    def _normalize(items):
+        out = []
+        for item in items:
+            if isinstance(item, str):
+                text = item.strip()
+            elif isinstance(item, dict) and isinstance(item.get("text"), str):
+                text = item["text"].strip()
+            else:
+                continue
+            if text:
+                out.append(text)
+        return out
+
+    if suffix == ".json":
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            data = data.get("texts", [])
+        if not isinstance(data, list):
+            raise ValueError(f"JSON manifest must be a list or contain 'texts': {manifest_path}")
+        texts = _normalize(data)
+    elif suffix == ".jsonl":
+        rows = []
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                rows.append(json.loads(line))
+        texts = _normalize(rows)
+    else:
+        raw = manifest_path.read_text(encoding="utf-8")
+        chunks = [c.strip() for c in raw.split("\n\n") if c.strip()]
+        if len(chunks) <= 1:
+            chunks = [c.strip() for c in raw.splitlines() if c.strip()]
+        texts = chunks
+
+    if not texts:
+        raise ValueError(f"No non-empty texts found in manifest: {manifest_path}")
+    return texts
 
 
 def main():
@@ -153,12 +206,23 @@ calibration workflow:
     parser.add_argument("--limit-samples", type=int, default=None, metavar="N",
                         help="Light mode: limit the number of dataset text samples to process "
                              "for a faster evaluation. Keeps all statistic formulas unchanged.")
+    parser.add_argument("--text-manifest", type=str, default=None, metavar="FILE",
+                        help="Optional manifest file with evaluation texts. If set, "
+                            "bypasses dataset loading and uses these texts directly.")
     parser.add_argument("--lite", action="store_true",
                         help="Lite stats mode: collect only utilization, zero-block%%, "
                              "mean p_eff, and max latency per layer.  Skips expensive "
                              "NAF-width computation and detailed histograms for faster "
                              "MSD inference.  PPL results are identical to full mode.")
+    parser.add_argument("--figure5-layer-cycles", action="store_true",
+                        help="Enable Figure 5 layer-cycle profiling in lite stats mode. "
+                             "Records per-layer cycle moments from block-serial, "
+                             "channel-parallel execution estimates.")
     args = parser.parse_args()
+
+    auto_enabled_lite = args.figure5_layer_cycles and not args.lite
+    if auto_enabled_lite:
+        args.lite = True
 
     # ── List mode (no GPU needed) ──
     if args.list:
@@ -251,16 +315,22 @@ calibration workflow:
             print(f"Calibration loaded: {args.calibration} ({n_layers} layers, {n_channels} channels)")
 
     # ── 3c. Configure lite stats mode (if --lite given) ─────────────────────────
+    if auto_enabled_lite and is_main(rank):
+        print("Figure 5 cycle profiling requested without --lite; enabling lite stats mode.")
     if args.lite:
         model.config.msd_perf_stats_lite = True
         if is_main(rank):
             print("Lite stats mode: skipping NAF-width & histograms for faster inference.")
+    if args.figure5_layer_cycles:
+        model.config.msd_figure5_layer_cycles = True
+        if is_main(rank):
+            print("Figure 5 layer-cycle profiling enabled.")
     # Disable stats entirely on non-rank-0 processes (saves compute & memory;
     # rank 0's window sample is representative for aggregate stats).
     if not is_main(rank):
         model.config.msd_perf_stats_enabled = False
     # Invalidate cached MSD context so it picks up the new flags
-    if (args.lite or not is_main(rank)) and hasattr(model, "_msd_context"):
+    if (args.lite or args.figure5_layer_cycles or not is_main(rank)) and hasattr(model, "_msd_context"):
         model._msd_context = None
         model._msd_context_config_hash = None
 
@@ -275,22 +345,45 @@ calibration workflow:
     else:
         results_out = RESULTS_OUT
 
-    # ── 4. Load & encode dataset ─────────────────────────────────────────
-    ds_name, ds_config, ds_split = DATASET
-    if is_main(rank):
-        print(f"\nLoading dataset: {ds_name}/{ds_config} ({ds_split}) ...")
+    # ── 4. Load & encode dataset/text manifest ───────────────────────────
+    manifest_path = None
+    if args.text_manifest:
+        manifest_path = Path(args.text_manifest).expanduser().resolve()
+        if not manifest_path.exists():
+            print(f"Error: text manifest not found: {manifest_path}")
+            cleanup_distributed()
+            return
 
-    test_data = load_dataset(ds_name, ds_config, split=ds_split)
+        try:
+            all_samples = _load_text_manifest(manifest_path)
+        except Exception as exc:
+            print(f"Error: failed to read text manifest: {exc}")
+            cleanup_distributed()
+            return
 
-    total_samples = len(test_data["text"])
+        dataset_display = f"manifest ({manifest_path})"
+        dataset_label = f"manifest:{manifest_path}"
+        if is_main(rank):
+            print(f"\nLoading evaluation texts from manifest: {manifest_path}")
+    else:
+        ds_name, ds_config, ds_split = DATASET
+        if is_main(rank):
+            print(f"\nLoading dataset: {ds_name}/{ds_config} ({ds_split}) ...")
+
+        test_data = load_dataset(ds_name, ds_config, split=ds_split)
+        all_samples = test_data["text"]
+        dataset_display = f"{ds_name}/{ds_config} ({ds_split})"
+        dataset_label = f"{ds_name}/{ds_config}/{ds_split}"
+
+    total_samples = len(all_samples)
     if args.limit_samples is not None:
         if is_main(rank):
             print(f"\nLight mode enabled: limiting to first {args.limit_samples} samples out of {total_samples} total samples.")
-        samples = test_data["text"][:args.limit_samples]
+        samples = all_samples[:args.limit_samples]
     else:
         if is_main(rank):
-            print(f"\nProcessing all {total_samples} samples from the dataset.")
-        samples = test_data["text"]
+            print(f"\nProcessing all {total_samples} samples from the selected source.")
+        samples = all_samples
 
     raw_text  = "\n\n".join(samples)
 
@@ -399,7 +492,7 @@ calibration workflow:
         print(f"\n{SEP}")
         print(f"{'PERPLEXITY EVALUATION RESULTS':^52}")
         print(SEP)
-        print(f"  Dataset          : {ds_name}/{ds_config} ({ds_split})")
+        print(f"  Dataset          : {dataset_display}")
         print(f"  Model            : {MODEL_PATH}")
         print(f"  Scored tokens    : {total_tokens:,}  (stride={STRIDE})")
         print(f"  GPUs used        : {world_size}")
@@ -421,10 +514,11 @@ calibration workflow:
 
         results = {
             "model": MODEL_PATH,
-            "dataset": f"{ds_name}/{ds_config}/{ds_split}",
+            "dataset": dataset_label,
             "config": {"max_length": MAX_LENGTH, "stride": STRIDE, "dtype": str(dtype),
                        "world_size": world_size,
-                       "calibration_file": args.calibration if args.calibration else None},
+                       "calibration_file": args.calibration if args.calibration else None,
+                       "text_manifest": str(manifest_path) if manifest_path else None},
             "config_snapshot": get_config_snapshot(model.config),
             "metrics": {
                 "token_perplexity": round(token_ppl, 4),
@@ -480,6 +574,23 @@ calibration workflow:
                         zblk_v = ldata.get("zero_block_ratio", 0) * 100
                         avg_b_v = ldata.get("avg_max_latency", 0)
                         print(f"  {short:<40s}  {p_eff_v:5.1f}  {util_v:5.1f}  {hw_v:6.2f}   {zblk_v:6.2f}  {avg_b_v:5.1f}")
+
+                    has_figure5 = any("avg_layer_cycle" in ldata for ldata in pl.values())
+                    if has_figure5:
+                        HDR2 = f"  {'Layer':<40s}  layer_avg  ch_mean  layer_std  ch_std_avg"
+                        print(f"\n  Figure 5 cycle summary:")
+                        print(HDR2)
+                        print(f"  {'-'*88}")
+                        for lname, ldata in pl.items():
+                            short = lname if len(lname) <= 40 else lname[:18] + ".." + lname[-18:]
+                            layer_avg = ldata.get("avg_layer_cycle", 0)
+                            ch_mean = ldata.get("avg_mean_channel_cycle", 0)
+                            layer_std = ldata.get("layer_cycle_std", 0)
+                            ch_std = ldata.get("avg_std_channel_cycle", 0)
+                            print(
+                                f"  {short:<40s}  {layer_avg:9.3f}  {ch_mean:7.3f}  "
+                                f"{layer_std:9.3f}  {ch_std:10.3f}"
+                            )
                 print(SEP)
             else:
                 # ── Full mode output ──

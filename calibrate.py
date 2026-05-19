@@ -18,8 +18,8 @@ result file independently (no inter-rank communication during calibration).
 Output files:  calibration_{tag}.json  (e.g. calibration_MXFP8.json)
 
 Usage:
-    cd /home/xzj/coding/onlinearith
-    source /home/xzj/coding/.venv3_10/bin/activate
+    cd /path/to/onlinearith
+    source ../.venv3_10/bin/activate
 
     python calibrate.py --list                                # list setups
     python calibrate.py --setup 1                             # single format
@@ -83,6 +83,65 @@ CAL_SETUPS = [
 ]
 
 
+def _load_text_manifest(manifest_path: Path) -> list[str]:
+    """
+    Load calibration texts from a manifest file.
+
+    Supported formats:
+      - .json   : ["text", ...] or {"texts": [...]} or [{"text": ...}, ...]
+      - .jsonl  : one JSON value/object per line (string or {"text": ...})
+      - others  : plain text split by blank lines (fallback to non-empty lines)
+    """
+    suffix = manifest_path.suffix.lower()
+
+    def _normalize(items):
+        out = []
+        for item in items:
+            if isinstance(item, str):
+                text = item.strip()
+            elif isinstance(item, dict) and isinstance(item.get("text"), str):
+                text = item["text"].strip()
+            else:
+                continue
+            if text:
+                out.append(text)
+        return out
+
+    if suffix == ".json":
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            data = data.get("texts", [])
+        if not isinstance(data, list):
+            raise ValueError(f"JSON manifest must be a list or contain 'texts': {manifest_path}")
+        texts = _normalize(data)
+    elif suffix == ".jsonl":
+        rows = []
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                rows.append(json.loads(line))
+        texts = _normalize(rows)
+    else:
+        raw = manifest_path.read_text(encoding="utf-8")
+        chunks = [c.strip() for c in raw.split("\n\n") if c.strip()]
+        if len(chunks) <= 1:
+            chunks = [c.strip() for c in raw.splitlines() if c.strip()]
+        texts = chunks
+
+    if not texts:
+        raise ValueError(f"No non-empty texts found in manifest: {manifest_path}")
+    return texts
+
+
+def _build_result_file(output_dir: Path, tag: str, optimizer: str, suffix: str) -> Path:
+    optimizer_suffix = "_fixed_sum" if optimizer == "fixed_sum" else ""
+    run_suffix = f"_{suffix}" if suffix else ""
+    return output_dir / f"calibration_{tag}{optimizer_suffix}{run_suffix}.json"
+
+
 def _snr_to_dir_name(target_snr: float) -> str:
     # Keep whole-number SNRs compact (e.g., 30db) and preserve decimals otherwise.
     if float(target_snr).is_integer():
@@ -137,10 +196,23 @@ def main():
                         help="Budget window for error curve computation (default: 3)")
     parser.add_argument("--save-curve-detail", action="store_true",
                         help="Save full error curve data to JSON (large)")
+    parser.add_argument("--text-manifest", type=str, default=None, metavar="FILE",
+                        help="Optional manifest file with calibration texts. If set, "
+                             "bypasses built-in dataset loading/slicing and uses exactly "
+                             "these texts.")
+    parser.add_argument("--output-dir", type=str, default=None, metavar="DIR",
+                        help="Override output directory for calibration JSON files.")
+    parser.add_argument("--result-suffix", type=str, default="", metavar="NAME",
+                        help="Optional suffix appended to result filenames for split-specific runs.")
     args = parser.parse_args()
 
-    output_dir = RESULTS_DIR / "calib-data" / _snr_to_dir_name(args.target_snr)
+    if args.output_dir:
+        output_dir = Path(args.output_dir).expanduser().resolve()
+    else:
+        output_dir = RESULTS_DIR / "calib-data" / _snr_to_dir_name(args.target_snr)
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    result_suffix = args.result_suffix.strip()
 
     restrict_gpus(args.gpus)
     maybe_relaunch_with_torchrun(args.nproc)
@@ -156,7 +228,7 @@ def main():
             print(f"\n{'ID':>3}  {'Tag':<15}  Description")
             print("-" * 50)
             for sid, tag, desc, _ in CAL_SETUPS:
-                result_file = output_dir / f"calibration_{tag}.json"
+                result_file = _build_result_file(output_dir, tag, args.optimizer, result_suffix)
                 exists = "  (done)" if result_file.exists() else ""
                 print(f"{sid:3d}  {tag:<15}  {desc}{exists}")
             print(f"\nOutput dir: {output_dir}")
@@ -219,12 +291,38 @@ def main():
         print(f"Model: {MODEL_PATH}  |  Params: {num_params/1e6:.1f}M")
 
     # ── Load calibration data ──
-    ds_name, ds_config, ds_split = CAL_DATASET
-    if is_main(rank):
-        print(f"Loading dataset: {ds_name}/{ds_config} ({ds_split}) ...")
+    manifest_path = None
+    if args.text_manifest:
+        manifest_path = Path(args.text_manifest).expanduser().resolve()
+        if not manifest_path.exists():
+            if is_main(rank):
+                print(f"Error: text manifest not found: {manifest_path}")
+            cleanup_distributed()
+            return
 
-    ds = load_dataset(ds_name, ds_config, split=ds_split)
-    cal_texts = [t for t in ds["text"] if len(t.strip()) > 100][:args.num_texts]
+        try:
+            cal_texts = _load_text_manifest(manifest_path)
+        except Exception as exc:
+            if is_main(rank):
+                print(f"Error: failed to read text manifest: {exc}")
+            cleanup_distributed()
+            return
+
+        if is_main(rank):
+            print(f"Loading calibration texts from manifest: {manifest_path}")
+    else:
+        ds_name, ds_config, ds_split = CAL_DATASET
+        if is_main(rank):
+            print(f"Loading dataset: {ds_name}/{ds_config} ({ds_split}) ...")
+
+        ds = load_dataset(ds_name, ds_config, split=ds_split)
+        cal_texts = [t for t in ds["text"] if len(t.strip()) > 100][:args.num_texts]
+
+    if not cal_texts:
+        if is_main(rank):
+            print("Error: no calibration texts available after loading input source.")
+        cleanup_distributed()
+        return
 
     # Split into train/holdout if requested
     if args.holdout_fraction > 0:
@@ -256,11 +354,7 @@ def main():
     )
 
     for i, (sid, tag, desc, overrides) in enumerate(setup_iter):
-        # Add optimizer suffix to filename for fixed_sum mode
-        if args.optimizer == "fixed_sum":
-            result_file = output_dir / f"calibration_{tag}_fixed_sum.json"
-        else:
-            result_file = output_dir / f"calibration_{tag}.json"
+        result_file = _build_result_file(output_dir, tag, args.optimizer, result_suffix)
 
         print(f"[rank {rank}] {'='*55}")
         print(f"[rank {rank}]   [{i+1}/{len(my_setups)}]  Setup #{sid}: {desc}")
@@ -324,7 +418,6 @@ def main():
             layer_summaries = {}
             channel_details = {}
             optimizer_stats = {}
-            error_curves_detail = {}  # Initialize here
             error_curves_detail = {}
 
             detail_prefix = f"model.layers.{args.detail_layer}."
@@ -427,6 +520,8 @@ def main():
                 "online_delay": args.online_delay,
                 "detail_layer": args.detail_layer,
                 "curve_window": args.curve_window,
+                "text_manifest": str(manifest_path) if manifest_path else None,
+                "result_suffix": result_suffix or None,
             },
             "global_summary": {
                 "num_layers": len(calibration_data),
@@ -477,7 +572,7 @@ def main():
         print("-" * 60)
 
         for sid, tag, desc, _ in run_setups:
-            result_file = output_dir / f"calibration_{tag}.json"
+            result_file = _build_result_file(output_dir, tag, args.optimizer, result_suffix)
             if result_file.exists():
                 with open(result_file) as f:
                     res = json.load(f)

@@ -1,15 +1,15 @@
 """
-Batch PPL evaluation across all MSD / MXFP configuration combinations.
+Batch PPL evaluation for activation-only n:m sparsity across MXFP setups.
 
 Supports **multi-GPU** — either auto-launched (recommended) or via torchrun:
-    python ppl_batch_base.py --nproc 8                        # auto-launch 8 GPUs (picks free port)
-    python ppl_batch_base.py --nproc 4 --only 1 2             # subset on 4 GPUs
-    python ppl_batch_base.py --nproc 4 --gpus 4,5,6,7         # specific GPUs, free port
-    python ppl_batch_base.py                                   # single-GPU fallback
+    python act_base/ppl_batch_base_act.py --nproc 8                        # auto-launch 8 GPUs (picks free port)
+    python act_base/ppl_batch_base_act.py --nproc 4 --only 1 2             # subset on 4 GPUs
+    python act_base/ppl_batch_base_act.py --nproc 4 --gpus 4,5,6,7         # specific GPUs, free port
+    python act_base/ppl_batch_base_act.py                                   # single-GPU fallback
 
     # Manual torchrun (you must pick a free port yourself if 29500 is taken):
-    torchrun --nproc_per_node=8 --master-port=29501 ppl_batch_base.py
-    torchrun --nproc_per_node=3 --master-port=29501 ppl_batch_base.py --gpus 0,2,5
+    torchrun --nproc_per_node=8 --master-port=29501 act_base/ppl_batch_base_act.py
+    torchrun --nproc_per_node=3 --master-port=29501 act_base/ppl_batch_base_act.py --gpus 0,2,5
 
 Each GPU loads its own model copy and processes a shard of the setups.
 Setups are partitioned round-robin across ranks; each rank writes its
@@ -17,7 +17,8 @@ result files independently (no inter-rank communication during eval).
 Rank 0 prints the summary after all ranks finish.
 
 Loads the model ONCE per rank, then iterates through every assigned setup
-by patching config fields in-memory.  Each run's results are saved to
+by patching config fields in-memory. Runtime activation-only n:m sparsity is
+enabled from args for each setup. Each run's results are saved to
     ppl_results_{tag}.json
 
 Skips setups whose result file already exists (resume-safe).
@@ -27,13 +28,13 @@ assign more setups to them.  For now, just assign round-robin and let the user m
 
 Usage:
     cd /path/to/onlinearith
-    python ppl_batch_base.py --nproc 8                             # run all setups
-    python ppl_batch_base.py --nproc 8 --list                      # list setups (rank 0)
-    python ppl_batch_base.py --nproc 8 --only 1 6 10               # run only selected
-    python ppl_batch_base.py --nproc 4 --gpus 4,5,6,7              # specific GPUs
-    python ppl_batch_base.py --nproc 8 --force                     # re-run even if done
-    python ppl_batch_base.py                                       # single-GPU fallback
-    python ppl_batch_base.py --gpus 3                              # single specific GPU
+    python act_base/ppl_batch_base_act.py --nproc 8                             # run all setups
+    python act_base/ppl_batch_base_act.py --nproc 8 --list                      # list setups (rank 0)
+    python act_base/ppl_batch_base_act.py --nproc 8 --only 1 6 10               # run only selected
+    python act_base/ppl_batch_base_act.py --nproc 4 --gpus 4,5,6,7              # specific GPUs
+    python act_base/ppl_batch_base_act.py --nproc 8 --force                     # re-run even if done
+    python act_base/ppl_batch_base_act.py                                       # single-GPU fallback
+    python act_base/ppl_batch_base_act.py --gpus 3                              # single specific GPU
 """
 
 
@@ -53,6 +54,13 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+ONLINEARITH_ROOT = SCRIPT_DIR.parent
+WORKSPACE_ROOT = ONLINEARITH_ROOT.parent
+
+if str(ONLINEARITH_ROOT) not in sys.path:
+    sys.path.insert(0, str(ONLINEARITH_ROOT))
 
 import numpy as np
 import torch
@@ -80,11 +88,11 @@ from experiment_config import (
 _BASELINE_OVERRIDES = BASELINE_CONFIG
 
 # ── Constants ─────────────────────────────────────────────────────────────────
-MODEL_PATH  = "../Qwen3-0.6B"
+MODEL_PATH  = str((WORKSPACE_ROOT / "Qwen3-0.6B").resolve())
 DATASET     = ("wikitext", "wikitext-2-raw-v1", "test")
 MAX_LENGTH  = 4096
 STRIDE      = 512
-RESULTS_ROOT = Path("../data/calib-data_base")
+RESULTS_ROOT = (WORKSPACE_ROOT / "data" / "act_base").resolve()
 RESULTS_DIR = None   # set in main()
 
 
@@ -179,7 +187,7 @@ def run_complete_mode(args):
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
     if world_size > 1:
         print("ERROR: --complete must be launched as a single process (not inside torchrun).")
-        print("Run: python ppl_batch_base.py --complete [--nproc N] [--gpus ...]")
+        print("Run: python act_base/ppl_batch_base_act.py --complete [--nproc N] [--gpus ...]")
         return 2
 
     cases = discover_nm_cases(RESULTS_ROOT)
@@ -231,7 +239,7 @@ def run_complete_mode(args):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="Batch PPL evaluation for all MXFP/MSD setups")
+    parser = argparse.ArgumentParser(description="Batch PPL evaluation for activation-only n:m sparsity")
     parser.add_argument("--complete", action="store_true",
                         help="Run all discovered n-m cases serially (one ppl_batch_base run per case).")
     parser.add_argument("--list", action="store_true", help="List all setups and exit")
@@ -249,6 +257,13 @@ def main():
                         help="Comma-separated physical GPU IDs to use, e.g. '4,5,6,7'. "
                              "Must match --nproc (or --nproc_per_node if using torchrun).")
     args = parser.parse_args()
+
+    if args.m <= 0:
+        raise SystemExit("ERROR: -m must be > 0.")
+    if args.n < 0:
+        raise SystemExit("ERROR: -n must be >= 0.")
+    if args.n >= args.m:
+        raise SystemExit(f"ERROR: activation n:m requires n < m, got n={args.n}, m={args.m}.")
 
     if args.complete:
         exit_code = run_complete_mode(args)
@@ -355,33 +370,22 @@ def main():
         reset_to_baseline(model.config)
         apply_config(model.config, overrides)
 
+        # Activation-only n:m mode: no offline mask file required.
+        apply_config(model.config, {
+            "use_activation_nm_sparsity": True,
+            "activation_nm_n": args.n,
+            "activation_nm_m": args.m,
+            "use_msd_truncation": False,
+        })
+
         # Rebuild MLP linear layers to match the new config flags
         reconfigure_mlp_layers(model, device)
+        model.eval()
 
         # Show active config
         banner = format_config_banner(model.config, setup_id=sid, setup_desc=desc)
         for line in banner.splitlines():
             print(f"[rank {rank}]   {line}")
-
-        # Inject sparsity masks BEFORE evaluation
-        mask_file = RESULTS_DIR / f"calibration_base_{tag}.pt"
-        if not mask_file.exists():
-            print(f"[rank {rank}]   WARNING: Mask file {mask_file} not found. Skipping.")
-            continue
-        try:
-            print(f"[rank {rank}]   Loading and applying sparsity masks from {mask_file.name} ...")
-            masks = torch.load(mask_file, map_location="cpu")
-            if hasattr(model, "apply_baseline_sparsity"):
-                model.apply_baseline_sparsity(masks)
-            else:
-                for name, module in model.named_modules():
-                    if name in masks and hasattr(module, "weight"):
-                        mask = masks[name].to(module.weight.device)
-                        module.weight.data.mul_(mask)
-            print(f"[rank {rank}]   Successfully injected structured zeros.")
-        except Exception as e:
-            print(f"[rank {rank}]   ERROR applying mask: {e}")
-            continue
 
         # Evaluate
         results = evaluate_ppl(model, encodings, device, seq_len,
@@ -396,6 +400,11 @@ def main():
         results["dataset"] = f"{ds_name}/{ds_config}/{ds_split}"
         results["config"] = {"max_length": MAX_LENGTH, "stride": STRIDE,
                              "dtype": str(dtype), "world_size": world_size}
+        results["activation_sparsity"] = {
+            "mode": "runtime_activation_nm",
+            "n": args.n,
+            "m": args.m,
+        }
         results["config_snapshot"] = get_config_snapshot(model.config)
 
         # Save
@@ -458,7 +467,7 @@ def main():
 
         # ── Save consolidated summary JSON ──
         from datetime import datetime, timezone
-        summary_file = RESULTS_DIR / "ppl_batch_base_summary.json"
+        summary_file = RESULTS_DIR / "ppl_batch_base_act_summary.json"
         summary = {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "model": MODEL_PATH,
