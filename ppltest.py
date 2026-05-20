@@ -679,6 +679,7 @@ calibration workflow:
     # Reset perf stats after saving
     if hasattr(model, "reset_perf_stats"):
         model.reset_perf_stats()
+    clear_mxfp_weight_cache(model)
     cleanup_distributed()
 
 

@@ -47,6 +47,33 @@ def set_config_if_present(config, name: str, value):
     setattr(config, name, value)
 
 
+def summarize_mxfp_weight_cache(model) -> dict:
+    by_dtype: dict[str, int] = {}
+    by_device: dict[str, int] = {}
+    modules_with_cache = 0
+    total_bytes = 0
+
+    for module in model.modules():
+        cache = getattr(module, "_w_cache", None)
+        if cache is None:
+            continue
+        modules_with_cache += 1
+        for tensor in cache:
+            if not torch.is_tensor(tensor):
+                continue
+            nbytes = tensor.numel() * tensor.element_size()
+            total_bytes += nbytes
+            by_dtype[str(tensor.dtype)] = by_dtype.get(str(tensor.dtype), 0) + nbytes
+            by_device[str(tensor.device)] = by_device.get(str(tensor.device), 0) + nbytes
+
+    return {
+        "modules_with_cache": modules_with_cache,
+        "total_gib": gib(total_bytes),
+        "by_dtype_gib": {k: gib(v) for k, v in sorted(by_dtype.items())},
+        "by_device_gib": {k: gib(v) for k, v in sorted(by_device.items())},
+    }
+
+
 def install_forward_probe(records: list[dict], include_all: bool = False):
     original = _MXFPLinearBase.forward
 
@@ -123,6 +150,8 @@ def main() -> int:
     parser.add_argument("--stats", choices=["off", "lite", "full"], default="off")
     parser.add_argument("--random-tokens", action="store_true")
     parser.add_argument("--include-all", action="store_true", help="Record every MXFP layer, not just heavy layers")
+    parser.add_argument("--min-headroom-gib", type=float, default=None,
+                        help="Fail if CUDA peak reserved-memory headroom is below this many GiB.")
     parser.add_argument("--output", default="probe_mxfp_memory.json")
     args = parser.parse_args()
 
@@ -169,6 +198,7 @@ def main() -> int:
     original = install_forward_probe(records, include_all=args.include_all)
     status = "ok"
     error = None
+    cache_summary = None
     try:
         input_ids = build_input_ids(tokenizer, model, args.seq_len, device, args.random_tokens)
         labels = input_ids.clone()
@@ -191,6 +221,18 @@ def main() -> int:
         loss = None
     finally:
         restore_forward_probe(original)
+        cache_summary = summarize_mxfp_weight_cache(model)
+        clear_mxfp_weight_cache(model)
+
+    cuda_total_gib = None
+    cuda_peak_reserved_headroom_gib = None
+    meets_min_headroom = None
+    if device.type == "cuda":
+        cuda_total_gib = gib(torch.cuda.get_device_properties(device).total_memory)
+        peak_reserved_gib = gib(torch.cuda.max_memory_reserved(device))
+        cuda_peak_reserved_headroom_gib = cuda_total_gib - peak_reserved_gib
+        if args.min_headroom_gib is not None:
+            meets_min_headroom = status == "ok" and cuda_peak_reserved_headroom_gib >= args.min_headroom_gib
 
     summary = {
         "status": status,
@@ -203,6 +245,11 @@ def main() -> int:
         "loss": loss,
         "torch_cuda_peak_alloc_gib": gib(torch.cuda.max_memory_allocated(device)) if device.type == "cuda" else None,
         "torch_cuda_peak_reserved_gib": gib(torch.cuda.max_memory_reserved(device)) if device.type == "cuda" else None,
+        "torch_cuda_total_gib": cuda_total_gib,
+        "torch_cuda_peak_reserved_headroom_gib": cuda_peak_reserved_headroom_gib,
+        "min_headroom_gib": args.min_headroom_gib,
+        "meets_min_headroom": meets_min_headroom,
+        "mxfp_weight_cache": cache_summary,
         "records_top_by_peak_alloc": sorted(records, key=lambda r: r.get("peak_alloc_gib", 0.0), reverse=True)[:40],
         "records": records if args.include_all else None,
     }
@@ -210,8 +257,17 @@ def main() -> int:
     out.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(json.dumps({k: summary[k] for k in summary if k != "records_top_by_peak_alloc" and k != "records"}, indent=2))
     print(f"wrote {out}")
+    del model, tokenizer
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     if status == "oom":
         return 2
+    if meets_min_headroom is False:
+        print(
+            f"headroom check failed: peak reserved-memory headroom "
+            f"{cuda_peak_reserved_headroom_gib:.2f} GiB < {args.min_headroom_gib:.2f} GiB"
+        )
+        return 3
     return 0
 
 

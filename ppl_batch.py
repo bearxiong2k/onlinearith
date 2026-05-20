@@ -61,6 +61,7 @@ from experiment_config import (
     BASELINE_CONFIG,
     SETUPS,
     apply_config,
+    clear_mxfp_weight_cache,
     format_config_banner,
     get_active_flags,
     get_config_snapshot,
@@ -335,6 +336,7 @@ def main():
         wall = results["performance"]["wall_time_sec"]
         print(f"[rank {rank}]   PPL={ppl:.4f}  |  {wall:.0f}s  |  saved -> {result_file.name}\n")
         local_summary.append((sid, tag, ppl, f"{wall:.0f}s"))
+        clear_mxfp_weight_cache(model)
 
     local_elapsed = time.perf_counter() - total_start
 
@@ -405,6 +407,7 @@ def main():
         print(f"Summary saved to: {summary_file.name}")
         print(f"Results saved in: {RESULTS_DIR}")
 
+    clear_mxfp_weight_cache(model)
     cleanup_distributed()
 
 
