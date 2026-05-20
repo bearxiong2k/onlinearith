@@ -5,6 +5,7 @@ set -euo pipefail
 # These commands exercise the flags described in docs/cim_oom_harness/CODEX_OOM_PERF_PLAN.md.
 
 export PYTHONPATH="$(pwd)/../transformers/src:${PYTHONPATH:-}"
+export PYTORCH_ALLOC_CONF="${PYTORCH_ALLOC_CONF:-expandable_segments:True}"
 MODEL_PATH="${MODEL_PATH:-../Qwen3-8B}"
 GPU="${GPU:-0}"
 MX_CHUNK="${MX_CHUNK:-256}"
@@ -19,6 +20,7 @@ fi
 
 "$PYTHON" tests/test_mx_exact_chunked.py
 "$PYTHON" tests/test_mxfp_weight_cache_compact.py
+"$PYTHON" tests/test_ppl_tail_logits_loss.py
 
 "$PYTHON" - <<'PY'
 import torch

@@ -39,6 +39,38 @@ def mask_context_labels(input_ids, trg_len: int, ignore_index: int = -100):
     return labels
 
 
+def prepare_tail_logits_loss_kwargs(
+    labels,
+    trg_len: int,
+    *,
+    loss_token_chunk_size: int | None = None,
+    output_logits: bool = True,
+) -> dict:
+    """
+    Return kwargs that compute the same shifted causal loss using only useful logits.
+
+    Hugging Face's causal loss uses logit position ``i`` to predict label
+    position ``i + 1``.  For a PPL window with ``trg_len`` newly scored tail
+    labels, only logits from the position immediately before that tail through
+    the penultimate input position can affect the loss.  Supplying explicit
+    ``shift_labels`` keeps the loss equivalent while avoiding a full
+    sequence-length vocabulary projection.
+    """
+    seq_len = labels.shape[-1]
+    keep = min(seq_len - 1, trg_len)
+    if keep <= 0:
+        return {}
+    start = seq_len - keep - 1
+    logits_to_keep = labels.new_tensor(list(range(start, start + keep)))
+    shift_labels = labels[..., start + 1 : start + 1 + keep].contiguous()
+    kwargs = {"logits_to_keep": logits_to_keep, "shift_labels": shift_labels}
+    if loss_token_chunk_size is not None:
+        kwargs["loss_token_chunk_size"] = int(loss_token_chunk_size)
+    if not output_logits:
+        kwargs["output_logits"] = False
+    return kwargs
+
+
 def accumulate_weighted_nll(
     total_nll: float,
     total_tokens: int,

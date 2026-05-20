@@ -35,11 +35,54 @@ from experiment_config import (
     reconfigure_mlp_layers,
     reset_to_baseline,
 )
+from ppl_utils import prepare_tail_logits_loss_kwargs
 from transformers.models.qwen3.modeling_qwen3 import _MXFPLinearBase
 
 
 def gib(x: int | float) -> float:
     return float(x) / 1024**3
+
+
+class ProgressReporter:
+    def __init__(self, interval_sec: float, progress_file: str | None, device: torch.device):
+        self.interval_sec = max(0.0, float(interval_sec))
+        self.progress_file = Path(progress_file) if progress_file else None
+        self.device = device
+        self.t0 = time.perf_counter()
+        self.last_emit = 0.0
+
+    def __call__(self, *, module, phase: str, chunk_idx: int, total_chunks: int, **payload) -> None:
+        now = time.perf_counter()
+        is_edge = chunk_idx == 1 or chunk_idx == total_chunks
+        if not is_edge and self.interval_sec > 0 and (now - self.last_emit) < self.interval_sec:
+            return
+        self.last_emit = now
+        event = {
+            "event": "mxfp_progress",
+            "elapsed_sec": round(now - self.t0, 3),
+            "phase": phase,
+            "layer_name": getattr(module, "layer_name", None) or "<unregistered>",
+            "class": type(module).__name__,
+            "chunk_idx": int(chunk_idx),
+            "total_chunks": int(total_chunks),
+            "percent": round(100.0 * float(chunk_idx) / max(1, int(total_chunks)), 3),
+            **payload,
+        }
+        if self.device.type == "cuda":
+            event.update(
+                {
+                    "cuda_alloc_gib": gib(torch.cuda.memory_allocated(self.device)),
+                    "cuda_reserved_gib": gib(torch.cuda.memory_reserved(self.device)),
+                    "cuda_peak_alloc_gib": gib(torch.cuda.max_memory_allocated(self.device)),
+                    "cuda_peak_reserved_gib": gib(torch.cuda.max_memory_reserved(self.device)),
+                }
+            )
+        line = json.dumps(event, sort_keys=True)
+        print(f"PROGRESS {line}", flush=True)
+        if self.progress_file is not None:
+            tmp = self.progress_file.with_suffix(self.progress_file.suffix + ".tmp")
+            tmp.write_text(line + "\n", encoding="utf-8")
+            tmp.replace(self.progress_file)
 
 
 def set_config_if_present(config, name: str, value):
@@ -125,6 +168,12 @@ def restore_forward_probe(original):
     _MXFPLinearBase.forward = original
 
 
+def register_mxfp_layer_names(model) -> None:
+    for name, module in model.named_modules():
+        if isinstance(module, _MXFPLinearBase) and not getattr(module, "layer_name", None):
+            module.layer_name = name
+
+
 def build_input_ids(tokenizer, model, seq_len: int, device: torch.device, random_tokens: bool):
     if random_tokens:
         vocab = int(getattr(model.config, "vocab_size", len(tokenizer)))
@@ -152,6 +201,10 @@ def main() -> int:
     parser.add_argument("--include-all", action="store_true", help="Record every MXFP layer, not just heavy layers")
     parser.add_argument("--min-headroom-gib", type=float, default=None,
                         help="Fail if CUDA peak reserved-memory headroom is below this many GiB.")
+    parser.add_argument("--progress-interval-sec", type=float, default=30.0,
+                        help="Print throttled MX/MSD chunk progress every N seconds. Use 0 for every chunk.")
+    parser.add_argument("--progress-file", default=None,
+                        help="Optional path updated atomically with the latest progress event.")
     parser.add_argument("--output", default="probe_mxfp_memory.json")
     args = parser.parse_args()
 
@@ -192,7 +245,9 @@ def main() -> int:
         model.config.msd_perf_stats_lite = False
 
     reconfigure_mlp_layers(model, device)
+    register_mxfp_layer_names(model)
     clear_mxfp_weight_cache(model)
+    model.config._mxfp_progress_hook = ProgressReporter(args.progress_interval_sec, args.progress_file, device)
 
     records: list[dict] = []
     original = install_forward_probe(records, include_all=args.include_all)
@@ -202,18 +257,24 @@ def main() -> int:
     try:
         input_ids = build_input_ids(tokenizer, model, args.seq_len, device, args.random_tokens)
         labels = input_ids.clone()
+        loss_kwargs = prepare_tail_logits_loss_kwargs(
+            labels,
+            args.seq_len,
+            loss_token_chunk_size=512,
+            output_logits=False,
+        )
         if device.type == "cuda":
             torch.cuda.empty_cache()
             torch.cuda.reset_peak_memory_stats(device)
         t0 = time.perf_counter()
         with torch.inference_mode():
             try:
-                outputs = model(input_ids, labels=labels, use_cache=False)
+                outputs = model(input_ids, labels=labels, use_cache=False, **loss_kwargs)
             except TypeError:
                 outputs = model(input_ids, labels=labels)
         loss = float(outputs.loss.detach().cpu()) if getattr(outputs, "loss", None) is not None else None
         elapsed = time.perf_counter() - t0
-        del outputs, input_ids, labels
+        del outputs, input_ids, labels, loss_kwargs
     except torch.cuda.OutOfMemoryError as exc:
         status = "oom"
         error = str(exc)
@@ -221,6 +282,8 @@ def main() -> int:
         loss = None
     finally:
         restore_forward_probe(original)
+        if hasattr(model.config, "_mxfp_progress_hook"):
+            delattr(model.config, "_mxfp_progress_hook")
         cache_summary = summarize_mxfp_weight_cache(model)
         clear_mxfp_weight_cache(model)
 

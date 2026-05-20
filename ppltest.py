@@ -74,7 +74,12 @@ from experiment_config import (
     reset_to_baseline,
     clear_mxfp_weight_cache,
 )
-from ppl_utils import accumulate_weighted_nll, mask_context_labels, precompute_windows
+from ppl_utils import (
+    accumulate_weighted_nll,
+    mask_context_labels,
+    precompute_windows,
+    prepare_tail_logits_loss_kwargs,
+)
 from runtime_paths import default_model_path, describe_missing_model_path, normalize_output_dir
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -464,10 +469,16 @@ calibration workflow:
     for win_idx, (begin_loc, end_loc, trg_len, is_dummy) in enumerate(iterator):
         input_ids  = encodings.input_ids[:, begin_loc:end_loc].to(device)
         target_ids = mask_context_labels(input_ids, trg_len)
+        loss_kwargs = prepare_tail_logits_loss_kwargs(
+            target_ids,
+            trg_len,
+            loss_token_chunk_size=512,
+            output_logits=False,
+        )
 
         with torch.inference_mode():
             try:
-                outputs = model(input_ids, labels=target_ids, use_cache=False)
+                outputs = model(input_ids, labels=target_ids, use_cache=False, **loss_kwargs)
             except TypeError:
                 outputs = model(input_ids, labels=target_ids)
             avg_nll = outputs.loss.item()
@@ -479,7 +490,7 @@ calibration workflow:
             local_chunk_nlls.append(avg_nll)
 
         # Free tensors and periodically release cached memory to prevent OOM
-        del input_ids, target_ids, outputs
+        del input_ids, target_ids, loss_kwargs, outputs
         if win_idx % 100 == 99:
             torch.cuda.empty_cache()
 

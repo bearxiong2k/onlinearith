@@ -70,7 +70,12 @@ from experiment_config import (
     reset_peak_memory,
     reset_to_baseline,
 )
-from ppl_utils import accumulate_weighted_nll, mask_context_labels, precompute_windows
+from ppl_utils import (
+    accumulate_weighted_nll,
+    mask_context_labels,
+    precompute_windows,
+    prepare_tail_logits_loss_kwargs,
+)
 from runtime_paths import default_model_path, describe_missing_model_path, normalize_output_dir
 
 # Re-export for backward compatibility (calibrate.py, ppltest.py may import these)
@@ -102,10 +107,16 @@ def evaluate_ppl(model, encodings, device, seq_len, num_words, num_chars, num_by
                                             leave=False, disable=not show_progress):
         input_ids  = encodings.input_ids[:, begin_loc:end_loc].to(device)
         target_ids = mask_context_labels(input_ids, trg_len)
+        loss_kwargs = prepare_tail_logits_loss_kwargs(
+            target_ids,
+            trg_len,
+            loss_token_chunk_size=512,
+            output_logits=False,
+        )
 
         with torch.inference_mode():
             try:
-                outputs = model(input_ids, labels=target_ids, use_cache=False)
+                outputs = model(input_ids, labels=target_ids, use_cache=False, **loss_kwargs)
             except TypeError:
                 outputs = model(input_ids, labels=target_ids)
             avg_nll = outputs.loss.item()
@@ -114,6 +125,7 @@ def evaluate_ppl(model, encodings, device, seq_len, num_words, num_chars, num_by
             total_nll_sum, total_tokens, avg_nll, trg_len
         )
         per_chunk_nlls.append(avg_nll)
+        del input_ids, target_ids, loss_kwargs, outputs
 
     elapsed  = time.perf_counter() - t_start
     mean_nll = total_nll_sum / total_tokens
