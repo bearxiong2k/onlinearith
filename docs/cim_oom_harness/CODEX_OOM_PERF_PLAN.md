@@ -126,6 +126,11 @@ Implementation notes:
 
 Run from `onlinearith` with `PYTHONPATH=../transformers/src:$PYTHONPATH`.
 
+0. Verify direct CUDA visibility in the exact command environment:
+   `python -c 'import torch; print(torch.cuda.is_available(), torch.cuda.device_count())'`.
+   Expected output on this machine is `True 8`. If it reports `False 0`, do not
+   run GPU performance/OOM probes there. Valid probe progress includes `cuda_*`
+   memory fields and should be visible in `nvtop`.
 1. `python tests/test_mx_exact_chunked.py`
 2. `python tests/test_mxfp_weight_cache_compact.py`
 3. `python tools/probe_mxfp_memory.py --model-path ../Qwen3-8B --setup 1 --seq-len 256 --stats off`

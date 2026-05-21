@@ -56,6 +56,18 @@ If the shell is not activated, run commands explicitly through:
 
 The expected local Transformers source is `../transformers/src`. Prefer `PYTHONPATH="$(pwd)/../transformers/src:${PYTHONPATH}"` or a script-local relative bootstrap over any absolute machine-specific path.
 
+## GPU visibility and benchmark hygiene
+
+GPU performance or OOM conclusions are valid only when the command environment can see CUDA directly. Before running Qwen3-8B probes, PPL smoke tests, or any timing comparison, run:
+
+```bash
+../.venv3_10/bin/python -c 'import torch; print(torch.cuda.is_available(), torch.cuda.device_count())'
+```
+
+Expected output on this machine is `True 8`. If it prints `False 0`, do not run performance probes in that environment; sandboxed commands can silently fall back to CPU while still producing progress JSON. Valid GPU progress logs include `cuda_alloc_gib`, `cuda_peak_alloc_gib`, `cuda_reserved_gib`, and `cuda_peak_reserved_gib` fields and should be visible in `nvtop`.
+
+Use `CUDA_VISIBLE_DEVICES=<idle_gpu>` for single-GPU probes. Do not treat timings from logs without `cuda_*` fields as GPU evidence.
+
 ## Standing non-goals
 
 - Do not reduce `MAX_LENGTH`, increase `STRIDE`, truncate the dataset, change the tokenizer, or change loss weighting to avoid OOM.

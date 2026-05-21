@@ -29,6 +29,14 @@ Then run:
 bash scripts/run_qwen8b_oom_ladder.sh
 ```
 
+Before any Qwen3-8B probe, PPL smoke test, or timing comparison, verify that the command environment has direct CUDA visibility:
+
+```bash
+../.venv3_10/bin/python -c 'import torch; print(torch.cuda.is_available(), torch.cuda.device_count())'
+```
+
+Expected output on this machine is `True 8`. If it prints `False 0`, do not use that environment for GPU performance/OOM conclusions. Valid GPU progress logs include `cuda_*` memory fields and should be visible in `nvtop`.
+
 Acceptance criteria:
 
 * setup 2, seq_len 4096 probe completes on one 32 GB GPU with at least 2 GiB headroom;
