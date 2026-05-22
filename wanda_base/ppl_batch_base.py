@@ -54,6 +54,21 @@ import sys
 import time
 from pathlib import Path
 
+
+def _apply_cuda_visible_devices_from_argv(argv: list[str]) -> None:
+    """Honor --gpus before torch is imported and CUDA device state is cached."""
+    for idx, arg in enumerate(argv):
+        if arg == "--gpus" and idx + 1 < len(argv):
+            os.environ["CUDA_VISIBLE_DEVICES"] = argv[idx + 1]
+            return
+        if arg.startswith("--gpus="):
+            os.environ["CUDA_VISIBLE_DEVICES"] = arg.split("=", 1)[1]
+            return
+
+
+_apply_cuda_visible_devices_from_argv(sys.argv[1:])
+os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
+
 SCRIPT_DIR = Path(__file__).resolve().parent
 ONLINEARITH_ROOT = SCRIPT_DIR.parent
 WORKSPACE_ROOT = ONLINEARITH_ROOT.parent
@@ -80,7 +95,15 @@ from experiment_config import (
     BASELINE_CONFIG, apply_config, reset_to_baseline,
     reconfigure_mlp_layers, get_config_snapshot, get_active_flags,
     format_config_banner,peak_memory_str,
-    reset_peak_memory,
+    reset_peak_memory, clear_mxfp_weight_cache,
+)
+from ppl_utils import (
+    accumulate_weighted_nll,
+    clear_mxfp_progress_hook,
+    install_mxfp_progress_hook,
+    mask_context_labels,
+    precompute_windows,
+    prepare_tail_logits_loss_kwargs,
 )
 from runtime_paths import describe_missing_model_path, normalize_output_dir
 
@@ -130,29 +153,33 @@ def evaluate_ppl(model, encodings, device, seq_len, num_words, num_chars, num_by
     total_nll_sum = 0.0
     total_tokens  = 0
     per_chunk_nlls = []
-    prev_end_loc = 0
     t_start = time.perf_counter()
 
-    for begin_loc in tqdm(range(0, seq_len, STRIDE), desc="  PPL windows",
-                          leave=False, disable=not show_progress):
-        end_loc = min(begin_loc + MAX_LENGTH, seq_len)
-        trg_len = end_loc - prev_end_loc
-
+    windows = precompute_windows(seq_len, MAX_LENGTH, STRIDE)
+    for begin_loc, end_loc, trg_len in tqdm(windows, desc="  PPL windows",
+                                            leave=False, disable=not show_progress):
         input_ids  = encodings.input_ids[:, begin_loc:end_loc].to(device)
-        target_ids = input_ids.clone()
-        target_ids[:, :-trg_len] = -100
+        target_ids = mask_context_labels(input_ids, trg_len)
+        loss_kwargs = prepare_tail_logits_loss_kwargs(
+            target_ids,
+            trg_len,
+            loss_token_chunk_size=512,
+            output_logits=False,
+        )
 
-        with torch.no_grad():
-            outputs = model(input_ids, labels=target_ids)
+        with torch.inference_mode():
+            try:
+                outputs = model(input_ids, labels=target_ids, use_cache=False, **loss_kwargs)
+            except TypeError:
+                outputs = model(input_ids, labels=target_ids)
             avg_nll = outputs.loss.item()
 
-        total_nll_sum += avg_nll * trg_len
-        total_tokens  += trg_len
+        total_nll_sum, total_tokens = accumulate_weighted_nll(
+            total_nll_sum, total_tokens, avg_nll, trg_len
+        )
         per_chunk_nlls.append(avg_nll)
 
-        prev_end_loc = end_loc
-        if end_loc == seq_len:
-            break
+        del input_ids, target_ids, loss_kwargs, outputs
 
     elapsed  = time.perf_counter() - t_start
     mean_nll = total_nll_sum / total_tokens
@@ -235,6 +262,12 @@ def run_complete_mode(args):
             cmd.extend(["--nproc", str(args.nproc)])
         if args.gpus is not None:
             cmd.extend(["--gpus", args.gpus])
+        if args.limit_samples is not None:
+            cmd.extend(["--limit-samples", str(args.limit_samples)])
+        if args.mx_chunk_target_mib is not None:
+            cmd.extend(["--mx-chunk-target-mib", str(args.mx_chunk_target_mib)])
+        if args.weight_cache_dtype is not None:
+            cmd.extend(["--weight-cache-dtype", args.weight_cache_dtype])
         cmd.extend(["--model-path", MODEL_PATH])
         cmd.extend(["--results-root", str(RESULTS_ROOT)])
         if args.force:
@@ -284,6 +317,17 @@ def main():
     parser.add_argument("--gpus", type=str, default=None,
                         help="Comma-separated physical GPU IDs to use, e.g. '4,5,6,7'. "
                              "Must match --nproc (or --nproc_per_node if using torchrun).")
+    parser.add_argument("--limit-samples", type=int, default=None, metavar="N",
+                        help="Non-final smoke mode: limit dataset text samples before tokenization.")
+    parser.add_argument("--mx-chunk-target-mib", type=int, default=None,
+                        help="Exact MX-only output chunk target in MiB.")
+    parser.add_argument("--weight-cache-dtype", choices=["float16", "float32", "none"], default=None,
+                        help="Persistent MXFP quantized-weight cache storage.")
+    parser.add_argument("--mxfp-progress-interval-sec", type=float, default=30.0,
+                        help="Print throttled MX/MSD chunk progress every N seconds. "
+                             "Use 0 for every chunk, or a negative value to disable.")
+    parser.add_argument("--mxfp-progress-file", default=None,
+                        help="Optional path updated atomically with the latest MX/MSD progress event.")
     parser.add_argument(
         "--output-hook",
         type=str,
@@ -368,6 +412,7 @@ def main():
     model = AutoModelForCausalLM.from_pretrained(MODEL_PATH, **model_kwargs)
     model.to(device)
     model.eval()
+    model.config.use_cache = False
 
     if is_main(rank):
         num_params = sum(p.numel() for p in model.parameters())
@@ -379,7 +424,12 @@ def main():
         print(f"Loading dataset: {ds_name}/{ds_config} ({ds_split}) ...")
 
     test_data = load_dataset(ds_name, ds_config, split=ds_split)
-    raw_text  = "\n\n".join(test_data["text"])
+    all_samples = test_data["text"]
+    if args.limit_samples is not None:
+        if is_main(rank):
+            print(f"Light mode enabled: limiting to first {args.limit_samples} samples out of {len(all_samples)}.")
+        all_samples = all_samples[:args.limit_samples]
+    raw_text  = "\n\n".join(all_samples)
     encodings = tokenizer(raw_text, return_tensors="pt")
     seq_len   = encodings.input_ids.size(1)
     num_words = len(raw_text.split())
@@ -413,9 +463,16 @@ def main():
         # Reset to baseline, then apply this setup's overrides
         reset_to_baseline(model.config)
         apply_config(model.config, overrides)
+        model.config.use_cache = False
+        if args.mx_chunk_target_mib is not None:
+            model.config.mxfp_chunk_target_mib = args.mx_chunk_target_mib
+            model.config.mxfp_use_chunked_exact = True
+        if args.weight_cache_dtype is not None:
+            model.config.mxfp_weight_cache_dtype = args.weight_cache_dtype
 
         # Rebuild MLP linear layers to match the new config flags
         reconfigure_mlp_layers(model, device)
+        clear_mxfp_weight_cache(model)
 
         # Show active config
         banner = format_config_banner(model.config, setup_id=sid, setup_desc=desc)
@@ -437,15 +494,28 @@ def main():
                     if name in masks and hasattr(module, "weight"):
                         mask = masks[name].to(module.weight.device)
                         module.weight.data.mul_(mask)
+            clear_mxfp_weight_cache(model)
             print(f"[rank {rank}]   Successfully injected structured zeros.")
         except Exception as e:
             print(f"[rank {rank}]   ERROR applying mask: {e}")
             continue
 
+        if is_main(rank):
+            install_mxfp_progress_hook(
+                model,
+                interval_sec=args.mxfp_progress_interval_sec,
+                progress_file=args.mxfp_progress_file,
+                device=device,
+                extra={"rank": rank, "setup": sid, "baseline": "wanda"},
+            )
+        else:
+            clear_mxfp_progress_hook(model)
+
         # Evaluate
         results = evaluate_ppl(model, encodings, device, seq_len,
                                num_words, num_chars, num_bytes,
                                show_progress=is_main(rank))
+        clear_mxfp_progress_hook(model)
 
         # Add metadata
         results["setup"] = {"id": sid, "tag": tag, "description": desc,
@@ -454,7 +524,8 @@ def main():
         results["model"] = MODEL_PATH
         results["dataset"] = f"{ds_name}/{ds_config}/{ds_split}"
         results["config"] = {"max_length": MAX_LENGTH, "stride": STRIDE,
-                             "dtype": str(dtype), "world_size": world_size}
+                             "dtype": str(dtype), "world_size": world_size,
+                             "limit_samples": args.limit_samples}
         results["output_hook"] = output_hook or None
         results["config_snapshot"] = get_config_snapshot(model.config)
 
@@ -466,6 +537,7 @@ def main():
         wall = results["performance"]["wall_time_sec"]
         print(f"[rank {rank}]   PPL={ppl:.4f}  |  {wall:.0f}s  |  saved -> {result_file.name}\n")
         local_summary.append((sid, tag, ppl, f"{wall:.0f}s"))
+        clear_mxfp_weight_cache(model)
 
     local_elapsed = time.perf_counter() - total_start
 
@@ -525,7 +597,8 @@ def main():
             "dataset": "/".join(DATASET),
             "output_hook": output_hook or None,
             "eval_config": {"max_length": MAX_LENGTH, "stride": STRIDE,
-                            "dtype": str(dtype)},
+                            "dtype": str(dtype),
+                            "limit_samples": args.limit_samples},
             "world_size": world_size,
             "total_wall_time_sec": round(total_elapsed, 2),
             "setups_requested": len(run_setups),
@@ -537,6 +610,8 @@ def main():
         print(f"Summary saved to: {summary_file.name}")
         print(f"Results saved in: {RESULTS_DIR}")
 
+    clear_mxfp_progress_hook(model)
+    clear_mxfp_weight_cache(model)
     cleanup_distributed()
 
 

@@ -1,9 +1,25 @@
 import argparse
 import json
+import os
 import re
 import sys
 import time
 from pathlib import Path
+
+
+def _apply_cuda_visible_devices_from_argv(argv: list[str]) -> None:
+    """Honor --gpus before torch is imported and CUDA device state is cached."""
+    for idx, arg in enumerate(argv):
+        if arg == "--gpus" and idx + 1 < len(argv):
+            os.environ["CUDA_VISIBLE_DEVICES"] = argv[idx + 1]
+            return
+        if arg.startswith("--gpus="):
+            os.environ["CUDA_VISIBLE_DEVICES"] = arg.split("=", 1)[1]
+            return
+
+
+_apply_cuda_visible_devices_from_argv(sys.argv[1:])
+os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 ONLINEARITH_ROOT = SCRIPT_DIR.parent
@@ -25,7 +41,7 @@ from dist_utils import (
     restrict_gpus,
     maybe_relaunch_with_torchrun,
 )
-from experiment_config import apply_config, reconfigure_mlp_layers, reset_to_baseline
+from experiment_config import apply_config, clear_mxfp_weight_cache, reconfigure_mlp_layers, reset_to_baseline
 from runtime_paths import describe_missing_model_path, normalize_output_dir
 
 # ── Configuration ──
@@ -83,11 +99,14 @@ def calibrate_baseline_sparsify(model, tokenizer, calibration_texts, n=2, m=4, m
             
     # 2. Run calibration dataset forward passes
     model.eval()
-    with torch.no_grad():
+    with torch.inference_mode():
         for i in tqdm(range(0, len(calibration_texts), batch_size), desc=f"Calibrating X-norms (batch {batch_size})"):
             batch_texts = calibration_texts[i:i+batch_size]
             inputs = tokenizer(batch_texts, return_tensors="pt", max_length=max_length, truncation=True, padding=True).to(device)
-            model(**inputs)
+            try:
+                model(**inputs, use_cache=False)
+            except TypeError:
+                model(**inputs)
             
     # Remove hooks
     for h in hooks:
@@ -153,6 +172,10 @@ def main():
     parser.add_argument("--force", action="store_true", help="Overwrite existing calibration files")
     parser.add_argument("--nproc", type=int, default=1, help="Auto-launch torchrun with N processes")
     parser.add_argument("--gpus", type=str, default="", help="Comma-separated list of GPUs to use")
+    parser.add_argument("--mx-chunk-target-mib", type=int, default=None,
+                        help="Exact MX-only output chunk target in MiB.")
+    parser.add_argument("--weight-cache-dtype", choices=["float16", "float32", "none"], default=None,
+                        help="Persistent MXFP quantized-weight cache storage during calibration.")
     parser.add_argument(
         "--output-hook",
         type=str,
@@ -240,10 +263,12 @@ def main():
         model_path, local_files_only=True, dtype=dtype
     )
     model.to(device)
+    model.eval()
+    model.config.use_cache = False
 
     # ── Load calibration data ──
     ds_name, ds_config, ds_split = CAL_DATASET
-    ds = load_dataset(ds_name, ds_config, split=ds_split, trust_remote_code=True)
+    ds = load_dataset(ds_name, ds_config, split=ds_split)
     cal_texts = [t for t in ds["text"] if len(t.strip()) > 100][:args.num_texts]
 
     # ── Run assigned setups ──
@@ -256,8 +281,15 @@ def main():
         print(f"\n[rank {rank}] === Setup {sid}: {tag} ===")
         # Reconfigure to the specific MXFP format
         reset_to_baseline(model.config)
-        cfg_diff = apply_config(model.config, raw_config)
+        apply_config(model.config, raw_config)
+        model.config.use_cache = False
+        if args.mx_chunk_target_mib is not None:
+            model.config.mxfp_chunk_target_mib = args.mx_chunk_target_mib
+            model.config.mxfp_use_chunked_exact = True
+        if args.weight_cache_dtype is not None:
+            model.config.mxfp_weight_cache_dtype = args.weight_cache_dtype
         reconfigure_mlp_layers(model,device)
+        clear_mxfp_weight_cache(model)
 
         t0 = time.perf_counter()
         masks = calibrate_baseline_sparsify(
@@ -270,10 +302,12 @@ def main():
         
         print(f"[rank {rank}] Saving masks to {result_file} (took {t_cal:.1f}s)")
         torch.save(masks, result_file)
+        clear_mxfp_weight_cache(model)
 
     file_barrier(rank, world_size, RESULTS_DIR)
     if is_main(rank):
         print("\nAll baseline calibrations complete.")
+    clear_mxfp_weight_cache(model)
     cleanup_distributed()
 
 if __name__ == "__main__":

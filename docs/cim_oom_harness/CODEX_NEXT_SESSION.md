@@ -66,20 +66,21 @@ Current implementation:
 Path parity status:
 - MX-only baselines and uniform MSD setup 6 are memory-feasible on one 32 GB GPU
   for the validated Qwen3-8B probes/smokes below.
-- Fixed-sum calibrated MSD is partially optimized: calibration generation has
-  the new controls and a targeted one-layer smoke, and `ppltest.py
-  --calibration` injects metadata into the optimized MSD runtime. Missing:
-  broader staged calibration and a calibrated-MSD Qwen3-8B PPL smoke using the
-  generated fixed-sum metadata.
-- WANDA structured sparsity baseline is not yet at parity. Its calibration and
-  PPL scripts live under `wanda_base/` and still use older runner plumbing:
-  torch is imported before GPU visibility is applied, allocator defaults are not
-  set before torch import, `use_cache=False` and tail-logits loss are not wired,
-  chunk/cache controls are not exposed, and cache cleanup/progress handling is
-  not aligned with `ppltest.py`.
-- Runtime activation n:m baseline is not yet at parity. `act_base/ppl_batch_base_act.py`
-  has the same older PPL loop issues as WANDA and needs the shared PPL utilities
-  plus Qwen3-8B smoke validation.
+- Fixed-sum calibrated MSD is optimized for runner mechanics: calibration
+  generation has the new controls, `ppltest.py --calibration` injects metadata
+  into the optimized MSD runtime, and Qwen3-8B PPL smokes using generated
+  fixed-sum metadata have passed for one-layer, all-gate, all-up, all-down, and
+  merged full-MLP staged metadata. Missing: final/non-smoke calibrated metrics
+  and, if needed, a true single-run all-MLP calibration capture.
+- WANDA structured sparsity baseline runner parity is implemented for
+  `wanda_base/calibrate_base.py` and `wanda_base/ppl_batch_base.py`: early
+  `--gpus`, allocator default before torch import, `use_cache=False`, shared
+  PPL window/loss utilities, tail-logits loss, MX chunk/cache controls,
+  progress hook support, cache cleanup, and `--limit-samples` smoke support.
+- Runtime activation n:m baseline runner parity is implemented for
+  `act_base/ppl_batch_base_act.py` with the same PPL/runtime controls as WANDA.
+  Missing: broader/final WANDA and activation baseline measurements beyond the
+  small Qwen3-8B smoke runs below.
 
 Valid GPU measurements:
 - Setup 2 probe, seq_len=4096: status ok; peak_alloc=27.6147 GiB;
@@ -120,6 +121,76 @@ Valid GPU measurements:
   It captured/solved exactly one layer, total_channels=12,288, budget range
   [4, 9], budget_mean=6.09, mean_snr=12.84 dB, wall_time=6.68s. Output was
   written under `/tmp/onlinearith_calib_smoke/` and should not be committed.
+- Calibrated-MSD Qwen3-8B PPL smoke completed on GPU 1 using the targeted
+  fixed-sum metadata above:
+  `ppltest.py --setup 6 --calibration /tmp/onlinearith_calib_smoke/calibration_MXFP8_fixed_sum_qwen8b_layer0_smoke.json
+  --limit-samples 2 --stats off --mx-chunk-target-mib 256 --msd-chunk-target-mib 256
+  --weight-cache-dtype float16 --compile-msd-truncate`. It scored 8 tokens,
+  token PPL=446.5720, mean NLL=6.1016, peak memory=27.08 GB, wall time=5.53s.
+  This is a smoke only because the calibration file covers one projection.
+- Broader fixed-sum calibration with `--projection-filter gate_proj` initially
+  OOMed on one 32 GB GPU when `--weight-cache-dtype float16` was enabled. The
+  projection filter correctly limits calibration hooks and metadata capture, but
+  the normal MXFP forward path can still persist quantized weights for every MLP
+  projection during the calibration pass. For broader calibration capture, use
+  `--weight-cache-dtype none` unless/until calibration disables unrelated
+  persistent forward caches automatically.
+- All-gate fixed-sum calibration completed on GPU 0 with cache disabled:
+  `calibrate.py --model-path ../Qwen3-8B --gpus 0 --setup 1 --optimizer fixed_sum
+  --projection-filter gate_proj --num-texts 1 --max-length 64 --batch-size 1
+  --target-snr 30 --curve-window 1 --mx-chunk-target-mib 256
+  --cal-chunk-target-mib 64 --weight-cache-dtype none --compile-msd-truncate`.
+  Output:
+  `/tmp/onlinearith_calib_gate_smoke/calibration_MXFP8_fixed_sum_qwen8b_gate_snr30_smoke_nocache.json`.
+  It captured/solved 36 gate projections, total_channels=442,368, budget range
+  [6, 16], budget_mean=10.2, wall_time=105.4s. This is still a staged smoke
+  because up/down projections fall back to uniform/default budgets.
+- Calibrated-MSD Qwen3-8B PPL smoke completed on GPU 0 using the all-gate
+  fixed-sum metadata:
+  `ppltest.py --setup 6 --calibration /tmp/onlinearith_calib_gate_smoke/calibration_MXFP8_fixed_sum_qwen8b_gate_snr30_smoke_nocache.json
+  --limit-samples 2 --stats off --mx-chunk-target-mib 256 --msd-chunk-target-mib 256
+  --weight-cache-dtype float16 --compile-msd-truncate`. It scored 8 tokens,
+  token PPL=356.8912, mean NLL=5.8774, peak memory=27.08 GB, wall time=5.3s.
+- All-up fixed-sum calibration completed on GPU 0 with cache disabled:
+  `/tmp/onlinearith_calib_up_smoke/calibration_MXFP8_fixed_sum_qwen8b_up_snr30_smoke_nocache.json`.
+  It captured/solved 36 up projections, total_channels=442,368, budget range
+  [5, 17], budget_mean=11.1, wall_time=105.2s.
+- All-down fixed-sum calibration completed on GPU 1 with cache disabled:
+  `/tmp/onlinearith_calib_down_smoke/calibration_MXFP8_fixed_sum_qwen8b_down_snr30_smoke_nocache.json`.
+  It captured/solved 36 down projections, total_channels=147,456, budget range
+  [7, 21], budget_mean=12.6, wall_time=98.7s.
+- Calibrated-MSD Qwen3-8B PPL smokes completed using the all-up and all-down
+  fixed-sum metadata:
+  all-up scored 8 tokens, token PPL=406.7382, mean NLL=6.0082, peak memory
+  27.08 GB, wall time=5.4s; all-down scored 8 tokens, token PPL=452.6000,
+  mean NLL=6.1150, peak memory=27.08 GB, wall time=5.2s.
+- A staged merged full-MLP fixed-sum metadata file was built from the all-gate,
+  all-up, and all-down projection-subset files:
+  `/tmp/onlinearith_calib_mlp_merged_smoke/calibration_MXFP8_fixed_sum_qwen8b_mlp_merged_snr30_smoke_nocache.json`.
+  It covers 108 MLP projection entries, total_channels=1,032,192, budget range
+  [5, 21], budget_mean=10.9369. This is merged from independent projection
+  captures, not a single all-projection capture.
+- Calibrated-MSD Qwen3-8B PPL smoke completed on GPU 0 using the merged
+  full-MLP staged metadata:
+  `ppltest.py --setup 6 --calibration /tmp/onlinearith_calib_mlp_merged_smoke/calibration_MXFP8_fixed_sum_qwen8b_mlp_merged_snr30_smoke_nocache.json
+  --limit-samples 2 --stats off --mx-chunk-target-mib 256 --msd-chunk-target-mib 256
+  --weight-cache-dtype float16 --compile-msd-truncate`. It scored 8 tokens,
+  token PPL=362.5553, mean NLL=5.8932, peak memory=27.08 GB, wall time=5.9s.
+- Runtime activation n:m Qwen3-8B smoke completed on GPU 0:
+  `act_base/ppl_batch_base_act.py --model-path ../Qwen3-8B --gpus 0 --only 1
+  -n 2 -m 4 --limit-samples 2 --mx-chunk-target-mib 256 --weight-cache-dtype float16`.
+  It scored 8 tokens, token PPL=831.3688, mean NLL=6.7231, peak memory=26.54 GB,
+  wall time=1.23s, with valid `cuda_*` MX progress fields.
+- WANDA Qwen3-8B smoke completed on GPU 2. First,
+  `wanda_base/calibrate_base.py --model-path ../Qwen3-8B --gpus 2 --setup 1
+  -n 2 -m 4 --num-texts 1 --max-length 64 --batch-size 1 --mx-chunk-target-mib 256
+  --weight-cache-dtype float16 --output-hook qwen8b_smoke` generated
+  `/tmp/onlinearith_wanda_smoke/2-4/calibration_base_MXFP8_qwen8b_smoke.pt`.
+  Then `wanda_base/ppl_batch_base.py --model-path ../Qwen3-8B --gpus 2 --only 1
+  -n 2 -m 4 --limit-samples 2 --mx-chunk-target-mib 256 --weight-cache-dtype float16
+  --output-hook qwen8b_smoke` scored 8 tokens, token PPL=576.8480,
+  mean NLL=6.3576, peak memory=26.54 GB, wall time=0.95s, with valid `cuda_*`
+  MX progress fields.
 
 Invalid/non-source-of-truth artifacts:
 - Ignore 2026-05-21 sandbox progress files without cuda_* fields. They were CPU
@@ -137,19 +208,23 @@ Recommended next steps:
    ../.venv3_10/bin/python test_mxfp8linear.py
    ../.venv3_10/bin/python test_fixed_sum_optimizer.py
    ../.venv3_10/bin/python calibrate.py --list
-3. Bring WANDA and activation baseline runners to parity with `ppltest.py`:
-   early `--gpus`, allocator default before torch import, `use_cache=False`,
-   shared window/loss utilities, tail-logits loss, chunk/cache controls, cache
-   cleanup, and `--limit-samples` smoke support.
-4. Stage calibrated-MSD fixed-sum validation:
-   projection-filtered calibration -> broader MLP subset -> calibrated
-   `ppltest.py --setup 6 --calibration <fixed_sum.json> --compile-msd-truncate`
-   smoke. Treat `target-snr` fixed-sum metadata as the main calibrated method.
-5. Then run WANDA and activation Qwen3-8B smokes with direct CUDA evidence.
-6. Full setup 6 seq_len=4096 probe completes in about 17.7 minutes with
+3. Stage broader fixed-sum calibrated-MSD validation:
+   one-layer, all-gate, all-up, all-down, and merged full-MLP metadata smokes
+   are done. Next either run a longer non-final prefix using the merged full-MLP
+   metadata, or attempt a true single-run all-MLP calibration capture with
+   `--weight-cache-dtype none` if exact capture equivalence is required. Treat
+   `target-snr` fixed-sum metadata as the main calibrated method.
+4. Run broader WANDA and activation baseline measurements now that the runners
+   have parity and small Qwen3-8B smokes pass. Keep `--limit-samples` runs
+   clearly marked non-final.
+5. Full setup 6 seq_len=4096 probe completes in about 17.7 minutes with
    compile enabled; a two-window setup 6 PPL smoke takes about 33.3 minutes.
-7. If optimizing further, keep MSD math unchanged and benchmark only with direct
+6. If optimizing further, keep MSD math unchanged and benchmark only with direct
    CUDA.
    Current conservative setup 6 chunking at seq_len=4096 uses gate/up chunk 4
    and down chunk 1 because the temporary (N, chunk, nb, bs) tensor is large.
+7. Consider a calibration-specific runtime improvement that disables unrelated
+   persistent MXFP forward weight caches during capture while preserving selected
+   calibration metadata. This would make broad projection-filtered fixed-sum
+   calibration less dependent on manually choosing `--weight-cache-dtype none`.
 ```

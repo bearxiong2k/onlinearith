@@ -166,16 +166,21 @@ Current status at the start of this phase:
   early `--gpus`, allocator default, chunk/cache controls, `use_cache=False`,
   tail-logits loss, stats controls, progress reporting, and compile toggle.
 * `calibrate.py --optimizer fixed_sum` has the calibration-side controls and a
-  targeted 8B layer smoke, but it still needs a staged broader calibration run
-  and a calibrated-MSD PPL smoke using the generated metadata.
-* `ppltest.py --calibration ...` uses the optimized MSD runtime once metadata is
-  injected, but this calibrated path still needs explicit Qwen3-8B acceptance
-  measurements.
-* WANDA and activation baseline scripts are not yet at parity. They use separate
-  batch PPL loops, import torch before applying GPU visibility, do not set the
-  allocator default before torch import, do not force `use_cache=False`, do not
-  use tail-logits chunked loss, do not expose MX chunk/cache controls, and do
-  not clear/rebuild MXFP caches with the same care as `ppltest.py`.
+  targeted 8B layer smoke. `ppltest.py --calibration ...` uses the optimized MSD
+  runtime once metadata is injected, and a small Qwen3-8B calibrated-MSD smoke
+  has passed with generated fixed-sum metadata. An all-`gate_proj` fixed-sum
+  calibration smoke also passed when calibration capture used
+  `--weight-cache-dtype none`; the same run OOMed with the persistent float16
+  forward weight cache because projection-filtered hooks do not stop unrelated
+  MXFP forward caches from accumulating. Staged all-`up_proj` and all-`down_proj`
+  calibration smokes also passed with cache disabled, and a merged full-MLP
+  metadata file built from gate/up/down subsets completed a calibrated-MSD PPL
+  smoke. It still needs final/non-smoke calibrated metrics and, if required, a
+  true single-run all-MLP calibration capture.
+* WANDA and activation baseline runner parity is implemented in
+  `wanda_base/calibrate_base.py`, `wanda_base/ppl_batch_base.py`, and
+  `act_base/ppl_batch_base_act.py`. Small Qwen3-8B smokes have passed; broader
+  measurements remain.
 
 Implementation work for this phase:
 
@@ -195,7 +200,11 @@ Implementation work for this phase:
    the same non-final smoke discipline used by `ppltest.py` can be applied.
 6. Validate calibrated-MSD with a real generated fixed-sum calibration file:
    first projection-filtered, then broader MLP subsets, then full 8B only after
-   memory and runtime are understood.
+   memory and runtime are understood. For broad calibration capture, prefer
+   `--weight-cache-dtype none` until the calibration runtime can disable
+   unrelated persistent MXFP forward caches automatically. Projection-subset
+   metadata can be merged for staged full-MLP inference smoke tests because
+   `msd_calibration_data` is keyed by projection module name.
 7. Validate WANDA and activation baselines with Qwen3-8B smoke runs on direct
    CUDA after the runner changes. Do not treat sandbox CPU/CUDA-invisible logs
    as evidence.
@@ -208,6 +217,9 @@ Acceptance additions:
 * `ppltest.py --setup 6 --calibration <fixed_sum.json> --compile-msd-truncate`
   completes at least a non-final Qwen3-8B smoke and reports the calibration file
   in output JSON.
+* Gate/up/down projection-subset fixed-sum metadata can be used individually and
+  merged into one full-MLP staged metadata JSON for calibrated-MSD inference
+  smoke testing.
 * WANDA PPL and activation n:m PPL scripts use the same loss/window semantics and
   memory controls as `ppltest.py`.
 * WANDA and activation baseline smoke runs on Qwen3-8B include valid `cuda_*` or

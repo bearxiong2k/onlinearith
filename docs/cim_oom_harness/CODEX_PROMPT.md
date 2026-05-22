@@ -48,6 +48,8 @@ Acceptance criteria:
 * setup 6, seq_len 4096 probe completes with `--stats off`;
 * `ppltest.py --setup 2 --limit-samples 2` and `--setup 6 --limit-samples 2` complete on a single GPU;
 * a targeted 8B calibration smoke with `--projection-filter` captures only the requested projection and completes on one GPU;
+* broader fixed-sum calibration subsets use `--weight-cache-dtype none` for now, because projection-filtered hooks do not prevent unrelated persistent MXFP forward caches from accumulating;
+* gate/up/down fixed-sum subset metadata can be merged into a staged full-MLP calibration JSON because `msd_calibration_data` is keyed by projection module name;
 * fixed-sum calibrated MSD PPL uses generated `msd_calibration_data` from `calibrate.py --optimizer fixed_sum --target-snr ...` and completes a Qwen3-8B smoke;
 * WANDA and activation n:m baseline runners use the same GPU visibility, allocator, chunk/cache, `use_cache=False`, and PPL loss/window semantics as `ppltest.py`;
 * small-layer exact MX test passes without changing old MX math.
