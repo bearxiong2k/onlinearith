@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import torch
 
 # Add sibling transformers checkout to path when present.
 REPO_ROOT = Path(__file__).resolve().parent
@@ -23,10 +24,13 @@ if TRANSFORMERS_SRC.exists():
 
 from transformers.models.qwen3.calibration_msd import (
     LayerErrorCurves,
+    configure_calibration_runtime,
     solve_fixed_sum_from_error_curves,
+    _compute_intra_delays,
     _BUDGET_MIN,
     _BUDGET_MAX,
 )
+import transformers.models.qwen3.calibration_msd as calibration_msd
 
 
 def make_synthetic_curves(
@@ -268,6 +272,35 @@ def test_optimizer_preserves_snr_min_when_no_gain():
     print(f"  No false improvement: {stats['swaps_performed']} swaps, improvement={stats['total_improvement']:.6f}")
 
 
+def test_calibration_runtime_controls_and_intra_delays():
+    """Calibration runtime knobs should not change delay math."""
+    old_bytes = calibration_msd._CAL_CHUNK_TARGET_BYTES
+    old_compile = calibration_msd._CAL_COMPILE_MSD_TRUNCATE
+    try:
+        configure_calibration_runtime(chunk_target_mib=128, compile_msd_truncate=True)
+        assert calibration_msd._CAL_CHUNK_TARGET_BYTES == 128 * 1024**2
+        assert calibration_msd._CAL_COMPILE_MSD_TRUNCATE is True
+
+        values = torch.tensor(
+            [0.0, 0.125, -0.25, 0.5, -0.75, 1.0, 1.5, -2.0, 3.75, -7.5, 28.0, -448.0],
+            dtype=torch.float32,
+        ).view(1, 3, 4)
+        abs_vals = values.abs()
+        elem_log2 = torch.where(
+            abs_vals > 0,
+            torch.floor(torch.log2(abs_vals)),
+            torch.tensor(-60.0, dtype=values.dtype),
+        )
+        expected = elem_log2.amax(dim=-1, keepdim=True) - elem_log2
+        actual = _compute_intra_delays(values)
+        torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+    finally:
+        calibration_msd._CAL_CHUNK_TARGET_BYTES = old_bytes
+        calibration_msd._CAL_COMPILE_MSD_TRUNCATE = old_compile
+
+    print("  Calibration runtime controls and intra-delay math validated")
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("Fixed-Sum Budget Optimizer Tests")
@@ -280,6 +313,7 @@ if __name__ == "__main__":
         ("Improvement with beneficial curves", test_improvement_with_beneficial_curves),
         ("Backward-compatible JSON", test_backward_compatible_json),
         ("Preserves SNR-min when no gain", test_optimizer_preserves_snr_min_when_no_gain),
+        ("Calibration runtime controls", test_calibration_runtime_controls_and_intra_delays),
     ]
 
     passed = 0

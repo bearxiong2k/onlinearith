@@ -15,12 +15,15 @@ Read `onlinearith/docs/cim_oom_harness/CODEX_OOM_PERF_PLAN.md`. Implement the pl
 2. compact `mxfp_weight_cache_dtype=float16` cache with fp32 compute;
 3. PPL flags for stats/chunk/cache control;
 4. memory probe and acceptance ladder.
+5. calibration runner parity with the same GPU, chunk, cache, compile, and
+   projection-filter controls.
 
 Use these tests as contracts:
 
 ```bash
 python tests/test_mx_exact_chunked.py
 python tests/test_mxfp_weight_cache_compact.py
+python test_fixed_sum_optimizer.py
 ```
 
 Then run:
@@ -29,7 +32,7 @@ Then run:
 bash scripts/run_qwen8b_oom_ladder.sh
 ```
 
-Before any Qwen3-8B probe, PPL smoke test, or timing comparison, verify that the command environment has direct CUDA visibility:
+Before any Qwen3-8B probe, PPL smoke test, calibration run, or timing comparison, verify that the command environment has direct CUDA visibility:
 
 ```bash
 ../.venv3_10/bin/python -c 'import torch; print(torch.cuda.is_available(), torch.cuda.device_count())'
@@ -42,4 +45,5 @@ Acceptance criteria:
 * setup 2, seq_len 4096 probe completes on one 32 GB GPU with at least 2 GiB headroom;
 * setup 6, seq_len 4096 probe completes with `--stats off`;
 * `ppltest.py --setup 2 --limit-samples 2` and `--setup 6 --limit-samples 2` complete on a single GPU;
+* a targeted 8B calibration smoke with `--projection-filter` captures only the requested projection and completes on one GPU;
 * small-layer exact MX test passes without changing old MX math.

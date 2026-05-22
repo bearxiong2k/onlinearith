@@ -31,8 +31,25 @@ Usage:
 
 import argparse
 import json
+import os
+import sys
 import time
 from pathlib import Path
+
+
+def _apply_cuda_visible_devices_from_argv(argv: list[str]) -> None:
+    """Honor --gpus before torch is imported and CUDA device state is cached."""
+    for idx, arg in enumerate(argv):
+        if arg == "--gpus" and idx + 1 < len(argv):
+            os.environ["CUDA_VISIBLE_DEVICES"] = argv[idx + 1]
+            return
+        if arg.startswith("--gpus="):
+            os.environ["CUDA_VISIBLE_DEVICES"] = arg.split("=", 1)[1]
+            return
+
+
+_apply_cuda_visible_devices_from_argv(sys.argv[1:])
+os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
 
 import torch
 from datasets import load_dataset
@@ -45,6 +62,7 @@ from transformers.models.qwen3.calibration_msd import (
     build_error_curves_from_cache,
     solve_fixed_sum_from_error_curves,
     evaluate_budget_vector_from_cache,
+    configure_calibration_runtime,
 )
 
 from dist_utils import (
@@ -63,6 +81,7 @@ from experiment_config import (
     get_active_flags,
     reconfigure_mlp_layers,
     reset_to_baseline,
+    clear_mxfp_weight_cache,
 )
 from runtime_paths import default_data_dir, default_model_path, describe_missing_model_path, normalize_output_dir
 
@@ -209,9 +228,21 @@ def main():
                         help=f"Base directory for default calibration outputs (default: {RESULTS_DIR})")
     parser.add_argument("--result-suffix", type=str, default="", metavar="NAME",
                         help="Optional suffix appended to result filenames for split-specific runs.")
+    parser.add_argument("--mx-chunk-target-mib", type=int, default=None,
+                        help="Exact MX output chunk target in MiB used during calibration capture.")
+    parser.add_argument("--cal-chunk-target-mib", type=int, default=None,
+                        help="Calibration solver 4D intermediate chunk target in MiB.")
+    parser.add_argument("--weight-cache-dtype", choices=["float16", "float32", "none"], default=None,
+                        help="Persistent MXFP quantized-weight cache storage during calibration capture.")
+    parser.add_argument("--compile-msd-truncate", action="store_true",
+                        help="Compile the calibration MSD truncation primitive with torch.compile.")
     args = parser.parse_args()
     model_path = args.model_path
     base_results_dir = normalize_output_dir(args.results_dir, RESULTS_DIR)
+    configure_calibration_runtime(
+        chunk_target_mib=args.cal_chunk_target_mib,
+        compile_msd_truncate=args.compile_msd_truncate,
+    )
 
     if args.output_dir:
         output_dir = Path(args.output_dir).expanduser().resolve()
@@ -298,6 +329,7 @@ def main():
     )
     model.to(device)
     model.eval()
+    model.config.use_cache = False
 
     if is_main(rank):
         num_params = sum(p.numel() for p in model.parameters())
@@ -354,7 +386,7 @@ def main():
     # Parse projection filter if requested
     projection_filter = None
     if args.projection_filter:
-        projection_filter = set(args.projection_filter.split(","))
+        projection_filter = {proj.strip() for proj in args.projection_filter.split(",") if proj.strip()}
 
     # ── Run assigned setups ──
     total_start = time.perf_counter()
@@ -383,7 +415,16 @@ def main():
         # Reset to baseline, then apply this setup's MXFP overrides
         reset_to_baseline(model.config)
         apply_config(model.config, overrides)
+        model.config.use_cache = False
+        if args.mx_chunk_target_mib is not None:
+            model.config.mxfp_chunk_target_mib = args.mx_chunk_target_mib
+            model.config.mxfp_use_chunked_exact = True
+        if args.weight_cache_dtype is not None:
+            model.config.mxfp_weight_cache_dtype = args.weight_cache_dtype
+        if args.compile_msd_truncate:
+            model.config.msd_compile_truncate = True
         reconfigure_mlp_layers(model, device)
+        clear_mxfp_weight_cache(model)
 
         # Show active config
         banner = format_config_banner(model.config, setup_id=sid, setup_desc=desc)
@@ -404,6 +445,7 @@ def main():
                 show_progress=is_main(rank),
                 progress_prefix=f"[rank {rank}] ",
                 detail_layer=args.detail_layer,
+                projection_filter=projection_filter,
             )
             optimizer_stats = {}
             holdout_eval = {}
@@ -417,14 +459,8 @@ def main():
                 online_delay=args.online_delay,
                 show_progress=is_main(rank),
                 progress_prefix=f"[rank {rank}] ",
+                projection_filter=projection_filter,
             )
-
-            # Filter by projection if requested
-            if projection_filter:
-                caches = {
-                    k: v for k, v in caches.items()
-                    if any(proj in k for proj in projection_filter)
-                }
 
             # Stage 2: Solve per layer
             calibration_data = {}
@@ -486,6 +522,7 @@ def main():
                     batch_size=args.batch_size,
                     online_delay=args.online_delay,
                     show_progress=False,
+                    projection_filter=projection_filter,
                 )
                 for layer_name, cache in holdout_caches.items():
                     if layer_name in calibration_data:
@@ -535,6 +572,10 @@ def main():
                 "curve_window": args.curve_window,
                 "text_manifest": str(manifest_path) if manifest_path else None,
                 "result_suffix": result_suffix or None,
+                "mx_chunk_target_mib": args.mx_chunk_target_mib,
+                "cal_chunk_target_mib": args.cal_chunk_target_mib,
+                "weight_cache_dtype": args.weight_cache_dtype,
+                "compile_msd_truncate": bool(args.compile_msd_truncate),
             },
             "global_summary": {
                 "num_layers": len(calibration_data),
@@ -569,6 +610,7 @@ def main():
               f"Budget: [{min(all_budgets):.0f}, {max(all_budgets):.0f}]  |  "
               f"Mean: {sum(all_budgets)/len(all_budgets):.1f}")
         print(f"[rank {rank}]   {elapsed:.1f}s  |  saved -> {result_file.name}\n")
+        clear_mxfp_weight_cache(model)
 
     total_elapsed = time.perf_counter() - total_start
 
@@ -606,7 +648,7 @@ def main():
         print("-" * 60)
         print(f"\nCalibration files saved in: {output_dir}")
         print(f"To use with PPL tests, copy msd_calibration_data from")
-        print(f"calibration_<tag>.json into Qwen3-0.6B/config.json, or")
+        print(f"calibration_<tag>.json into the target model config.json, or")
         print(f"load programmatically with apply_calibration_to_config().")
 
     cleanup_distributed()
