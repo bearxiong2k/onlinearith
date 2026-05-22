@@ -74,6 +74,10 @@ Valid GPU measurements:
 - Setup 6 `ppltest --limit-samples=2 --compile-msd-truncate` completed on one
   GPU. It is a smoke only: the first two WikiText test samples score 8 tokens.
   Token PPL=423.0598, mean NLL=6.0475, peak memory=27.08 GB.
+- Setup 6 `ppltest --limit-samples=80 --compile-msd-truncate` completed on one
+  GPU. This prefix has 4,144 tokens and evaluates two windows, including a full
+  4,096-token context window. Token PPL=8.8708, mean NLL=2.1828, scored
+  tokens=4,144, peak memory=28.03 GB, wall time=2000.6s.
 
 Invalid/non-source-of-truth artifacts:
 - Ignore 2026-05-21 sandbox progress files without cuda_* fields. They were CPU
@@ -89,9 +93,9 @@ Recommended next steps:
    ../.venv3_10/bin/python tests/test_mxfp_weight_cache_compact.py
    ../.venv3_10/bin/python tests/test_ppl_tail_logits_loss.py
    ../.venv3_10/bin/python test_mxfp8linear.py
-3. Decide whether to run a longer setup 6 PPL smoke with more than the first two
-   WikiText samples, or continue optimizing MSD performance. The full setup 6
-   seq_len=4096 probe now completes in about 17.7 minutes with compile enabled.
+3. Decide whether to continue optimizing MSD performance or run larger PPL
+   slices. The full setup 6 seq_len=4096 probe completes in about 17.7 minutes
+   with compile enabled; a two-window setup 6 PPL smoke takes about 33.3 minutes.
 4. If optimizing further, keep MSD math unchanged and benchmark only with direct
    CUDA.
    Current conservative setup 6 chunking at seq_len=4096 uses gate/up chunk 4

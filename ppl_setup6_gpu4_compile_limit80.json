@@ -1,0 +1,60 @@
+{
+  "model": "../Qwen3-8B",
+  "dataset": "wikitext/wikitext-2-raw-v1/test",
+  "config": {
+    "max_length": 4096,
+    "stride": 512,
+    "dtype": "torch.float16",
+    "world_size": 1,
+    "calibration_file": null,
+    "text_manifest": null,
+    "stats": "off"
+  },
+  "config_snapshot": {
+    "use_mxfp8": true,
+    "mxfp8_block_size": 32,
+    "use_mxfp6": false,
+    "mxfp6_block_size": 32,
+    "mxfp6_format": "e2m3",
+    "use_mxfp4": false,
+    "mxfp4_block_size": 32,
+    "mxfp_use_chunked_exact": true,
+    "mxfp_chunk_target_mib": 256,
+    "mxfp_weight_cache_dtype": "float16",
+    "use_activation_nm_sparsity": false,
+    "activation_nm_n": 2,
+    "activation_nm_m": 4,
+    "use_msd_truncation": true,
+    "msd_cycle_budget": 16,
+    "msd_online_delay": 2,
+    "msd_budget_dynamic_scale": 0.0,
+    "msd_budget_dynamic_threshold": 0.0,
+    "msd_budget_dynamic_mode": "linear",
+    "msd_deep_pipeline": false,
+    "msd_pipeline_precision_loss": 2,
+    "msd_calibration_data": null,
+    "msd_chunk_target_mib": 256,
+    "msd_perf_stats_enabled": false,
+    "msd_perf_stats_lite": false,
+    "msd_figure5_layer_cycles": false,
+    "msd_compile_truncate": true
+  },
+  "metrics": {
+    "token_perplexity": 8.8708,
+    "word_perplexity": 13.1678,
+    "bits_per_byte": 0.726,
+    "bits_per_char": 0.7275,
+    "mean_nll_nats": 2.1828
+  },
+  "reliability": {
+    "num_chunks": 2,
+    "chunk_nll_mean": 2.6632,
+    "chunk_nll_std": 0.4918,
+    "scored_tokens": 4144
+  },
+  "performance": {
+    "throughput_tokens_per_sec": 2.1,
+    "wall_time_sec": 2000.6,
+    "peak_memory": "28.03 GB"
+  }
+}
