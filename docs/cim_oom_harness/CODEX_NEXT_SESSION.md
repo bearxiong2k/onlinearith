@@ -16,6 +16,10 @@ Hard invariants:
 - Do not implement model sharding/device_map until single-GPU setup 2 and setup 6
   are proven.
 - Do not change dataset, tokenizer, labels, loss weighting, MAX_LENGTH, or STRIDE.
+- Treat fixed-sum calibrated MSD, uniform MSD, MX-only, WANDA structured
+  sparsity, and activation n:m as paper-critical paths. Do not call the overall
+  OOM/perf iteration complete until these paths have comparable runner hygiene
+  and smoke evidence.
 
 GPU visibility rule:
 - Before any Qwen3-8B probe/PPL/calibration/timing run, execute:
@@ -58,6 +62,24 @@ Current implementation:
   controls, compile-aware `_msd_truncate` scheduling, and frexp-based
   intra-block delay extraction that preserves the old `floor(log2(abs(x)))`
   delay semantics.
+
+Path parity status:
+- MX-only baselines and uniform MSD setup 6 are memory-feasible on one 32 GB GPU
+  for the validated Qwen3-8B probes/smokes below.
+- Fixed-sum calibrated MSD is partially optimized: calibration generation has
+  the new controls and a targeted one-layer smoke, and `ppltest.py
+  --calibration` injects metadata into the optimized MSD runtime. Missing:
+  broader staged calibration and a calibrated-MSD Qwen3-8B PPL smoke using the
+  generated fixed-sum metadata.
+- WANDA structured sparsity baseline is not yet at parity. Its calibration and
+  PPL scripts live under `wanda_base/` and still use older runner plumbing:
+  torch is imported before GPU visibility is applied, allocator defaults are not
+  set before torch import, `use_cache=False` and tail-logits loss are not wired,
+  chunk/cache controls are not exposed, and cache cleanup/progress handling is
+  not aligned with `ppltest.py`.
+- Runtime activation n:m baseline is not yet at parity. `act_base/ppl_batch_base_act.py`
+  has the same older PPL loop issues as WANDA and needs the shared PPL utilities
+  plus Qwen3-8B smoke validation.
 
 Valid GPU measurements:
 - Setup 2 probe, seq_len=4096: status ok; peak_alloc=27.6147 GiB;
@@ -115,12 +137,18 @@ Recommended next steps:
    ../.venv3_10/bin/python test_mxfp8linear.py
    ../.venv3_10/bin/python test_fixed_sum_optimizer.py
    ../.venv3_10/bin/python calibrate.py --list
-3. Decide whether to continue optimizing MSD performance, run larger PPL
-   slices, or stage broader calibration. For calibration, prefer projection
-   filters first, then a slightly broader smoke before any full 8B calibration.
-4. Full setup 6 seq_len=4096 probe completes in about 17.7 minutes with
+3. Bring WANDA and activation baseline runners to parity with `ppltest.py`:
+   early `--gpus`, allocator default before torch import, `use_cache=False`,
+   shared window/loss utilities, tail-logits loss, chunk/cache controls, cache
+   cleanup, and `--limit-samples` smoke support.
+4. Stage calibrated-MSD fixed-sum validation:
+   projection-filtered calibration -> broader MLP subset -> calibrated
+   `ppltest.py --setup 6 --calibration <fixed_sum.json> --compile-msd-truncate`
+   smoke. Treat `target-snr` fixed-sum metadata as the main calibrated method.
+5. Then run WANDA and activation Qwen3-8B smokes with direct CUDA evidence.
+6. Full setup 6 seq_len=4096 probe completes in about 17.7 minutes with
    compile enabled; a two-window setup 6 PPL smoke takes about 33.3 minutes.
-5. If optimizing further, keep MSD math unchanged and benchmark only with direct
+7. If optimizing further, keep MSD math unchanged and benchmark only with direct
    CUDA.
    Current conservative setup 6 chunking at seq_len=4096 uses gate/up chunk 4
    and down chunk 1 because the temporary (N, chunk, nb, bs) tensor is large.

@@ -17,6 +17,8 @@ Read `onlinearith/docs/cim_oom_harness/CODEX_OOM_PERF_PLAN.md`. Implement the pl
 4. memory probe and acceptance ladder.
 5. calibration runner parity with the same GPU, chunk, cache, compile, and
    projection-filter controls.
+6. parity for paper-critical baselines: fixed-sum calibrated MSD, uniform MSD,
+   MX-only, WANDA structured sparsity, and runtime activation n:m.
 
 Use these tests as contracts:
 
@@ -46,4 +48,6 @@ Acceptance criteria:
 * setup 6, seq_len 4096 probe completes with `--stats off`;
 * `ppltest.py --setup 2 --limit-samples 2` and `--setup 6 --limit-samples 2` complete on a single GPU;
 * a targeted 8B calibration smoke with `--projection-filter` captures only the requested projection and completes on one GPU;
+* fixed-sum calibrated MSD PPL uses generated `msd_calibration_data` from `calibrate.py --optimizer fixed_sum --target-snr ...` and completes a Qwen3-8B smoke;
+* WANDA and activation n:m baseline runners use the same GPU visibility, allocator, chunk/cache, `use_cache=False`, and PPL loss/window semantics as `ppltest.py`;
 * small-layer exact MX test passes without changing old MX math.
