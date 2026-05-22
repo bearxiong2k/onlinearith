@@ -61,6 +61,7 @@ CUSTOM_QWEN3_CONFIG_DEFAULTS: dict = {
     "msd_perf_stats_enabled": True,
     "msd_perf_stats_lite": False,
     "msd_figure5_layer_cycles": False,
+    "msd_compile_truncate": False,
 }
 
 MXFP_MSD_FIELDS: list[str] = list(CUSTOM_QWEN3_CONFIG_DEFAULTS)

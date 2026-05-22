@@ -36,6 +36,24 @@ Usage:
     python ppl_batch.py --gpus 3                              # single specific GPU
 """
 
+import os
+import sys
+
+
+def _apply_cuda_visible_devices_from_argv(argv: list[str]) -> None:
+    """Honor --gpus before torch is imported and CUDA device state is cached."""
+    for idx, arg in enumerate(argv):
+        if arg == "--gpus" and idx + 1 < len(argv):
+            os.environ["CUDA_VISIBLE_DEVICES"] = argv[idx + 1]
+            return
+        if arg.startswith("--gpus="):
+            os.environ["CUDA_VISIBLE_DEVICES"] = arg.split("=", 1)[1]
+            return
+
+
+_apply_cuda_visible_devices_from_argv(sys.argv[1:])
+os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
+
 import argparse
 import json
 import math
@@ -207,6 +225,8 @@ def main():
     parser.add_argument("--mxfp-progress-file", default=None,
                         help="Optional path updated atomically with the latest MX/MSD progress event. "
                              "In multi-rank runs, rank/setup suffixes are added.")
+    parser.add_argument("--compile-msd-truncate", action="store_true",
+                        help="Compile the MSD truncation primitive with torch.compile.")
     args = parser.parse_args()
     MODEL_PATH = args.model_path
     RESULTS_DIR = normalize_output_dir(args.results_dir, RESULTS_DIR)
@@ -323,6 +343,8 @@ def main():
             model.config.msd_chunk_target_mib = args.msd_chunk_target_mib
         if args.weight_cache_dtype is not None:
             model.config.mxfp_weight_cache_dtype = args.weight_cache_dtype
+        if args.compile_msd_truncate:
+            model.config.msd_compile_truncate = True
         if args.stats == "off":
             model.config.msd_perf_stats_enabled = False
             model.config.msd_perf_stats_lite = False

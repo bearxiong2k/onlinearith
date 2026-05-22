@@ -17,7 +17,7 @@ TRANSFORMERS_SRC = (REPO_ROOT / ".." / "transformers" / "src").resolve()
 if TRANSFORMERS_SRC.exists() and str(TRANSFORMERS_SRC) not in sys.path:
     sys.path.insert(0, str(TRANSFORMERS_SRC))
 
-from transformers.models.qwen3.modeling_qwen3 import _msd_truncate
+from transformers.models.qwen3.modeling_qwen3 import _compute_intra_block_delays, _msd_truncate
 
 
 def _reference_msd_truncate_old(value: torch.Tensor, num_digits: torch.Tensor) -> torch.Tensor:
@@ -97,6 +97,38 @@ def test_msd_truncate_matches_log2_pow_reference():
     torch.testing.assert_close(actual, expected, rtol=0, atol=0)
 
 
+def test_intra_block_delays_match_log2_reference():
+    values = torch.tensor(
+        [
+            0.0,
+            0.125,
+            -0.25,
+            0.5,
+            -0.75,
+            1.0,
+            1.5,
+            -2.0,
+            3.75,
+            -7.5,
+            28.0,
+            -448.0,
+        ],
+        dtype=torch.float32,
+    ).view(1, 3, 4)
+
+    abs_vals = values.abs()
+    elem_log2 = torch.where(
+        abs_vals > 0,
+        torch.floor(torch.log2(abs_vals)),
+        torch.tensor(-60.0, dtype=values.dtype),
+    )
+    expected = elem_log2.amax(dim=-1, keepdim=True) - elem_log2
+    actual = _compute_intra_block_delays(values)
+
+    torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+
+
 if __name__ == "__main__":
     test_msd_truncate_matches_log2_pow_reference()
+    test_intra_block_delays_match_log2_reference()
     print("ok")

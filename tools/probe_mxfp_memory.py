@@ -17,6 +17,21 @@ import traceback
 from pathlib import Path
 from types import MethodType
 
+
+def _apply_cuda_visible_devices_from_argv(argv: list[str]) -> None:
+    """Honor --gpus before torch is imported and CUDA device state is cached."""
+    for idx, arg in enumerate(argv):
+        if arg == "--gpus" and idx + 1 < len(argv):
+            os.environ["CUDA_VISIBLE_DEVICES"] = argv[idx + 1]
+            return
+        if arg.startswith("--gpus="):
+            os.environ["CUDA_VISIBLE_DEVICES"] = arg.split("=", 1)[1]
+            return
+
+
+_apply_cuda_visible_devices_from_argv(sys.argv[1:])
+os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
+
 import torch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -150,6 +165,8 @@ def main() -> int:
     parser.add_argument("--msd-chunk-target-mib", type=int, default=None)
     parser.add_argument("--weight-cache-dtype", choices=["float16", "float32", "none"], default=None)
     parser.add_argument("--stats", choices=["off", "lite", "full"], default="off")
+    parser.add_argument("--compile-msd-truncate", action="store_true",
+                        help="Compile the MSD truncation primitive with torch.compile.")
     parser.add_argument("--random-tokens", action="store_true")
     parser.add_argument("--include-all", action="store_true", help="Record every MXFP layer, not just heavy layers")
     parser.add_argument("--min-headroom-gib", type=float, default=None,
@@ -196,6 +213,8 @@ def main() -> int:
     else:
         model.config.msd_perf_stats_enabled = True
         model.config.msd_perf_stats_lite = False
+    if args.compile_msd_truncate:
+        set_config_if_present(model.config, "msd_compile_truncate", True)
 
     reconfigure_mlp_layers(model, device)
     clear_mxfp_weight_cache(model)

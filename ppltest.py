@@ -37,6 +37,22 @@ Fix vs. original script:
 """
 import os
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
+import sys
+
+
+def _apply_cuda_visible_devices_from_argv(argv: list[str]) -> None:
+    """Honor --gpus before torch is imported and CUDA device state is cached."""
+    for idx, arg in enumerate(argv):
+        if arg == "--gpus" and idx + 1 < len(argv):
+            os.environ["CUDA_VISIBLE_DEVICES"] = argv[idx + 1]
+            return
+        if arg.startswith("--gpus="):
+            os.environ["CUDA_VISIBLE_DEVICES"] = arg.split("=", 1)[1]
+            return
+
+
+_apply_cuda_visible_devices_from_argv(sys.argv[1:])
+os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
 
 import argparse
 import json
@@ -224,6 +240,8 @@ calibration workflow:
                         help="Enable Figure 5 layer-cycle profiling in lite stats mode. "
                              "Records per-layer cycle moments from block-serial, "
                              "channel-parallel execution estimates.")
+    parser.add_argument("--compile-msd-truncate", action="store_true",
+                        help="Compile the MSD truncation primitive with torch.compile.")
     args = parser.parse_args()
     model_path = args.model_path
     results_root = normalize_output_dir(args.results_dir, RESULTS_ROOT)
@@ -317,6 +335,8 @@ calibration workflow:
             model.config.msd_chunk_target_mib = args.msd_chunk_target_mib
         if args.weight_cache_dtype is not None:
             model.config.mxfp_weight_cache_dtype = args.weight_cache_dtype
+        if args.compile_msd_truncate:
+            model.config.msd_compile_truncate = True
         reconfigure_mlp_layers(model, device)
         if is_main(rank):
             print(format_config_banner(model.config, setup_id=sid, setup_desc=desc))
@@ -328,6 +348,8 @@ calibration workflow:
             model.config.msd_chunk_target_mib = args.msd_chunk_target_mib
         if args.weight_cache_dtype is not None:
             model.config.mxfp_weight_cache_dtype = args.weight_cache_dtype
+        if args.compile_msd_truncate:
+            model.config.msd_compile_truncate = True
         clear_mxfp_weight_cache(model)
 
     # ── 3b. Inject calibration data (if --calibration given) ─────────────────

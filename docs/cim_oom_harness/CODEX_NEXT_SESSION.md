@@ -36,6 +36,16 @@ Current implementation:
 - Sibling Transformers modeling_qwen3.py has the optimized MSD truncation path:
   frexp/ldexp scale reconstruction, no final zero-mask allocation, and NAF-width
   frexp exponent extraction.
+- `--gpus` is applied before torch import in probe, ppltest, and ppl_batch so
+  requested physical GPUs are honored before CUDA state is cached.
+- `PYTORCH_ALLOC_CONF=expandable_segments:True` is set by default before torch
+  import in probe, ppltest, and ppl_batch.
+- `--compile-msd-truncate` is implemented for probe, ppltest, and ppl_batch.
+  It sets `config.msd_compile_truncate=True` and uses
+  `torch.compile(_msd_truncate, fullgraph=True, mode="reduce-overhead")` only
+  when explicitly requested on CUDA. The default remains false.
+- Parent venv now has setuptools installed, so torch.compile is no longer
+  blocked by ModuleNotFoundError.
 
 Valid GPU measurements:
 - Setup 2 probe, seq_len=4096: status ok; peak_alloc=27.6147 GiB;
@@ -57,8 +67,13 @@ Valid GPU measurements:
   runtime versus 256 MiB.
 - frexp-width plus in-place stats-off p_eff construction was slower on GPU
   (layer 0 about 46.9s / 93.6s / 141.0s) and was reverted.
-- torch.compile(_msd_truncate) is currently blocked by missing setuptools in
-  the venv: ModuleNotFoundError: No module named 'setuptools'.
+- Setup 6 with `--compile-msd-truncate`, seq_len=4096: status ok;
+  elapsed=1059.95s; loss=0.01120709; peak_alloc=27.8387 GiB;
+  peak_reserved=28.7617 GiB; reserved_headroom=2.5950 GiB;
+  meets_min_headroom=true; mxfp_weight_cache.total_gib=10.7578.
+- Setup 6 `ppltest --limit-samples=2 --compile-msd-truncate` completed on one
+  GPU. It is a smoke only: the first two WikiText test samples score 8 tokens.
+  Token PPL=423.0598, mean NLL=6.0475, peak memory=27.08 GB.
 
 Invalid/non-source-of-truth artifacts:
 - Ignore 2026-05-21 sandbox progress files without cuda_* fields. They were CPU
@@ -74,10 +89,11 @@ Recommended next steps:
    ../.venv3_10/bin/python tests/test_mxfp_weight_cache_compact.py
    ../.venv3_10/bin/python tests/test_ppl_tail_logits_loss.py
    ../.venv3_10/bin/python test_mxfp8linear.py
-3. Decide whether to run the full setup 6 probe/PPL acceptance or continue
-   optimizing MSD performance. Setup 6 still appears multi-hour even after the
-   NAF-width improvement.
-4. If optimizing, keep MSD math unchanged and benchmark only with direct CUDA.
+3. Decide whether to run a longer setup 6 PPL smoke with more than the first two
+   WikiText samples, or continue optimizing MSD performance. The full setup 6
+   seq_len=4096 probe now completes in about 17.7 minutes with compile enabled.
+4. If optimizing further, keep MSD math unchanged and benchmark only with direct
+   CUDA.
    Current conservative setup 6 chunking at seq_len=4096 uses gate/up chunk 4
    and down chunk 1 because the temporary (N, chunk, nb, bs) tensor is large.
 ```
