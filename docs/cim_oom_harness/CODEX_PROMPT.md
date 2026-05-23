@@ -1,66 +1,66 @@
-# Prompt to give Codex
+# Codex Prompt: Qwen3 OOM/Performance Work
 
-You are working in a local checkout with sibling repos:
+Work in:
 
 ```text
-coding/
-  onlinearith/
-  transformers/
-  Qwen3-8B/
+/home/xzj/coding/onlinearith
+../transformers/src/transformers/models/qwen3/
 ```
 
-Read `onlinearith/docs/cim_oom_harness/CODEX_OOM_PERF_PLAN.md`. Implement the plan in small commits. Do not change PPL methodology (`MAX_LENGTH`, `STRIDE`, dataset, masked-label semantics, weighted NLL). Prioritize:
+## Hard Invariants
 
-1. exact output-chunked MX-only path in `_MXFPLinearBase`;
-2. compact MXFP weight cache, using `mxfp_weight_cache_dtype=float8` for
-   MXFP8 Qwen3-8B runs and `float16`/`none` for non-MXFP8 paths;
-3. PPL flags for stats/chunk/cache control;
-4. memory probe and acceptance ladder.
-5. calibration runner parity with the same GPU, chunk, cache, compile, and
-   projection-filter controls.
-6. parity for paper-critical baselines: fixed-sum calibrated MSD, uniform MSD,
-   MX-only, WANDA structured sparsity, and runtime activation n:m.
-7. keep `docs/experiments_time_estimates.md` current as optimization changes
-   the single-setup runtime estimates for the Qwen3-0.6B/1.7B/4B/8B family.
-   Sweeps and multi-GPU estimates are deferred.
+- Preserve PPL methodology: WikiText-2 raw test split, `MAX_LENGTH=4096`,
+  `STRIDE=512`, masked context labels, and weighted NLL accumulation.
+- Do not change dataset, tokenizer, labels, loss weighting, `MAX_LENGTH`, or
+  `STRIDE` to avoid OOM.
+- Do not use `ppltest.py --nproc 8` as an OOM fix. That replicates the full
+  model per GPU and only shards windows.
+- Do not introduce model sharding/device-map behavior until explicitly planned
+  and validated.
+- Keep fixed-sum calibrated MSD, uniform MSD, MX-only, WANDA, and activation N:M
+  paths on comparable runner hygiene.
+- Keep paper vocabulary precise: temporal significance scheduling, local
+  execution windows on aligned contribution streams, metadata-first two-plane
+  micro-tile with channel-parallel, block-serial execution.
 
-Use these tests as contracts:
+## Runtime Rules
 
-```bash
-python tests/test_mx_exact_chunked.py
-python tests/test_mxfp_weight_cache_compact.py
-python test_fixed_sum_optimizer.py
-```
-
-Then run:
-
-```bash
-bash scripts/run_qwen8b_oom_ladder.sh
-```
-
-Before any Qwen3-8B probe, PPL smoke test, calibration run, or timing comparison, verify that the command environment has direct CUDA visibility:
+- Before Qwen3-8B probes, PPL, calibration, or timing comparisons, verify direct
+  CUDA visibility:
 
 ```bash
 ../.venv3_10/bin/python -c 'import torch; print(torch.cuda.is_available(), torch.cuda.device_count())'
 ```
 
-Expected output on this machine is `True 8`. If it prints `False 0`, do not use that environment for GPU performance/OOM conclusions. Valid GPU progress logs include `cuda_*` memory fields and should be visible in `nvtop`.
+- Expected output on this machine is `True 8`. If it reports `False 0`, do not
+  use that environment for GPU performance/OOM conclusions.
+- Valid GPU progress evidence includes `cuda_alloc_gib`, `cuda_peak_*`, and
+  should be visible in `nvtop`.
+- Keep generated outputs, cache dirs, model weights, calibration dumps, plots,
+  and benchmark JSON out of commits unless explicitly requested.
 
-Acceptance criteria:
+## Current Standard Modes
 
-* setup 2, seq_len 4096 probe completes on one 32 GB GPU with at least 2 GiB headroom;
-* setup 6, seq_len 4096 probe completes with `--stats off`;
-* setup 6, seq_len 4096 with `--weight-cache-dtype float8` completes with
-  unchanged loss versus the float16 cache and substantially more headroom;
-* `ppltest.py --setup 2 --limit-samples 2` and `--setup 6 --limit-samples 2` complete on a single GPU;
-* a targeted 8B calibration smoke with `--projection-filter` captures only the requested projection and completes on one GPU;
-* broader fixed-sum calibration subsets use `--weight-cache-dtype none` for now, because projection-filtered hooks do not prevent unrelated persistent MXFP forward caches from accumulating;
-* gate/up/down fixed-sum subset metadata can be merged into a staged full-MLP calibration JSON because `msd_calibration_data` is keyed by projection module name;
-* fixed-sum calibrated MSD PPL uses generated `msd_calibration_data` from `calibrate.py --optimizer fixed_sum --target-snr ...` and completes a Qwen3-8B smoke;
-* WANDA and activation n:m baseline runners use the same GPU visibility, allocator, chunk/cache, `use_cache=False`, and PPL loss/window semantics as `ppltest.py`;
-* WANDA and activation N:M use common keep-count notation: `N:M` means keep `N` values per group of `M`; internally this prunes `(M-N):M`;
-* MSD target-finding utilization probes use `ppltest.py --msd-utilization-mode`;
-  this is the standard 100-sample lite-stat mode and excludes Figure 5 cycle
-  collection unless `--figure5-layer-cycles` is explicitly requested;
-* prefix80 Qwen3-8B measurements exist for staged full-MLP fixed-sum calibrated MSD, WANDA, and activation n:m; OOM feasibility is established, but fixed-sum calibrated MSD runtime is the main remaining optimization target;
-* small-layer exact MX test passes without changing old MX math.
+- MXFP8 Qwen3-8B memory runs: prefer `--weight-cache-dtype float8`.
+- Non-MXFP8 or broad calibration capture: use `float16` or `none` as appropriate.
+- MSD timing/utilization probe:
+
+```bash
+python ppltest.py --setup 6 --calibration <fixed_sum.json> \
+  --msd-utilization-mode --output <ppl_results_MXFP8_fix_time.json>
+```
+
+- `--msd-utilization-mode` is the maintained 100-sample lite-stat probe. Add
+  `--figure5-layer-cycles` only when debugging Figure 5 accounting.
+- WANDA and activation N:M use common keep-count notation: `2:4` means keep two
+  values per group of four.
+
+## File Map
+
+- Active concise plan: `docs/cim_oom_harness/CODEX_OOM_PERF_PLAN.md`
+- Detailed measurements: `docs/cim_oom_harness/reference/evidence_log.md`
+- Detailed implementation history: `docs/cim_oom_harness/reference/implementation_notes.md`
+- Runtime estimates: `docs/experiments_time_estimates.md`
+- Live probe: `tools/probe_mxfp_memory.py`
+- Live ladder: `scripts/run_qwen8b_oom_ladder.sh`
+- Live contract tests: `tests/`

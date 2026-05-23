@@ -28,7 +28,8 @@ Active onlinearith files:
 - `dist_utils.py`: torchrun/NCCL and lite distributed helpers.
 - `test_mxfp8linear.py`, `test_fixed_sum_optimizer.py`, `test_distributed.py`: validation scripts. Modernize these before relying on them for major changes.
 - `perf_viz.py`, `calibration_viz.py`, `visualization.py`: plotting and diagnostic helpers.
-- `docs/cim_oom_harness/CODEX_OOM_PERF_PLAN.md`: active Qwen3-8B OOM/performance iteration plan.
+- `docs/cim_oom_harness/`: active Qwen3 OOM/performance harness docs. Start with `CODEX_NEXT_SESSION.md`, `CODEX_PROMPT.md`, and `CODEX_OOM_PERF_PLAN.md`; read `reference/` only when detailed evidence or implementation history is needed.
+- `docs/experiments_time_estimates.md`: single-setup runtime estimates for the focused Qwen3 model family.
 - `tests/test_mx_exact_chunked.py`, `tests/test_mxfp_weight_cache_compact.py`: contract tests for the OOM iteration.
 - `tools/probe_mxfp_memory.py`, `scripts/run_qwen8b_oom_ladder.sh`: memory probe and staged acceptance ladder for Qwen3-8B.
 
@@ -88,15 +89,32 @@ PPL correctness is more important than speed. Preserve these unless the user exp
 - `--limit-samples` is only for quick tests and must be clearly marked as a non-final run.
 - `--lite` may reduce stats overhead, but it must not change logits, labels, loss, or PPL.
 
-## Active 8B OOM context
+## Active Qwen3 OOM context
 
-The active iteration is initialized from `docs/cim_oom_harness/CODEX_OOM_PERF_PLAN.md`. Preserve PPL methodology while implementing these changes:
+The active iteration is tracked in `docs/cim_oom_harness/`. Keep the always-read
+context files short; put detailed measurements in
+`docs/cim_oom_harness/reference/evidence_log.md` and detailed implementation
+history in `docs/cim_oom_harness/reference/implementation_notes.md`.
 
-1. Add an exact output-chunked MX-only baseline path in `_MXFPLinearBase.forward()` so the non-MSD MX baseline does not materialize the full `(num_blocks, tokens, out_features)` tensor.
-2. Keep `--lite` or stats-disable controls separate from numerical PPL. Lite stats should only skip expensive performance-statistics details.
-3. Force `use_cache=False` for PPL.
-4. Use `logits_to_keep=trg_len+1` plus sliced labels only after verifying loss equality on small windows.
-5. For Qwen3-8B, avoid 8 data-parallel full model replicas. Model sharding is a later explicit functional change.
+Current state:
+
+1. Single-GPU OOM feasibility and runner hygiene are established for MX-only,
+   uniform MSD setup 6, fixed-sum calibrated MSD, WANDA, and activation N:M.
+2. For MXFP8 Qwen3-8B memory-sensitive runs, prefer
+   `--weight-cache-dtype float8`.
+3. For WANDA and activation N:M, use common keep-count notation: `N:M` means
+   keep N values per group of M, internally pruning `(M-N):M`.
+4. For MSD equivalent-work comparisons, use the Figure 4
+   `plot_norm_digit_read = mean_effective_precision / 3.0` convention, not
+   `msd_perf_stats.global.global_utilization`. Fixed-sum target-SNR 30 dB is
+   already near dense digit-read work: the Figure 4 fixed-sum 30 dB point has
+   `plot_norm_digit_read = 0.87`, and 35 dB has `0.95`.
+5. `ppltest.py --msd-utilization-mode` remains the maintained 100-sample
+   lite-stat timing/probe mode. Its `global_utilization` output is a runtime
+   diagnostic to record, not the equivalent sparsity axis.
+6. The next technical focus is continuing calibrated/uniform MSD runtime
+   optimization at the fixed-sum 30 dB representative point without changing
+   MSD or PPL math.
 
 ## Coding conventions
 

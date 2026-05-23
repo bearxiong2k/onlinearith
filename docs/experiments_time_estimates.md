@@ -23,17 +23,56 @@ multi-GPU job packing.
 | Path | Representative setup | Why this point |
 |---|---|---|
 | MX baseline | `ppltest.py --setup 2` | Dense MXFP8 reference. |
-| Calibrated MSD | fixed-sum calibrated MXFP8 MSD at about `global_utilization = 0.5` | MSD analogue of 50% executed work. The exact target-SNR is not known yet. |
+| Calibrated MSD | fixed-sum calibrated MXFP8 MSD at target-SNR 30 dB | Figure 4 plots fixed-sum 30 dB at `plot_norm_digit_read = 0.87`, close to dense digit-read work. |
 | WANDA | common `2:4` N:M | 50% kept weights, 50% structured sparsity. |
 | Activation N:M | common `2:4` N:M | 50% kept activations, 50% runtime activation sparsity. |
 
 For WANDA and activation baselines, use common N:M notation: `2:4` means keep 2
 values per group of 4. Internally this prunes `(4 - 2):4`.
 
-For MSD, the corresponding "50%" point should be selected by measured
-`msd_perf_stats.global.global_utilization`, not by target-SNR directly.
+For MSD, do not use `msd_perf_stats.global.global_utilization` as the
+cross-method equivalent sparsity/work coordinate. Figure 4 uses
+`plot_norm_digit_read = mean_effective_precision / 3.0`. Fixed-sum target-SNR
+30 dB is close to dense work (`0.87`), and 35 dB is closer still (`0.95`).
 
-## Existing MSD Utilization Evidence
+## Existing MSD Equivalent-Work Evidence
+
+The equivalent sparsity/work coordinate used for Figure 4 is
+`plot_norm_digit_read`. The original extractor in the figure repo history,
+`../figure` commit `d60ad9c`, `figure4/extract_figure4_data.py`, defines:
+
+```text
+DENSE_DIGIT_READS = 3.0
+norm_read_uncap = uncap_e_p_eff / 3.0
+norm_read_cap = cap_e_eff / 3.0
+```
+
+Here `uncap_e_p_eff` and `cap_e_eff` are
+`msd_perf_stats.global.mean_effective_precision` from the relevant PPL JSONs.
+For fixed-sum and uniform MSD rows, `plot_norm_digit_read` uses capped
+`cap_e_eff / 3.0` when the cap100 file exists, otherwise uncapped
+`uncap_e_p_eff / 3.0`. The current
+`../figure/figure4/prepare_figure4_plot_data.py` then carries this raw
+`plot_norm_digit_read` into the plot x-axis. For WANDA and activation N:M rows,
+the historical extractor used kept fraction `(m - n) / m` from the old
+prune-count notation.
+
+Current prepared Figure 4 data includes these fixed-sum points. The implied
+effective precision is `plot_norm_digit_read * 3.0`.
+
+| Target SNR | `plot_norm_digit_read` | Implied `mean_effective_precision` |
+|---:|---:|---:|
+| 15 dB | 0.4133 | 1.2399 |
+| 18 dB | 0.5170 | 1.5511 |
+| 20 dB | 0.5858 | 1.7575 |
+| 25 dB | 0.7268 | 2.1803 |
+| 30 dB | 0.8700 | 2.6100 |
+| 35 dB | 0.9500 | 2.8500 |
+
+Therefore fixed-sum 30 dB should be treated as close to dense equivalent
+digit-read work, not as a 50% MSD point.
+
+## Historical Runtime-Stat Artifacts
 
 Former 0.6B calibrated fixed-sum PPL artifacts under
 `../data/calib-data/<xdb>/ppl_results_MXFP8_fix_{cap,time}.json` were generated
@@ -72,7 +111,8 @@ Current `ppltest.py` also preserves the old CLI behavior: `--lite` maps to
 `--stats lite`, and `--figure5-layer-cycles` forces lite stats while adding the
 Figure 5 cycle summaries.
 
-The standard maintained command for new target-finding probes is:
+The standard maintained command for new fixed-sum MSD timing/utilization probes
+is:
 
 ```bash
 python ppltest.py --nproc 1 --setup 6 \
@@ -87,9 +127,9 @@ when omitted, and does not collect Figure 5 cycle moments. Add
 `--figure5-layer-cycles` only when debugging Figure 5 cycle accounting; it is no
 longer part of the standard utilization/timing probe.
 
-Observed fixed-sum MXFP8 utilization from those artifacts:
+Observed fixed-sum MXFP8 runtime `global_utilization` from those artifacts:
 
-| Target SNR | Output variants checked | Global utilization |
+| Target SNR | Output variants checked | Runtime `global_utilization` |
 |---:|---|---:|
 | 12 dB | `_fix_cap`, `_fix_time` | 0.121 |
 | 15 dB | `_fix_cap`, `_fix_time` | 0.149 |
@@ -97,14 +137,12 @@ Observed fixed-sum MXFP8 utilization from those artifacts:
 | 25 dB | `_fix_cap`, `_fix_time` | 0.215 |
 | 30 dB | `_fix_time` | 0.225 |
 
-This does not bracket `global_utilization ~= 0.5`. Before final single-setup
-MSD runs, do a small target-finding pilot on the chosen model or on 0.6B to find
-the target-SNR range that reaches about 50% utilization. That pilot is not
-included in the single-run estimates below.
+These values are runtime diagnostics. They are not the equivalent sparsity/work
+axis used in Figure 4 and should not drive the representative MSD setup choice.
 
 Output convention for new compatibility checks:
 
-- Calibration metadata: use `calibrate.py --optimizer fixed_sum --result-suffix util50_candidate`.
+- Calibration metadata: use `calibrate.py --optimizer fixed_sum --target-snr 30`.
 - PPL timing/utilization: use explicit
   `ppltest.py --msd-utilization-mode --output ..._fix_time.json`.
 - If a cap-vs-time comparison is needed, write the paired output explicitly as
@@ -114,8 +152,8 @@ Output convention for new compatibility checks:
 ## Single-Setup Runtime Estimate
 
 One row is one model. Each cell is one representative setup on one GPU. For
-calibrated MSD, "calibration" means one fixed-sum calibration at the selected
-target-SNR, and "PPL" means one calibrated MSD PPL run using that metadata.
+calibrated MSD, "calibration" means one fixed-sum calibration at target-SNR
+30 dB, and "PPL" means one calibrated MSD PPL run using that metadata.
 
 | Model | MXFP8 PPL | Fixed-sum MSD calibration | Fixed-sum MSD PPL, current runtime | WANDA 2:4 calibration + PPL | Activation 2:4 PPL |
 |---|---:|---:|---:|---:|---:|
@@ -142,7 +180,8 @@ Basis:
   run.
 - Keep smoke/prefix/`--limit-samples` runs out of this table unless explicitly
   labeled as non-final evidence.
-- Record cache dtype, chunk sizes, stats mode, compile flag, target-SNR, and
-  observed `global_utilization` with every new MSD timing.
+- Record cache dtype, chunk sizes, stats mode, compile flag, target-SNR,
+  Figure 4 `plot_norm_digit_read` when available, and observed runtime
+  `global_utilization` with every new MSD timing.
 - Add multi-GPU wall-time estimates only after the single-GPU path estimates are
   updated and model sharding/job packing is explicitly validated.
