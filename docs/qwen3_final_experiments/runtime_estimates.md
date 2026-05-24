@@ -1,8 +1,7 @@
 # Single-Setup Runtime Estimates
 
 This is a living estimate for the focused Qwen3 model family. It intentionally
-tracks one representative setup per path. Target sweeps are deferred. Multi-GPU
-model-sharded estimates should be added after explicit sharding is validated.
+tracks one representative setup per path. Target sweeps are deferred.
 
 ## Models
 
@@ -15,9 +14,17 @@ Local model directories currently present under `../`:
 | `../Qwen3-4B` | 36 | 2560 | 9728 | 10.18x |
 | `../Qwen3-8B` | 36 | 4096 | 12288 | 20.57x |
 
-The estimates below are single-GPU only until the multi-GPU section is filled
-with direct-CUDA evidence. `ppltest.py --nproc` is not model sharding; it
-replicates the model and shards windows.
+`ppltest.py --nproc` is not model sharding; it replicates the full model and
+shards PPL windows. That makes it a valid final wall-time accelerator when each
+selected GPU can fit a full replica. `ppltest.py --device-map` is the separate
+single-process model-sharding path and should be treated as memory relief unless
+fresh direct-CUDA evidence shows throughput improvement.
+
+Current `ppltest.py --nproc` runs disable MSD stats on nonzero ranks. Use
+multi-rank output for PPL quality and wall time, but do not report its
+`msd_perf_stats` as a full-dataset aggregate unless rank-level stats aggregation
+is added. Until then, collect work/accounting metrics in a separate
+single-process utilization run or another explicitly documented probe.
 
 ## Representative Setups
 
@@ -161,25 +168,34 @@ calibrated MSD, "calibration" means one fixed-sum calibration at target-SNR
 | Qwen3-0.6B | 5-20 min | 1.2 h measured | about 2 h | 10-30 min | 5-20 min |
 | Qwen3-1.7B | 10-30 min | 4.7 h estimated | about 8 h | 20-60 min | 10-30 min |
 | Qwen3-4B | 25-60 min | 11.9 h estimated | about 20 h | 1-2 h | 25-60 min |
-| Qwen3-8B | 0.6-1.0 h | 24 h estimated | about 40 h | 1.3-2 h | 0.6-0.8 h |
+| Qwen3-8B | about 2.6 h single GPU; about 0.3 h on 8 full replicas | 24 h estimated single job; faster with projection-filtered task parallel jobs | about 160 h single GPU; about 20 h on 8 full replicas | about 2.6 h PPL plus 1.3-2 h mask calibration | about 2.7 h single GPU; about 0.3 h on 8 full replicas |
 
 Basis:
 
-- Full WikiText-2 PPL is about 299k scored tokens.
+- Full WikiText-2 PPL tokenizes to 299,078 tokens and 578 forward windows at
+  `MAX_LENGTH=4096`, `STRIDE=512`.
+- Runtime should be estimated by forward windows, not scored tokens. The first
+  window scores 4096 tokens, but almost all later windows still feed a full
+  4096-token context while scoring only 512 new tokens.
 - Qwen3-8B MXFP8 setup 2 prefix80 measured 4144 tokens in 31.97s on one GPU
   and 31.80s with explicit sequential model sharding across two active visible
-  CUDA devices. This extrapolates to about 0.64 h for full PPL either way; the
-  sharded benefit in this probe is per-GPU memory, not throughput.
+  CUDA devices. This prefix has two long forward windows, so the single-GPU
+  full-PPL estimate is about 2.6 h by window count; the sharded benefit in this
+  probe is per-GPU memory, not throughput.
 - Qwen3-8B calibrated/uniform MSD prefix80 measured 4144 tokens in about 1999s,
-  which extrapolates to about 40 h for full PPL at the current runtime.
+  or about 1000s per long forward window. The full-PPL estimate is therefore
+  about 160 h on one GPU, and about 20 h with eight full-replica data-parallel
+  PPL workers if scaling is close to ideal.
 - Qwen3-8B sequential model-sharded MSD prefix80 measured 4144 tokens in
   2120.60s for uniform setup 6 and 2111.13s for fixed-sum 30 dB. These
-  extrapolate to about 42.5 h and 42.3 h for full PPL. Sequential sharding did
-  not improve runtime, but reduced the largest recorded per-device allocation
+  extrapolate by window count to about 170.2 h and 169.5 h for full PPL.
+  Sequential sharding did not improve runtime, but reduced the largest recorded
+  per-device allocation
   from about 28.03 GB single-GPU peak memory to 26.6621 GiB on the busiest
   visible CUDA device, with 16.1289 GiB on the second active device.
 - Qwen3-8B WANDA and activation prefix80 measured about 32-33s on the same 4144
-  tokens, extrapolating to about 0.65-0.75 h for full PPL. WANDA includes an
+  tokens, extrapolating by window count to about 2.6-2.7 h for full PPL on one
+  GPU and about 0.3 h on eight full replicas. WANDA includes an
   additional offline mask calibration estimate.
 - Qwen3-0.6B fixed-sum calibration with 20 texts x 512 measured about 70 min per
   target. Larger-model calibration estimates scale by relative MLP projection
@@ -187,16 +203,20 @@ Basis:
 
 ## Multi-GPU Estimate Status
 
-Model-sharded MXFP8 and MSD have prefix-level correctness and timing evidence.
-WANDA and activation N:M sharded timings are still pending.
+Model-sharded MXFP8 and MSD have prefix-level correctness and timing evidence,
+but current sequential model sharding is memory relief rather than a speedup.
+The final PPL acceleration path should be full-replica data parallel window
+sharding with `ppltest.py --nproc`, after a direct-CUDA Qwen3-8B validation run.
 
-| Model | Path | Sharding mode | GPUs | Evidence | Wall-time estimate |
+| Model | Path | Execution mode | GPUs | Evidence | Wall-time estimate |
 |---|---|---|---:|---|---:|
-| Qwen3-8B | MXFP8 PPL | sequential | 2 active of 4 visible | non-final prefix80, exact PPL parity with single GPU; peak alloc 19.8733 + 9.3105 GiB | about 0.64 h, non-final extrapolation |
-| Qwen3-8B | Uniform MSD setup 6 PPL | sequential | 2 active of 4 visible | non-final prefix80, exact PPL parity with historical single GPU; peak alloc 26.6621 + 16.1289 GiB | about 42.5 h, non-final extrapolation |
-| Qwen3-8B | Fixed-sum MSD 30 dB PPL | sequential | 2 active of 4 visible | non-final prefix80, exact PPL parity with historical single GPU; peak alloc 26.6621 + 16.1289 GiB | about 42.3 h, non-final extrapolation |
-| Qwen3-8B | WANDA 2:4 | pending | pending | not validated | pending |
-| Qwen3-8B | Activation N:M 2:4 | pending | pending | not validated | pending |
+| Qwen3-8B | MXFP8 PPL | `--nproc` full-replica window sharding | 8 planned | direct Qwen3-8B `--nproc` timing pending; single-GPU prefix has 15.98s/window | about 0.3 h if near-ideal |
+| Qwen3-8B | Fixed-sum MSD 30 dB PPL | `--nproc` full-replica window sharding | 8 planned | direct Qwen3-8B `--nproc` timing pending; single-GPU prefix has 999.4s/window | about 20 h if near-ideal |
+| Qwen3-8B | WANDA 2:4 PPL | `--nproc` full-replica window sharding | 8 planned | direct Qwen3-8B `--nproc` timing pending; single-GPU prefix has 15.93s/window | about 0.3 h if near-ideal |
+| Qwen3-8B | Activation N:M 2:4 PPL | `--nproc` full-replica window sharding | 8 planned | direct Qwen3-8B `--nproc` timing pending; single-GPU prefix has 16.52s/window | about 0.3 h if near-ideal |
+| Qwen3-8B | MXFP8 PPL | `--device-map sequential` | 2 active of 4 visible | non-final prefix80, exact PPL parity with single GPU; peak alloc 19.8733 + 9.3105 GiB | about 2.6 h; memory relief only |
+| Qwen3-8B | Uniform MSD setup 6 PPL | `--device-map sequential` | 2 active of 4 visible | non-final prefix80, exact PPL parity with historical single GPU; peak alloc 26.6621 + 16.1289 GiB | about 170 h; memory relief only |
+| Qwen3-8B | Fixed-sum MSD 30 dB PPL | `--device-map sequential` | 2 active of 4 visible | non-final prefix80, exact PPL parity with historical single GPU; peak alloc 26.6621 + 16.1289 GiB | about 169 h; memory relief only |
 
 ## Update Rules
 
@@ -207,5 +227,6 @@ WANDA and activation N:M sharded timings are still pending.
 - Record cache dtype, chunk sizes, stats mode, compile flag, target-SNR,
   Figure 4 `plot_norm_digit_read` when available, and observed runtime
   `global_utilization` with every new MSD timing.
-- Add multi-GPU wall-time estimates only after explicit model sharding or job
-  packing is validated and the output metadata records that execution mode.
+- Add multi-GPU wall-time estimates only after explicit model sharding,
+  full-replica PPL window sharding, or job packing is validated and the output
+  metadata records that execution mode.

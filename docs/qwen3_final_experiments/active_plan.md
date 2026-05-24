@@ -27,25 +27,39 @@ Representative paths:
 - `--limit-samples` and `--msd-utilization-mode` are non-final probes unless
   explicitly labeled otherwise.
 - `ppltest.py --nproc` is data-parallel window sharding with one full model
-  replica per process. Explicit model sharding must be a separate mode.
+  replica per process. It is valid for final PPL wall-time acceleration when
+  each selected GPU can fit a full replica, but it is not model sharding and
+  is not an OOM solution.
 
 ## Current Work
 
-1. Decide the next sharding direction: use current sequential placement as
-   memory relief only, or test `balanced`/manual placement before claiming any
-   multi-GPU speedup.
-2. Extend the same explicit placement discipline to calibration now that PPL
-   sharding is prefix-validated for MXFP8, uniform MSD, and fixed-sum MSD.
-3. Update `docs/qwen3_final_experiments/runtime_estimates.md` with measured
+1. Use full-replica data parallelism (`ppltest.py --nproc`) as the final PPL
+   acceleration path after direct-CUDA validation on Qwen3-8B. Record it as
+   window-sharded data parallel evaluation, not model parallelism.
+2. Treat current `--device-map sequential` placement as memory relief only.
+   Do not claim model-parallel speedup unless `balanced` or a manual placement
+   policy beats single-GPU and data-parallel timing with direct-CUDA evidence.
+3. Do not treat MSD stats from a current `--nproc` run as full-dataset work
+   aggregates: nonzero ranks disable MSD stats. Use `--nproc` for PPL quality
+   and wall time, and use a separate single-process utilization/accounting run
+   or add rank-level stats aggregation before reporting aggregate work metrics.
+4. For fixed-sum calibration, prefer task parallelism over model sharding:
+   run projection-filtered full-replica jobs on separate GPUs, then merge the
+   resulting metadata with the established staged-calibration workflow.
+5. Update `docs/qwen3_final_experiments/runtime_estimates.md` with measured
    single-GPU and multi-GPU wall-time estimates as each representative path is
    validated.
-4. Keep generated calibration/result artifacts out of commits unless explicitly
+6. Keep generated calibration/result artifacts out of commits unless explicitly
    requested.
 
 ## Sharding Guardrails
 
-- Start with one process controlling a sharded model; do not combine initial
-  model sharding with `--nproc`.
+- Keep the two multi-GPU modes distinct:
+  `--nproc` means data-parallel PPL window sharding with one full model replica
+  per process; `--device-map` means single-process layer placement across GPUs.
+- Do not combine model sharding with `--nproc` in the current runner.
+- Use `--nproc` for final PPL acceleration only when direct CUDA is visible and
+  every selected GPU has enough memory for a full model replica.
 - Do not silently use `device_map="auto"` as a default. Sharding must be
   opt-in and visible in output metadata.
 - Use visible-device IDs in `--max-memory`, after `--gpus` has narrowed

@@ -23,6 +23,14 @@ Interpretation: float8 cache preserves loss/runtime for MXFP8 and saves about
 
 ## Prefix/Smoke PPL Evidence
 
+- 2026-05-24 exact WikiText-2/Qwen3-8B tokenizer accounting:
+  `wikitext-2-raw-v1` test split tokenizes to 299,078 tokens and
+  `precompute_windows(seq_len=299078, max_length=4096, stride=512)` produces
+  578 forward windows. The first windows are `(0, 4096, 4096)`,
+  `(512, 4608, 512)`, `(1024, 5120, 512)` and the tail window is
+  `(295424, 299078, 70)`. Runtime estimates must scale by forward-window
+  count, not by scored-token count, because most windows feed a full context
+  while scoring one stride of new tokens.
 - Setup 6 `ppltest --limit-samples=2 --compile-msd-truncate`: smoke only,
   scored 8 tokens; token PPL 423.0598; mean NLL 6.0475; peak memory 27.08 GB.
 - Setup 6 `ppltest --limit-samples=80 --compile-msd-truncate`: non-final

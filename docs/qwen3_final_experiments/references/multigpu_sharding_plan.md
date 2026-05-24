@@ -5,8 +5,13 @@ handoff concise; update this file with implementation details as they emerge.
 
 ## Goal
 
-Add an explicit model-sharded execution mode for final Qwen3 experiments so
-larger models can run with lower per-GPU memory and clearer wall-time estimates.
+Add and validate explicit multi-GPU execution modes for final Qwen3 experiments.
+There are two separate modes:
+
+- full-replica data parallel PPL window sharding with `ppltest.py --nproc`,
+  which accelerates wall time when each GPU can fit a complete model;
+- single-process model sharding with `ppltest.py --device-map`, which reduces
+  per-GPU memory but has not shown throughput improvement in current evidence.
 
 The first target is PPL. Calibration sharding should be considered after PPL
 sharding is validated, because calibration has additional activation-capture and
@@ -17,7 +22,11 @@ projection-filter behavior.
 - Do not change PPL math, dataset, tokenizer, window constants, labels, or loss
   weighting.
 - Do not use `ppltest.py --nproc` as model sharding. It launches multiple full
-  model replicas and shards windows.
+  model replicas and shards windows. It is acceptable as the final PPL
+  acceleration method when full replicas fit.
+- Do not report current `--nproc` `msd_perf_stats` as a full-dataset aggregate:
+  nonzero ranks disable MSD stats. Add explicit stats aggregation or use a
+  separate single-process accounting run for work metrics.
 - Do not make `device_map="auto"` an implicit default. Sharding must be opt-in
   and visible in result metadata.
 - Do not combine initial model sharding with `--nproc`; validate single-process
@@ -82,5 +91,7 @@ Use direct CUDA only.
   the custom Qwen3 modules.
 - Whether calibration should use the same sharded loader or a separate
   projection-subset capture workflow.
-- How much sharding helps wall time versus only per-GPU memory, especially for
-  MSD paths dominated by large chunked tensor kernels.
+- Whether `--device-map balanced` or manual placement can beat single-GPU
+  runtime. Current sequential evidence says model sharding is memory relief
+  only; `--nproc` full-replica window sharding is the preferred final speed path
+  when memory allows it.

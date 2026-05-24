@@ -42,7 +42,9 @@ Work in:
 - WANDA and activation N:M use common keep-count notation: `2:4` means keep two
   values per group of four.
 - `ppltest.py --nproc` is data-parallel window sharding, not model sharding.
-  Any model sharding must be opt-in and recorded in output metadata.
+  It is valid for final PPL wall-time acceleration when each selected GPU can
+  fit a full replica. Any model sharding must be opt-in and recorded in output
+  metadata.
 - `ppltest.py --device-map {auto,sequential,balanced}` is the explicit
   single-process model-sharding entry point. Do not combine it with `--nproc`.
   `--max-memory` uses visible CUDA device IDs after `--gpus` filtering.
