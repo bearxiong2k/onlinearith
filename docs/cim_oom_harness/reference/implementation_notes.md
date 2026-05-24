@@ -22,6 +22,10 @@ standard session handoff.
   - `--msd-utilization-mode` for standard fixed-sum MSD timing/utilization
     probes.
 - Tail-logits chunked loss is implemented and covered by tests.
+- Stats-off MSD inference computes `p_eff` in-place from delay terms instead of
+  materializing both `total_delay` and `p_eff` as full 4D tensors. Chunk-local
+  tensors such as `combined_e`, `w_q_c`, `b_final_c`, and inter-block delays are
+  also freed earlier before the truncation call.
 - Shared MXFP/MSD progress reporting is wired into probe, `ppltest.py`,
   `ppl_batch.py`, and the ladder script.
 - `--gpus` is applied before torch import in probe, `ppltest.py`, `ppl_batch.py`,
@@ -92,6 +96,7 @@ Run the cheapest relevant checks after repo or runner edits:
 
 ```bash
 ../.venv3_10/bin/python tests/test_msd_truncate_equivalence.py
+../.venv3_10/bin/python tests/test_msd_stats_off_equivalence.py
 ../.venv3_10/bin/python tests/test_mx_exact_chunked.py
 ../.venv3_10/bin/python tests/test_mxfp_weight_cache_compact.py
 ../.venv3_10/bin/python tests/test_ppl_tail_logits_loss.py

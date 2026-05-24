@@ -34,6 +34,9 @@ Current state:
   convention, not `msd_perf_stats.global.global_utilization`. The MSD formula
   is `plot_norm_digit_read = mean_effective_precision / 3.0`; fixed-sum 30 dB
   has `plot_norm_digit_read = 0.87`, close to dense digit-read work.
+- Latest runtime cleanup: stats-off MSD inference no longer materializes a
+  separate full 4D `total_delay` tensor, and a small equivalence test covers
+  stats-off output against the stats-on path.
 
 Immediate direction:
 1. Keep the repo structure clean: live scripts/tests stay at repo root; long

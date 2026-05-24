@@ -18,6 +18,8 @@ details live under `docs/cim_oom_harness/reference/`.
   - `--msd-utilization-mode`
 - Tail-logits chunked loss is implemented and tested.
 - `use_cache=False` is forced for PPL.
+- Stats-off MSD inference avoids materializing a separate full 4D
+  `total_delay` tensor and frees chunk-local temporaries before truncation.
 - Early `--gpus` and allocator defaults are wired through the main and baseline
   runners.
 - Fixed-sum calibration capture supports projection filtering and runtime
@@ -90,6 +92,7 @@ Cheap contracts:
 
 ```bash
 ../.venv3_10/bin/python tests/test_msd_truncate_equivalence.py
+../.venv3_10/bin/python tests/test_msd_stats_off_equivalence.py
 ../.venv3_10/bin/python tests/test_mx_exact_chunked.py
 ../.venv3_10/bin/python tests/test_mxfp_weight_cache_compact.py
 ../.venv3_10/bin/python tests/test_ppl_tail_logits_loss.py
