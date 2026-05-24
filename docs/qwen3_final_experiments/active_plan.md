@@ -33,9 +33,11 @@ Representative paths:
 
 ## Current Work
 
-1. Use full-replica data parallelism (`ppltest.py --nproc`) as the final PPL
-   acceleration path after direct-CUDA validation on Qwen3-8B. Record it as
-   window-sharded data parallel evaluation, not model parallelism.
+1. Scale full-replica data parallelism (`ppltest.py --nproc`) beyond the
+   validated two-worker Qwen3-8B prefix runs. Record it as window-sharded data
+   parallel evaluation, not model parallelism. For Qwen3-8B MSD, include
+   `--weight-cache-dtype float8`; the default float16 persistent cache OOMed in
+   a two-worker fixed-sum prefix run.
 2. Treat current `--device-map sequential` placement as memory relief only.
    Do not claim model-parallel speedup unless `balanced` or a manual placement
    policy beats single-GPU and data-parallel timing with direct-CUDA evidence.

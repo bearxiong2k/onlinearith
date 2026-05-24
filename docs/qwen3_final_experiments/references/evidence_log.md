@@ -50,6 +50,36 @@ Interpretation: single-GPU OOM feasibility is shown across MX-only, uniform MSD,
 fixed-sum calibrated MSD, WANDA, and activation N:M. Calibrated/uniform MSD
 runtime remains the main bottleneck.
 
+## Full-Replica Data-Parallel PPL Evidence
+
+2026-05-24 direct-CUDA `ppltest.py --nproc 2` validation used physical GPUs
+4,5 and the same Qwen3-8B prefix80 WikiText-2 slice as the single-GPU and
+model-sharded evidence above. This is data-parallel window sharding with one
+full model replica per worker, not model sharding. Result JSONs record rank-0
+CUDA memory only; use the wall time and PPL for this validation, not
+multi-rank memory accounting.
+
+| Model | Path | Command detail | Scored tokens | Token PPL | Mean NLL | Wall time | Rank-0 peak allocation |
+|---|---|---|---:|---:|---:|---:|---|
+| Qwen3-8B | setup 2 MXFP8 | `--nproc 2 --gpus 4,5 --stats off` | 4,144 | 8.8440 | 2.1797 | 17.02s | cuda:0 27.6147 GiB |
+| Qwen3-8B | fixed-sum 30 dB | `--nproc 2 --gpus 4,5 --stats off --compile-msd-truncate --weight-cache-dtype float8` | 4,144 | 8.8632 | 2.1819 | 1120.41s | cuda:0 25.0613 GiB |
+
+The fixed-sum run used
+`/tmp/onlinearith_calib_mlp_merged_smoke/calibration_MXFP8_fixed_sum_qwen8b_mlp_merged_snr30_smoke_nocache.json`,
+which covers 108 MLP projections and 1,032,192 channels. An otherwise identical
+fixed-sum `--nproc 2` run with the default float16 persistent weight cache OOMed
+on rank 1 after about 10 minutes: GPU 1 had 31.36 GiB total, 1.28 GiB free, and
+the process reported 28.81 GiB PyTorch allocation plus 4.49 GiB private pools
+before failing on a 1.50 GiB allocation in `_forward_msd_truncated`. Therefore
+the current Qwen3-8B MSD full-replica multi-GPU recipe should include
+`--weight-cache-dtype float8`.
+
+Interpretation: `--nproc` is now prefix-validated for Qwen3-8B MXFP8 and
+fixed-sum MSD PPL quality. MXFP8 speedup is close to 2x on two windows
+(31.97s single GPU versus 17.02s with two workers). Fixed-sum MSD preserves PPL
+and avoids OOM with float8 cache; the two-worker prefix wall time is 1120.41s,
+which should be scaled by assigned forward windows for full-run estimates.
+
 ## Model-Sharded PPL Smoke Evidence
 
 2026-05-24 direct-CUDA tiny smokes validated the explicit single-process

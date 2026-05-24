@@ -24,6 +24,10 @@ projection-filter behavior.
 - Do not use `ppltest.py --nproc` as model sharding. It launches multiple full
   model replicas and shards windows. It is acceptable as the final PPL
   acceleration method when full replicas fit.
+- For Qwen3-8B MSD full-replica multi-GPU PPL, use `--weight-cache-dtype
+  float8` unless newer evidence supersedes it. A two-worker fixed-sum prefix
+  run with the default float16 persistent cache OOMed, while the float8-cache
+  run preserved PPL and completed.
 - Do not report current `--nproc` `msd_perf_stats` as a full-dataset aggregate:
   nonzero ranks disable MSD stats. Add explicit stats aggregation or use a
   separate single-process accounting run for work metrics.

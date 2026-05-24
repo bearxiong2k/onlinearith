@@ -41,6 +41,13 @@ Current status:
 - Qwen3-8B setup 6 uniform MSD and fixed-sum target-SNR 30 dB also have
   direct-CUDA prefix80 validation with exact scored-token and PPL parity at
   recorded precision.
+- Qwen3-8B `ppltest.py --nproc 2` full-replica data-parallel PPL is now
+  prefix-validated for setup 2 MXFP8 and fixed-sum target-SNR 30 dB. MXFP8
+  matched prior PPL and ran in 17.02s versus 31.97s single-GPU. Fixed-sum
+  matched prior PPL and ran in 1120.41s with `--weight-cache-dtype float8`.
+- The same fixed-sum `--nproc 2` run with the default float16 persistent weight
+  cache OOMed on rank 1. Use `--weight-cache-dtype float8` for Qwen3-8B MSD
+  full-replica multi-GPU PPL unless a newer memory fix supersedes this.
 - WikiText-2 test tokenization is 299,078 tokens and 578 PPL forward windows
   at `MAX_LENGTH=4096`, `STRIDE=512`. Runtime estimates should scale from
   forward-window count, not from scored tokens, because almost all windows feed
@@ -51,8 +58,9 @@ Current status:
   1998.8s for the historical single-GPU prefix.
 
 Next iteration:
-1. Validate Qwen3-8B `ppltest.py --nproc` as the final PPL acceleration path
-   for full-replica data-parallel window sharding.
+1. Scale Qwen3-8B `ppltest.py --nproc` from the validated two-worker prefix
+   runs to a larger worker count. For MSD, include `--weight-cache-dtype
+   float8`.
 2. Treat `--device-map sequential` as memory relief only unless `balanced` or
    manual placement shows direct-CUDA speedup over single-GPU and `--nproc`.
 3. Remember that current `--nproc` disables MSD stats on nonzero ranks; use it

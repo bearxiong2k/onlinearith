@@ -168,7 +168,7 @@ calibrated MSD, "calibration" means one fixed-sum calibration at target-SNR
 | Qwen3-0.6B | 5-20 min | 1.2 h measured | about 2 h | 10-30 min | 5-20 min |
 | Qwen3-1.7B | 10-30 min | 4.7 h estimated | about 8 h | 20-60 min | 10-30 min |
 | Qwen3-4B | 25-60 min | 11.9 h estimated | about 20 h | 1-2 h | 25-60 min |
-| Qwen3-8B | about 2.6 h single GPU; about 0.3 h on 8 full replicas | 24 h estimated single job; faster with projection-filtered task parallel jobs | about 160 h single GPU; about 20 h on 8 full replicas | about 2.6 h PPL plus 1.3-2 h mask calibration | about 2.7 h single GPU; about 0.3 h on 8 full replicas |
+| Qwen3-8B | about 2.6 h single GPU; about 0.3 h on 8 full replicas | 24 h estimated single job; faster with projection-filtered task parallel jobs | about 160 h single GPU; about 23 h on 8 full replicas with float8 cache | about 2.6 h PPL plus 1.3-2 h mask calibration | about 2.7 h single GPU; about 0.3 h on 8 full replicas |
 
 Basis:
 
@@ -182,10 +182,20 @@ Basis:
   CUDA devices. This prefix has two long forward windows, so the single-GPU
   full-PPL estimate is about 2.6 h by window count; the sharded benefit in this
   probe is per-GPU memory, not throughput.
+- Qwen3-8B MXFP8 setup 2 with `ppltest.py --nproc 2 --gpus 4,5 --stats off`
+  on the same prefix80 slice matched single-GPU PPL exactly at recorded
+  precision and reduced wall time from 31.97s to 17.02s.
 - Qwen3-8B calibrated/uniform MSD prefix80 measured 4144 tokens in about 1999s,
   or about 1000s per long forward window. The full-PPL estimate is therefore
   about 160 h on one GPU, and about 20 h with eight full-replica data-parallel
   PPL workers if scaling is close to ideal.
+- Qwen3-8B fixed-sum target-SNR 30 dB with `ppltest.py --nproc 2 --gpus 4,5
+  --stats off --compile-msd-truncate --weight-cache-dtype float8` matched the
+  prior prefix PPL exactly at recorded precision and completed in 1120.41s. A
+  default float16-cache `--nproc 2` run OOMed on rank 1, so the current
+  multi-GPU MSD recipe should include `--weight-cache-dtype float8`. Scaling
+  the successful two-worker per-assigned-window time to 578 full PPL windows
+  gives about 22.7 h on eight workers.
 - Qwen3-8B sequential model-sharded MSD prefix80 measured 4144 tokens in
   2120.60s for uniform setup 6 and 2111.13s for fixed-sum 30 dB. These
   extrapolate by window count to about 170.2 h and 169.5 h for full PPL.
@@ -210,8 +220,8 @@ sharding with `ppltest.py --nproc`, after a direct-CUDA Qwen3-8B validation run.
 
 | Model | Path | Execution mode | GPUs | Evidence | Wall-time estimate |
 |---|---|---|---:|---|---:|
-| Qwen3-8B | MXFP8 PPL | `--nproc` full-replica window sharding | 8 planned | direct Qwen3-8B `--nproc` timing pending; single-GPU prefix has 15.98s/window | about 0.3 h if near-ideal |
-| Qwen3-8B | Fixed-sum MSD 30 dB PPL | `--nproc` full-replica window sharding | 8 planned | direct Qwen3-8B `--nproc` timing pending; single-GPU prefix has 999.4s/window | about 20 h if near-ideal |
+| Qwen3-8B | MXFP8 PPL | `--nproc` full-replica window sharding | 2 validated; 8 planned | prefix80 exact PPL parity; 31.97s single GPU vs 17.02s with two workers | about 0.3 h on 8 workers if scaling holds |
+| Qwen3-8B | Fixed-sum MSD 30 dB PPL | `--nproc` full-replica window sharding with float8 cache | 2 validated; 8 planned | prefix80 exact PPL parity; default float16 cache OOMed; float8 cache completed in 1120.41s | about 22.7 h on 8 workers by assigned-window scaling |
 | Qwen3-8B | WANDA 2:4 PPL | `--nproc` full-replica window sharding | 8 planned | direct Qwen3-8B `--nproc` timing pending; single-GPU prefix has 15.93s/window | about 0.3 h if near-ideal |
 | Qwen3-8B | Activation N:M 2:4 PPL | `--nproc` full-replica window sharding | 8 planned | direct Qwen3-8B `--nproc` timing pending; single-GPU prefix has 16.52s/window | about 0.3 h if near-ideal |
 | Qwen3-8B | MXFP8 PPL | `--device-map sequential` | 2 active of 4 visible | non-final prefix80, exact PPL parity with single GPU; peak alloc 19.8733 + 9.3105 GiB | about 2.6 h; memory relief only |
