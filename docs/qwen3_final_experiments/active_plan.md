@@ -31,10 +31,11 @@ Representative paths:
 
 ## Current Work
 
-1. Repeat Qwen3-8B prefix validation for the slow MSD path, starting with setup
-   6 and then fixed-sum target-SNR 30 dB if calibrated metadata is available.
-2. Extend the same explicit placement discipline to calibration only after PPL
-   sharding is validated.
+1. Decide the next sharding direction: use current sequential placement as
+   memory relief only, or test `balanced`/manual placement before claiming any
+   multi-GPU speedup.
+2. Extend the same explicit placement discipline to calibration now that PPL
+   sharding is prefix-validated for MXFP8, uniform MSD, and fixed-sum MSD.
 3. Update `docs/qwen3_final_experiments/runtime_estimates.md` with measured
    single-GPU and multi-GPU wall-time estimates as each representative path is
    validated.

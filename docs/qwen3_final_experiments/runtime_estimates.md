@@ -172,6 +172,12 @@ Basis:
   sharded benefit in this probe is per-GPU memory, not throughput.
 - Qwen3-8B calibrated/uniform MSD prefix80 measured 4144 tokens in about 1999s,
   which extrapolates to about 40 h for full PPL at the current runtime.
+- Qwen3-8B sequential model-sharded MSD prefix80 measured 4144 tokens in
+  2120.60s for uniform setup 6 and 2111.13s for fixed-sum 30 dB. These
+  extrapolate to about 42.5 h and 42.3 h for full PPL. Sequential sharding did
+  not improve runtime, but reduced the largest recorded per-device allocation
+  from about 28.03 GB single-GPU peak memory to 26.6621 GiB on the busiest
+  visible CUDA device, with 16.1289 GiB on the second active device.
 - Qwen3-8B WANDA and activation prefix80 measured about 32-33s on the same 4144
   tokens, extrapolating to about 0.65-0.75 h for full PPL. WANDA includes an
   additional offline mask calibration estimate.
@@ -181,13 +187,14 @@ Basis:
 
 ## Multi-GPU Estimate Status
 
-Model-sharded MXFP8 has prefix-level correctness and timing evidence. MSD,
-WANDA, and activation N:M sharded timings are still pending.
+Model-sharded MXFP8 and MSD have prefix-level correctness and timing evidence.
+WANDA and activation N:M sharded timings are still pending.
 
 | Model | Path | Sharding mode | GPUs | Evidence | Wall-time estimate |
 |---|---|---|---:|---|---:|
 | Qwen3-8B | MXFP8 PPL | sequential | 2 active of 4 visible | non-final prefix80, exact PPL parity with single GPU; peak alloc 19.8733 + 9.3105 GiB | about 0.64 h, non-final extrapolation |
-| Qwen3-8B | Fixed-sum MSD 30 dB PPL | pending | pending | not validated | pending |
+| Qwen3-8B | Uniform MSD setup 6 PPL | sequential | 2 active of 4 visible | non-final prefix80, exact PPL parity with historical single GPU; peak alloc 26.6621 + 16.1289 GiB | about 42.5 h, non-final extrapolation |
+| Qwen3-8B | Fixed-sum MSD 30 dB PPL | sequential | 2 active of 4 visible | non-final prefix80, exact PPL parity with historical single GPU; peak alloc 26.6621 + 16.1289 GiB | about 42.3 h, non-final extrapolation |
 | Qwen3-8B | WANDA 2:4 | pending | pending | not validated | pending |
 | Qwen3-8B | Activation N:M 2:4 | pending | pending | not validated | pending |
 

@@ -95,9 +95,30 @@ resolved map placed layers on visible CUDA devices 0 and 1.
 Interpretation: explicit single-process model sharding now has prefix-level
 correctness evidence on Qwen3-8B MXFP8 with an actual 4,096-token context
 window. The initial sequential placement lowered per-GPU memory but did not
-materially change MXFP8 wall time on this two-window prefix. Next validation:
-repeat the prefix comparison for setup 6 or calibrated fixed-sum MSD before
-accepting sharded MSD wall-time estimates.
+materially change MXFP8 wall time on this two-window prefix. Slow-MSD
+validation is recorded below.
+
+2026-05-24 direct-CUDA slow-MSD prefix validation repeated the same Qwen3-8B
+prefix80 comparison for uniform setup 6 and for fixed-sum target-SNR 30 dB
+using the staged merged full-MLP calibration metadata. Both sharded runs used
+physical GPUs 4,5,6,7 visible with `--device-map sequential --max-memory
+0:12GiB,1:12GiB,2:12GiB,3:12GiB`; the resolved map again placed layers on
+visible CUDA devices 0 and 1 only.
+
+| Model | Path | Scored tokens | Token PPL | Mean NLL | Wall time | CUDA peak allocation |
+|---|---|---:|---:|---:|---:|---|
+| Qwen3-8B | setup 6, single GPU historical prefix | 4,144 | 8.8708 | 2.1828 | 2000.6s | peak memory 28.03 GB |
+| Qwen3-8B | setup 6, sequential sharded | 4,144 | 8.8708 | 2.1828 | 2120.60s | cuda:0 26.6621 GiB; cuda:1 16.1289 GiB; cuda:2/3 0.0 GiB |
+| Qwen3-8B | fixed-sum 30 dB, single GPU historical prefix | 4,144 | 8.8632 | 2.1819 | 1998.8s | peak memory 28.03 GB; peak_reserved 28.7617 GiB |
+| Qwen3-8B | fixed-sum 30 dB, sequential sharded | 4,144 | 8.8632 | 2.1819 | 2111.13s | cuda:0 26.6621 GiB; cuda:1 16.1289 GiB; cuda:2/3 0.0 GiB |
+
+Interpretation: explicit single-process sequential model sharding now has
+prefix-level correctness evidence for Qwen3-8B MXFP8, uniform MSD setup 6, and
+fixed-sum target-SNR 30 dB. The current sequential placement is useful as
+memory relief, not a throughput improvement. It also uses only two of four
+visible GPUs under the tested `max_memory` settings, so any future speedup
+claim needs a different placement policy or manual map plus fresh direct-CUDA
+evidence.
 
 ## Fixed-Sum Calibration Evidence
 
