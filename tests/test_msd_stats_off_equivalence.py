@@ -60,6 +60,8 @@ def _prepare(layer: MXFP8Linear, x: torch.Tensor):
 def test_stats_off_msd_forward_matches_stats_on_path():
     torch.manual_seed(20260524)
     cfg = Cfg()
+    progress_events = []
+    cfg._mxfp_progress_hook = lambda **event: progress_events.append(event)
     layer = MXFP8Linear(24, 17, bias=False, config=cfg)
     layer.layer_name = "layers.0.mlp.gate_proj"
     layer.eval()
@@ -81,6 +83,13 @@ def test_stats_off_msd_forward_matches_stats_on_path():
         out_on = layer._forward_msd_truncated(x_q, x_scales, w_q, w_scales, n, stats_on)
 
     torch.testing.assert_close(out_off, out_on, rtol=0, atol=0)
+
+    stats = stats_on.perf_stats.finalize(online_delay=Cfg.msd_online_delay)
+    assert stats["global"]["num_layers"] == 1
+    assert stats["global"]["mean_effective_precision"] > 0
+    assert stats["global"]["max_total_delay"] >= Cfg.msd_online_delay
+    assert layer.layer_name in stats["per_layer"]
+    assert [event["phase"] for event in progress_events] == ["msd_chunk", "msd_chunk"]
 
 
 if __name__ == "__main__":

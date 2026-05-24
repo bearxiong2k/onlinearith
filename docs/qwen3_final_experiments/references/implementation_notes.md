@@ -21,11 +21,38 @@ standard session handoff.
   - `--compile-msd-truncate`
   - `--msd-utilization-mode` for standard fixed-sum MSD timing/utilization
     probes.
+- `ppltest.py` has an explicit single-process model-sharding entry point:
+  - `--device-map {none,auto,sequential,balanced}`
+  - `--max-memory 0:30GiB,1:30GiB,...`
+  - sharded modes are rejected with `--nproc > 1` or torchrun world size > 1;
+  - result JSON records `device_map`, `max_memory`, visible CUDA devices,
+    input device, resolved Hugging Face device map, and per-visible-device
+    CUDA peak memory.
 - Tail-logits chunked loss is implemented and covered by tests.
-- Stats-off MSD inference computes `p_eff` in-place from delay terms instead of
-  materializing both `total_delay` and `p_eff` as full 4D tensors. Chunk-local
-  tensors such as `combined_e`, `w_q_c`, `b_final_c`, and inter-block delays are
-  also freed earlier before the truncation call.
+- Tail-logits index tensors are created on CPU in `ppl_utils.py`. In
+  `Qwen3ForCausalLM.forward()`, tensor slice indices are moved to
+  `hidden_states.device` immediately before indexing because Accelerate may
+  move kwargs to the input device in a sharded model.
+- Chunked tail-logits loss accumulates on the actual cross-entropy output
+  device. This matters when `lm_head` is on a different CUDA device from final
+  hidden states.
+- `reconfigure_mlp_layers(model, device=None)` preserves each replaced MLP
+  projection's existing weight device. Use this for explicitly sharded PPL
+  models so MX/MSD replacement layers do not collapse back to one GPU.
+- MXFP/MSD progress events include `module_device` and report CUDA memory for
+  the active module device when available.
+- MSD inference computes total delay once, extracts `max_delay_chunk` when
+  stats are enabled, then transforms that tensor in-place into `p_eff`. This
+  avoids materializing both `total_delay` and `p_eff` as full 4D tensors in
+  stats-off and stats-lite modes. Chunk-local tensors such as `combined_e`,
+  `w_q_c`, `b_final_c`, and inter-block delays are also freed earlier before
+  the truncation call.
+- `_forward_msd_truncated` allocates its output buffer with `torch.empty`
+  instead of `torch.zeros`; every output-channel slice is assigned exactly once
+  by the chunk loop.
+- `_forward_mx_exact_chunked` and `_forward_msd_truncated` cache the optional
+  progress hook before entering the chunk loop and only build progress payloads
+  when the hook is installed.
 - Shared MXFP/MSD progress reporting is wired into probe, `ppltest.py`,
   `ppl_batch.py`, and the ladder script.
 - `--gpus` is applied before torch import in probe, `ppltest.py`, `ppl_batch.py`,
@@ -55,6 +82,10 @@ Important implementation details:
   internally prune `(M - N)`.
 - `float8` weight cache is only valid for `MXFP8Linear`; non-MXFP8 paths should
   use `float16`, `float32`, or `none`.
+- With explicit `ppltest.py --device-map`, Accelerate can place `lm_head` and
+  final layers on different visible CUDA devices. Keep tensor index movement
+  and loss-device handling local to `Qwen3ForCausalLM.forward()` rather than
+  depending on caller-side tensor placement.
 
 ## Baseline Parity Status
 
@@ -97,6 +128,7 @@ Run the cheapest relevant checks after repo or runner edits:
 ```bash
 ../.venv3_10/bin/python tests/test_msd_truncate_equivalence.py
 ../.venv3_10/bin/python tests/test_msd_stats_off_equivalence.py
+../.venv3_10/bin/python tests/test_ppl_device_map_utils.py
 ../.venv3_10/bin/python tests/test_mx_exact_chunked.py
 ../.venv3_10/bin/python tests/test_mxfp_weight_cache_compact.py
 ../.venv3_10/bin/python tests/test_ppl_tail_logits_loss.py

@@ -69,7 +69,9 @@ def prepare_tail_logits_loss_kwargs(
     if keep <= 0:
         return {}
     start = seq_len - keep - 1
-    logits_to_keep = labels.new_tensor(list(range(start, start + keep)))
+    # Keep index tensors on CPU so they remain valid when model sharding places
+    # final hidden states on a different CUDA device from the input embeddings.
+    logits_to_keep = labels.new_tensor(list(range(start, start + keep)), device="cpu")
     shift_labels = labels[..., start + 1 : start + 1 + keep].contiguous()
     kwargs = {"logits_to_keep": logits_to_keep, "shift_labels": shift_labels}
     if loss_token_chunk_size is not None:
@@ -136,15 +138,21 @@ class MxfpProgressReporter:
             **self.extra,
             **payload,
         }
-        if self.device is not None and getattr(self.device, "type", None) == "cuda":
+        event_device = self.device
+        module_weight = getattr(module, "weight", None)
+        if module_weight is not None:
+            event_device = module_weight.device
+        if event_device is not None:
+            event["module_device"] = str(event_device)
+        if event_device is not None and getattr(event_device, "type", None) == "cuda":
             import torch
 
             event.update(
                 {
-                    "cuda_alloc_gib": gib(torch.cuda.memory_allocated(self.device)),
-                    "cuda_reserved_gib": gib(torch.cuda.memory_reserved(self.device)),
-                    "cuda_peak_alloc_gib": gib(torch.cuda.max_memory_allocated(self.device)),
-                    "cuda_peak_reserved_gib": gib(torch.cuda.max_memory_reserved(self.device)),
+                    "cuda_alloc_gib": gib(torch.cuda.memory_allocated(event_device)),
+                    "cuda_reserved_gib": gib(torch.cuda.memory_reserved(event_device)),
+                    "cuda_peak_alloc_gib": gib(torch.cuda.max_memory_allocated(event_device)),
+                    "cuda_peak_reserved_gib": gib(torch.cuda.max_memory_reserved(event_device)),
                 }
             )
         line = json.dumps(event, sort_keys=True)

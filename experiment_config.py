@@ -403,7 +403,7 @@ def format_config_banner(config, setup_id: int | None = None,
 
 # ── MLP layer reconfiguration ────────────────────────────────────────────────
 
-def reconfigure_mlp_layers(model, device: torch.device) -> None:
+def reconfigure_mlp_layers(model, device: torch.device | None = None) -> None:
     """
     Replace every MLP linear layer with the correct type for the current config.
 
@@ -412,6 +412,8 @@ def reconfigure_mlp_layers(model, device: torch.device) -> None:
     ``model.config`` later does NOT change the existing layer objects.  This
     function walks all MLP modules and rebuilds the three projections to
     match the current config, sharing the weight tensor so no data is copied.
+    If *device* is ``None``, each replacement stays on the device of the
+    projection it replaces. This preserves explicit model sharding layouts.
     """
     from transformers.models.qwen3.modeling_qwen3 import _make_linear, Qwen3MLP
 
@@ -421,11 +423,12 @@ def reconfigure_mlp_layers(model, device: torch.device) -> None:
             continue
         for attr in ("gate_proj", "up_proj", "down_proj"):
             old = getattr(module, attr)
+            target_device = device if device is not None else old.weight.device
             new = _make_linear(old.in_features, old.out_features, config)
             new.weight = old.weight          # share nn.Parameter (no copy)
             if hasattr(old, "bias_param") and old.bias_param is not None:
                 new.bias_param = old.bias_param
-            new = new.to(device)
+            new = new.to(target_device)
             # Preserve train/eval mode of replaced projections.
             # This is required because new modules default to train mode.
             new.train(old.training)

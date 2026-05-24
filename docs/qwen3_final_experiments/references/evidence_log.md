@@ -42,6 +42,48 @@ Interpretation: single-GPU OOM feasibility is shown across MX-only, uniform MSD,
 fixed-sum calibrated MSD, WANDA, and activation N:M. Calibrated/uniform MSD
 runtime remains the main bottleneck.
 
+## Model-Sharded PPL Smoke Evidence
+
+2026-05-24 direct-CUDA tiny smokes validated the explicit single-process
+`ppltest.py --device-map sequential` path on Qwen3-0.6B with physical GPUs
+4,5,6,7 visible. These are correctness smokes only, not timing estimates.
+
+Common command shape:
+
+```bash
+../.venv3_10/bin/python ppltest.py \
+  --model-path ../Qwen3-0.6B \
+  --gpus 4,5,6,7 \
+  --device-map sequential \
+  --max-memory 0:1GiB,1:4GiB,2:4GiB,3:4GiB \
+  --text-manifest README.md \
+  --limit-samples 2 \
+  --stats off \
+  --mxfp-progress-interval-sec -1
+```
+
+The equivalent non-sharded comparisons used `--gpus 4` and
+`--device-map none`. The sequential sharded map placed layers on visible CUDA
+devices 0 and 1.
+
+| Setup | Path | Scored tokens | Token PPL delta | Mean NLL delta | Sharded CUDA peak allocation |
+|---:|---|---:|---:|---:|---|
+| 2 | MXFP8 | 22 | 0.0 | 0.0 | cuda:0 1.7282 GiB; cuda:1 0.2849 GiB |
+| 6 | MXFP8 + uniform MSD B=16 | 22 | 0.0 | 0.0 | cuda:0 4.2715 GiB; cuda:1 2.8278 GiB |
+
+Two sharded bugs were fixed during this validation:
+
+- Tensor `logits_to_keep` can be moved by Accelerate to the input device, so
+  `Qwen3ForCausalLM.forward()` now moves tensor slice indices to
+  `hidden_states.device` immediately before indexing.
+- In chunked tail-logits loss, `lm_head` can live on a different device from
+  final hidden states. The loss accumulator now follows the actual
+  `lm_head`/cross-entropy output device.
+
+Next required validation before accepting multi-GPU timing estimates: run a
+non-final sharded prefix large enough to include a 4096-token context window,
+then compare scored tokens and PPL with the non-sharded run.
+
 ## Fixed-Sum Calibration Evidence
 
 - Targeted Qwen3-8B calibration smoke on one projection completed:

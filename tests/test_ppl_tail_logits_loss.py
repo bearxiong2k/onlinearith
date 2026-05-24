@@ -45,6 +45,8 @@ def main() -> None:
                 loss_token_chunk_size=3,
                 output_logits=False,
             )
+            assert kwargs["logits_to_keep"].device.type == "cpu"
+            assert chunked_kwargs["logits_to_keep"].device.type == "cpu"
             with torch.inference_mode():
                 full = model(input_ids, labels=labels, use_cache=False).loss
                 sliced = model(input_ids, labels=labels, use_cache=False, **kwargs).loss

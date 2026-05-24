@@ -1,4 +1,4 @@
-# Baseline MXFP Structured Sparsification
+# Structured Sparsity Baselines
 
 This repository provides an $N:M$ structured baseline sparsify metric compatible precisely with `MXFP` quantization workflows. The repository uses the common convention: $N:M$ means **keep $N$ values in each group of $M$**. Internally, this masks out $(M-N):M$ values. The sparsification runs solely via offline metric calibration and masks out parameters directly prior to runtime. This ensures that inference involves native standard calculation.
 

@@ -1,8 +1,8 @@
 # Single-Setup Runtime Estimates
 
 This is a living estimate for the focused Qwen3 model family. It intentionally
-tracks one representative setup per path. Target sweeps and multi-GPU scheduling
-will be added later.
+tracks one representative setup per path. Target sweeps are deferred. Multi-GPU
+model-sharded estimates should be added after explicit sharding is validated.
 
 ## Models
 
@@ -15,8 +15,9 @@ Local model directories currently present under `../`:
 | `../Qwen3-4B` | 36 | 2560 | 9728 | 10.18x |
 | `../Qwen3-8B` | 36 | 4096 | 12288 | 20.57x |
 
-The estimates below are single-GPU only. They do not include model sharding or
-multi-GPU job packing.
+The estimates below are single-GPU only until the multi-GPU section is filled
+with direct-CUDA evidence. `ppltest.py --nproc` is not model sharding; it
+replicates the model and shards windows.
 
 ## Representative Setups
 
@@ -174,6 +175,19 @@ Basis:
   target. Larger-model calibration estimates scale by relative MLP projection
   work and should be replaced by direct timings.
 
+## Multi-GPU Estimate Status
+
+No model-sharded timing is accepted yet. Add rows here only after the explicit
+model-sharding mode passes the validation ladder in
+`docs/qwen3_final_experiments/references/multigpu_sharding_plan.md`.
+
+| Model | Path | Sharding mode | GPUs | Evidence | Wall-time estimate |
+|---|---|---|---:|---|---:|
+| Qwen3-8B | MXFP8 PPL | pending | pending | not validated | pending |
+| Qwen3-8B | Fixed-sum MSD 30 dB PPL | pending | pending | not validated | pending |
+| Qwen3-8B | WANDA 2:4 | pending | pending | not validated | pending |
+| Qwen3-8B | Activation N:M 2:4 | pending | pending | not validated | pending |
+
 ## Update Rules
 
 - Update this file after each accepted optimization or full direct-CUDA timing
@@ -183,5 +197,5 @@ Basis:
 - Record cache dtype, chunk sizes, stats mode, compile flag, target-SNR,
   Figure 4 `plot_norm_digit_read` when available, and observed runtime
   `global_utilization` with every new MSD timing.
-- Add multi-GPU wall-time estimates only after the single-GPU path estimates are
-  updated and model sharding/job packing is explicitly validated.
+- Add multi-GPU wall-time estimates only after explicit model sharding or job
+  packing is validated and the output metadata records that execution mode.

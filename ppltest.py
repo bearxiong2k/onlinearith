@@ -107,6 +107,82 @@ MAX_LENGTH  = 4096   # max context window fed to the model
 STRIDE      = 512    # sliding-window stride (<= MAX_LENGTH)
 RESULTS_OUT = "ppl_results_MXFP8_MSD_B16.json"
 RESULTS_ROOT = Path("../data/calib-data")
+DEVICE_MAP_CHOICES = ("none", "auto", "sequential", "balanced")
+
+
+def parse_max_memory_arg(value: str | None) -> dict[int | str, str] | None:
+    """Parse ``--max-memory`` values for Transformers ``from_pretrained``."""
+    if value is None or not value.strip():
+        return None
+    parsed: dict[int | str, str] = {}
+    for item in value.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        if ":" not in item:
+            raise ValueError(
+                f"Invalid --max-memory item {item!r}; expected entries like 0:30GiB or cpu:64GiB"
+            )
+        raw_key, raw_limit = item.split(":", 1)
+        raw_key = raw_key.strip()
+        raw_limit = raw_limit.strip()
+        if not raw_key or not raw_limit:
+            raise ValueError(f"Invalid --max-memory item {item!r}")
+        key: int | str = int(raw_key) if raw_key.isdigit() else raw_key
+        if key in parsed:
+            raise ValueError(f"Duplicate --max-memory key {raw_key!r}")
+        parsed[key] = raw_limit
+    return parsed or None
+
+
+def visible_cuda_devices() -> list[str]:
+    """Return visible CUDA device identifiers for metadata."""
+    env_value = os.environ.get("CUDA_VISIBLE_DEVICES")
+    if env_value:
+        return [item.strip() for item in env_value.split(",") if item.strip()]
+    if torch.cuda.is_available():
+        return [str(idx) for idx in range(torch.cuda.device_count())]
+    return []
+
+
+def model_input_device(model, fallback: torch.device) -> torch.device:
+    """Return the device where input IDs should enter the model."""
+    get_embeddings = getattr(model, "get_input_embeddings", None)
+    if callable(get_embeddings):
+        embeddings = get_embeddings()
+        weight = getattr(embeddings, "weight", None)
+        if weight is not None:
+            return weight.device
+    try:
+        return next(model.parameters()).device
+    except StopIteration:
+        return fallback
+
+
+def reset_visible_cuda_peak_memory() -> None:
+    if not torch.cuda.is_available():
+        return
+    for idx in range(torch.cuda.device_count()):
+        torch.cuda.reset_peak_memory_stats(idx)
+
+
+def collect_cuda_peak_memory() -> dict[str, dict[str, float]]:
+    if not torch.cuda.is_available():
+        return {}
+    peaks: dict[str, dict[str, float]] = {}
+    for idx in range(torch.cuda.device_count()):
+        peaks[f"cuda:{idx}"] = {
+            "peak_alloc_gib": round(torch.cuda.max_memory_allocated(idx) / 1024**3, 4),
+            "peak_reserved_gib": round(torch.cuda.max_memory_reserved(idx) / 1024**3, 4),
+        }
+    return peaks
+
+
+def serialize_hf_device_map(model) -> dict[str, str] | None:
+    device_map = getattr(model, "hf_device_map", None)
+    if not device_map:
+        return None
+    return {str(key): str(value) for key, value in device_map.items()}
 
 def _load_text_manifest(manifest_path: Path) -> list[str]:
     """
@@ -188,6 +264,13 @@ calibration workflow:
     parser.add_argument("--gpus", type=str, default=None,
                         help="Comma-separated physical GPU IDs to use, e.g. '4,5,6,7'. "
                              "Must match --nproc (or --nproc_per_node if using torchrun).")
+    parser.add_argument("--device-map", choices=DEVICE_MAP_CHOICES, default="none",
+                        help="Opt-in model placement for a single-process sharded model. "
+                             "'none' preserves the current full-model-on-one-device behavior. "
+                             "Sharded modes are not combined with --nproc. (default: none)")
+    parser.add_argument("--max-memory", type=str, default=None, metavar="SPEC",
+                        help="Optional per-device memory limits for --device-map, e.g. "
+                             "0:30GiB,1:30GiB,cpu:64GiB.")
     parser.add_argument("--setup", type=int, default=None, metavar="ID",
                         help="Use a predefined setup by ID (same numbering as ppl_batch.py). "
                              "See --list for available setups. If omitted, uses config.json as-is.")
@@ -251,6 +334,15 @@ calibration workflow:
     args = parser.parse_args()
     model_path = args.model_path
     results_root = normalize_output_dir(args.results_dir, RESULTS_ROOT)
+    try:
+        max_memory = parse_max_memory_arg(args.max_memory)
+    except ValueError as exc:
+        print(f"Error: {exc}")
+        return
+    uses_device_map = args.device_map != "none"
+    if uses_device_map and args.nproc is not None and args.nproc > 1:
+        print("Error: --device-map is single-process model sharding and cannot be combined with --nproc > 1.")
+        return
 
     if args.msd_utilization_mode:
         args.stats = "lite"
@@ -306,9 +398,21 @@ calibration workflow:
     rank, world_size, local_rank, device = init_distributed()
     suppress_warnings(rank)
     dtype = torch.float16 if device.type == "cuda" else torch.float32
+    if uses_device_map:
+        if world_size != 1:
+            print("Error: --device-map cannot be combined with torchrun/--nproc distributed workers.")
+            cleanup_distributed()
+            return
+        if not torch.cuda.is_available():
+            print("Error: --device-map requires direct CUDA visibility for this experiment path.")
+            cleanup_distributed()
+            return
 
     if is_main(rank):
-        print(f"World size: {world_size}  |  Device: {device}  |  dtype: {dtype}")
+        print(
+            f"World size: {world_size}  |  Device: {device}  |  dtype: {dtype}  "
+            f"|  device_map: {args.device_map}"
+        )
 
     # ── 2. Load model ─────────────────────────────────────────────────────
     if is_main(rank):
@@ -322,16 +426,26 @@ calibration workflow:
     tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
 
     model_kwargs: dict = {"local_files_only": True, "dtype": dtype}
-    # Each rank loads onto its own GPU -- no device_map="auto"
+    if uses_device_map:
+        model_kwargs["device_map"] = args.device_map
+        if max_memory is not None:
+            model_kwargs["max_memory"] = max_memory
+
     model = AutoModelForCausalLM.from_pretrained(model_path, **model_kwargs)
-    model.to(device)
+    if not uses_device_map:
+        # Each rank loads onto its own GPU. This is data parallelism, not model sharding.
+        model.to(device)
     model.eval()
     model.config.use_cache = False
+    reset_visible_cuda_peak_memory()
     reset_peak_memory(device)
+    input_device = model_input_device(model, device)
 
     if is_main(rank):
         num_params = sum(p.numel() for p in model.parameters())
         print(f"Model: {model_path}  |  Params: {num_params/1e6:.1f}M")
+        if uses_device_map:
+            print(f"Input device: {input_device}  |  hf_device_map: {serialize_hf_device_map(model)}")
 
     # ── 3. Apply setup config (if --setup given) ─────────────────────────────
     if selected_setup is not None:
@@ -347,7 +461,7 @@ calibration workflow:
             model.config.mxfp_weight_cache_dtype = args.weight_cache_dtype
         if args.compile_msd_truncate:
             model.config.msd_compile_truncate = True
-        reconfigure_mlp_layers(model, device)
+        reconfigure_mlp_layers(model, None if uses_device_map else device)
         if is_main(rank):
             print(format_config_banner(model.config, setup_id=sid, setup_desc=desc))
     else:
@@ -517,7 +631,7 @@ calibration workflow:
 
     iterator = tqdm(my_windows, desc=f"[rank {rank}] PPL windows", disable=not is_main(rank))
     for win_idx, (begin_loc, end_loc, trg_len, is_dummy) in enumerate(iterator):
-        input_ids  = encodings.input_ids[:, begin_loc:end_loc].to(device)
+        input_ids  = encodings.input_ids[:, begin_loc:end_loc].to(input_device)
         target_ids = mask_context_labels(input_ids, trg_len)
         loss_kwargs = prepare_tail_logits_loss_kwargs(
             target_ids,
@@ -542,7 +656,8 @@ calibration workflow:
         # Free tensors and periodically release cached memory to prevent OOM
         del input_ids, target_ids, loss_kwargs, outputs
         if win_idx % 100 == 99:
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         # Periodic barrier: prevent cumulative timing drift across ranks from
         # exceeding the NCCL timeout.  Without this, small per-window timing
@@ -583,6 +698,7 @@ calibration workflow:
         chunk_mean, chunk_std = chunk_arr.mean(), chunk_arr.std()
 
         mem_str = peak_memory_str(device)
+        cuda_peak_memory = collect_cuda_peak_memory()
 
         SEP = "-" * 52
         print(f"\n{SEP}")
@@ -613,6 +729,11 @@ calibration workflow:
             "dataset": dataset_label,
             "config": {"max_length": MAX_LENGTH, "stride": STRIDE, "dtype": str(dtype),
                        "world_size": world_size,
+                       "device_map": args.device_map,
+                       "max_memory": max_memory,
+                       "visible_cuda_devices": visible_cuda_devices(),
+                       "input_device": str(input_device),
+                       "hf_device_map": serialize_hf_device_map(model),
                        "calibration_file": args.calibration if args.calibration else None,
                        "text_manifest": str(manifest_path) if manifest_path else None,
                        "stats": args.stats,
@@ -636,6 +757,7 @@ calibration workflow:
                 "throughput_tokens_per_sec": round(throughput, 1),
                 "wall_time_sec":             round(elapsed, 2),
                 "peak_memory":               mem_str,
+                "cuda_peak_memory":          cuda_peak_memory,
             },
         }
 

@@ -87,8 +87,8 @@ Current `--nproc` behavior is data-parallel execution with full model replicas. 
 - Codex quality gates: `docs/codex/`, `tools/`, `tests/`, and `scripts/run_repo_quality_gate.sh`
 - Baseline notes: `docs/baselines/`
 - Calibration notes: `docs/calibration/`
-- Qwen3 OOM/performance harness: `docs/cim_oom_harness/`
-- Qwen3 single-setup runtime estimates: `docs/experiments_time_estimates.md`
+- Qwen3 final experiment context: `docs/qwen3_final_experiments/`
+- Qwen3 single-setup runtime estimates: `docs/qwen3_final_experiments/runtime_estimates.md`
 - Developer notes, including modular converter details: `docs/dev/`
 - Archived/obsolete material: `docs/archive/`
 
@@ -96,20 +96,18 @@ Deep-pipeline material is archived/abandoned unless explicitly requested. Existi
 
 ## Active Work
 
-The active Qwen3 OOM/performance iteration is tracked in `docs/cim_oom_harness/`.
-Always-read files are intentionally short; detailed evidence and implementation
-history live under `docs/cim_oom_harness/reference/`.
+The active Qwen3 final experiment iteration is tracked in
+`docs/qwen3_final_experiments/`. Always-read files are intentionally short; detailed
+evidence, implementation history, and sharding notes live under
+`docs/qwen3_final_experiments/references/`.
 
 Current focus:
 
-1. Use fixed-sum calibrated MSD at target-SNR 30 dB as the representative MSD
-   point. For cross-method equivalent-work comparison, use the Figure 4
-   `plot_norm_digit_read = mean_effective_precision / 3.0` convention;
-   fixed-sum 30 dB is plotted at 0.87, close to dense work.
-2. Keep `docs/experiments_time_estimates.md` updated for one representative
+1. Validate `ppltest.py --device-map {auto,sequential,balanced}` for final
+   Qwen3 PPL experiments without combining it with `--nproc`.
+2. Keep `docs/qwen3_final_experiments/runtime_estimates.md` updated for one representative
    setup per path: MXFP8 baseline, fixed-sum MSD 30 dB, WANDA 2:4, activation
    2:4.
-3. Continue calibrated/uniform MSD runtime optimization without changing MSD
-   math or PPL methodology.
+3. Preserve PPL methodology and record sharding/timing metadata explicitly.
 
 Do not change `MAX_LENGTH`, `STRIDE`, dataset split, tokenizer behavior, calibration semantics, setup IDs, or result schemas as part of this iteration.
