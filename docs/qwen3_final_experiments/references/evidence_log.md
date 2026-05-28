@@ -207,6 +207,31 @@ evidence.
   forward caches if a persistent cache is enabled. Use
   `--weight-cache-dtype none` for broad calibration capture until that runtime
   is further refined.
+- 2026-05-28 Qwen3-8B WANDA 2:4 final mask generation completed on physical
+  GPU 4 with `--output-hook qwen8b_final`, `--num-texts 2048`,
+  `--max-length 512`, `--batch-size 4`, `--mx-chunk-target-mib 256`, and
+  `--weight-cache-dtype none`. X-norm calibration processed 412 batches and
+  saved `/home/xzj/coding/data/wanda_base/2-4/calibration_base_MXFP8_qwen8b_final.pt`
+  in 1562.8s; artifact size is 5.1 GiB.
+- 2026-05-28 Qwen3-8B fixed-sum target-SNR 30 dB `down_proj` calibration OOMed
+  when all down projections were selected together, both at batch size 4 and
+  batch size 1. The OOM happened after capture while constructing the retained
+  per-layer block cache, not in model loading or the fixed-sum solver. A
+  single-layer `model.layers.0.mlp.down_proj` calibration with the original
+  `num-texts=20`, `max-length=512`, `batch-size=4`, `mx-chunk-target-mib=256`,
+  `cal-chunk-target-mib=64`, and `weight-cache-dtype=none` completed in
+  163.5s with budget range [12, 16] and mean 12.9. The final Qwen3-8B
+  fixed-sum calibration recipe therefore keeps gate/up as full projection
+  families and splits down projections into bounded layer groups before merge.
+- 2026-05-28 Qwen3-8B fixed-sum target-SNR 30 dB calibration prerequisites
+  completed and merged into
+  `/home/xzj/coding/data/qwen3_final_experiments/qwen3_8b/calib_fixed_sum_30db/calibration_MXFP8_fixed_sum_qwen8b_final_merged.json`.
+  The merged file covers 108 MLP projection layers and 1,032,192 channels:
+  budget range [4, 22], budget_mean 10.9897, mean_snr 32.9335 dB, min_snr
+  30.0 dB, and eff_precision_mean 3.6092. The merged JSON is 17 MiB.
+  Component wall times were gate 4298.6s, up 4283.9s, down_l00 163.5s,
+  down_l01_l12 1927.4s, down_l13_l24 1820.0s, and down_l25_l35 1618.3s;
+  wall_time_sec in the merged summary is their sum, 14111.71s.
 
 ## Figure 4 Equivalent-Work Evidence
 

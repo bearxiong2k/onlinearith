@@ -23,6 +23,9 @@ Use these defaults unless a model/path row below overrides them.
   trick.
 - Broad calibration capture: `--weight-cache-dtype none` to avoid persistent
   cache accumulation during projection-filtered runs.
+- Qwen3-8B fixed-sum calibration: gate/up projections fit as full projection
+  families; split down projections into bounded layer groups because selecting
+  all down layers in one process OOMs from retained block-cache size.
 - Qwen3-8B multi-rank loading: use `--load-stagger-sec 8` when launching eight
   full replicas.
 
@@ -58,8 +61,11 @@ Before committing to a final full PPL command for any model/path combination:
   fixed-sum MSD PPL.
 - Qwen3-8B WANDA 2:4: eight full replicas are validated through
   `wanda_base/ppl_batch_base.py --window-shard --load-stagger-sec 8`; use a
-  Qwen3-8B-shaped mask, not the committed 0.6B masks under
-  `../data/wanda_base/2-4`.
+  Qwen3-8B-shaped mask,
+  `../data/wanda_base/2-4/calibration_base_MXFP8_qwen8b_final.pt`, not the
+  older 0.6B masks under `../data/wanda_base/2-4`.
+- Qwen3-8B fixed-sum calibration metadata: use the merged final file
+  `../data/qwen3_final_experiments/qwen3_8b/calib_fixed_sum_30db/calibration_MXFP8_fixed_sum_qwen8b_final_merged.json`.
 - Qwen3-8B activation N:M 2:4: eight full replicas are validated through
   `act_base/ppl_batch_base_act.py --window-shard --load-stagger-sec 8`.
 - Qwen3-8B model sharding: sequential `--device-map` is correctness-validated

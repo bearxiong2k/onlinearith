@@ -67,9 +67,15 @@ Current status:
   gave PPL 18.2443, mean NLL 2.9039, wall 17.13s. Activation N:M prefix120 on
   eight replicas with the same execution mode gave PPL 13.0141, mean NLL 2.5660,
   wall 18.26s.
-- For Qwen3-8B WANDA final PPL, use a Qwen3-8B-shaped mask. The committed
-  `../data/wanda_base/2-4/calibration_base_MXFP8.pt` is shaped for Qwen3-0.6B
-  and fails on Qwen3-8B.
+- Qwen3-8B WANDA final mask generation is complete. Use
+  `../data/wanda_base/2-4/calibration_base_MXFP8_qwen8b_final.pt`; the older
+  unsuffixed mask is shaped for Qwen3-0.6B and fails on Qwen3-8B.
+- Qwen3-8B fixed-sum target-SNR 30 dB calibration prerequisites are complete
+  and merged into
+  `../data/qwen3_final_experiments/qwen3_8b/calib_fixed_sum_30db/calibration_MXFP8_fixed_sum_qwen8b_final_merged.json`.
+  The merged file covers 108 MLP projection layers and 1,032,192 channels.
+  Gate/up fit as full projection-family calibration jobs; down projections
+  need bounded layer groups because all-down retained-cache capture OOMed.
 - `docs/qwen3_final_experiments/final_run_commands.md` now contains the concrete
   Qwen3-8B command sheet for fixed-sum calibration, WANDA mask generation, and
   the four final PPL runs. It uses suffixed WANDA outputs and a separate
@@ -93,22 +99,20 @@ Current status:
   1998.8s for the historical single-GPU prefix.
 
 Next iteration:
-1. Run or schedule the calibration prerequisites in `final_run_commands.md`:
-   projection-filtered fixed-sum jobs plus merge, and a Qwen3-8B-shaped WANDA
-   2:4 mask with `--output-hook qwen8b_final`.
-2. After prerequisites exist, run the four final PPL commands from
-   `final_run_commands.md`: MXFP8, fixed-sum target-SNR 30 dB MSD, WANDA 2:4,
-   and activation N:M 2:4.
-3. Treat `--device-map sequential` as memory relief only unless `balanced` or
+1. Run the four final PPL commands from `final_run_commands.md`: MXFP8,
+   fixed-sum target-SNR 30 dB MSD, WANDA 2:4, and activation N:M 2:4. Use the
+   suffixed WANDA mask and merged fixed-sum calibration file above.
+2. Treat `--device-map sequential` as memory relief only unless `balanced` or
    manual placement shows direct-CUDA speedup over single-GPU and `--nproc`.
-4. Remember that current `--nproc` disables MSD stats on nonzero ranks; use it
+3. Remember that current `--nproc` disables MSD stats on nonzero ranks; use it
    for PPL quality and wall time, not as an aggregate work-stats source unless
    stats aggregation is added.
-5. Keep `--device-map` single-process and separate from `--nproc`; use
+4. Keep `--device-map` single-process and separate from `--nproc`; use
    visible-device IDs in `--max-memory` after `--gpus` filtering.
-6. For fixed-sum calibration, use projection-filtered task parallel full-model
-   jobs before considering model-sharded calibration.
-7. Use `model_execution_matrix.md` to keep model-specific tricks explicit:
+5. For future fixed-sum calibration, use projection-filtered task parallel
+   full-model jobs before considering model-sharded calibration. For Qwen3-8B,
+   split down projections into bounded layer groups.
+6. Use `model_execution_matrix.md` to keep model-specific tricks explicit:
    smaller models should not inherit Qwen3-8B-only float8 cache or load-stagger
    settings unless their own prefix validation shows they need them.
 ```

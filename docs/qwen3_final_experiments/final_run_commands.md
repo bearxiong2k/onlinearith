@@ -37,8 +37,16 @@ those existing files are shaped for smaller-model work.
 
 ### Fixed-Sum MSD
 
-Run projection-filtered full-model calibration jobs, preferably one projection
-family per GPU. Use `--weight-cache-dtype none` for broad calibration capture.
+Run projection-filtered calibration jobs, preferably one projection family per
+GPU. Use `--weight-cache-dtype none` for broad calibration capture.
+
+For Qwen3-8B, `gate_proj` and `up_proj` fit as full projection-family jobs.
+`down_proj` has the wider MLP intermediate input, so do not run all down
+layers in one calibration process; split it into bounded layer groups and merge
+the files. This keeps the same calibration corpus and avoids changing MSD math
+or calibration semantics to work around the cache footprint. The down groups
+can be run sequentially on one GPU by setting `DOWN_GPU`, or launched on
+separate idle GPUs by giving each command a different `--gpus` value.
 
 ```bash
 ../.venv3_10/bin/python calibrate.py \
@@ -75,31 +83,49 @@ family per GPU. Use `--weight-cache-dtype none` for broad calibration capture.
   --compile-msd-truncate \
   --gpus 1
 
-../.venv3_10/bin/python calibrate.py \
-  --model-path "$MODEL" \
-  --setup 1 \
-  --optimizer fixed_sum \
-  --target-snr 30 \
-  --projection-filter down_proj \
-  --num-texts 20 \
-  --max-length 512 \
-  --batch-size 4 \
-  --result-suffix qwen8b_final_down \
-  --output-dir "$MSD_DIR" \
-  --mx-chunk-target-mib 256 \
-  --cal-chunk-target-mib 64 \
-  --weight-cache-dtype none \
-  --compile-msd-truncate \
-  --gpus 2
+DOWN_L00=model.layers.0.mlp.down_proj
+DOWN_L01_L12=model.layers.1.mlp.down_proj,model.layers.2.mlp.down_proj,model.layers.3.mlp.down_proj,model.layers.4.mlp.down_proj,model.layers.5.mlp.down_proj,model.layers.6.mlp.down_proj,model.layers.7.mlp.down_proj,model.layers.8.mlp.down_proj,model.layers.9.mlp.down_proj,model.layers.10.mlp.down_proj,model.layers.11.mlp.down_proj,model.layers.12.mlp.down_proj
+DOWN_L13_L24=model.layers.13.mlp.down_proj,model.layers.14.mlp.down_proj,model.layers.15.mlp.down_proj,model.layers.16.mlp.down_proj,model.layers.17.mlp.down_proj,model.layers.18.mlp.down_proj,model.layers.19.mlp.down_proj,model.layers.20.mlp.down_proj,model.layers.21.mlp.down_proj,model.layers.22.mlp.down_proj,model.layers.23.mlp.down_proj,model.layers.24.mlp.down_proj
+DOWN_L25_L35=model.layers.25.mlp.down_proj,model.layers.26.mlp.down_proj,model.layers.27.mlp.down_proj,model.layers.28.mlp.down_proj,model.layers.29.mlp.down_proj,model.layers.30.mlp.down_proj,model.layers.31.mlp.down_proj,model.layers.32.mlp.down_proj,model.layers.33.mlp.down_proj,model.layers.34.mlp.down_proj,model.layers.35.mlp.down_proj
+DOWN_GPU=2
+
+for spec in \
+  "qwen8b_final_down_l00:$DOWN_L00" \
+  "qwen8b_final_down_l01_l12:$DOWN_L01_L12" \
+  "qwen8b_final_down_l13_l24:$DOWN_L13_L24" \
+  "qwen8b_final_down_l25_l35:$DOWN_L25_L35"
+do
+  suffix=${spec%%:*}
+  filter=${spec#*:}
+  ../.venv3_10/bin/python calibrate.py \
+    --model-path "$MODEL" \
+    --setup 1 \
+    --optimizer fixed_sum \
+    --target-snr 30 \
+    --projection-filter "$filter" \
+    --num-texts 20 \
+    --max-length 512 \
+    --batch-size 4 \
+    --result-suffix "$suffix" \
+    --output-dir "$MSD_DIR" \
+    --mx-chunk-target-mib 256 \
+    --cal-chunk-target-mib 64 \
+    --weight-cache-dtype none \
+    --compile-msd-truncate \
+    --gpus "$DOWN_GPU"
+done
 ```
 
-Merge the three disjoint projection outputs:
+Merge the disjoint projection outputs:
 
 ```bash
 ../.venv3_10/bin/python tools/merge_msd_calibrations.py \
   "$MSD_DIR/calibration_MXFP8_fixed_sum_qwen8b_final_gate.json" \
   "$MSD_DIR/calibration_MXFP8_fixed_sum_qwen8b_final_up.json" \
-  "$MSD_DIR/calibration_MXFP8_fixed_sum_qwen8b_final_down.json" \
+  "$MSD_DIR/calibration_MXFP8_fixed_sum_qwen8b_final_down_l00.json" \
+  "$MSD_DIR/calibration_MXFP8_fixed_sum_qwen8b_final_down_l01_l12.json" \
+  "$MSD_DIR/calibration_MXFP8_fixed_sum_qwen8b_final_down_l13_l24.json" \
+  "$MSD_DIR/calibration_MXFP8_fixed_sum_qwen8b_final_down_l25_l35.json" \
   --output "$MSD_CAL"
 ```
 

@@ -168,7 +168,7 @@ calibrated MSD, "calibration" means one fixed-sum calibration at target-SNR
 | Qwen3-0.6B | 5-20 min | 1.2 h measured | about 2 h | 10-30 min | 5-20 min |
 | Qwen3-1.7B | 10-30 min | 4.7 h estimated | about 8 h | 20-60 min | 10-30 min |
 | Qwen3-4B | 25-60 min | 11.9 h estimated | about 20 h | 1-2 h | 25-60 min |
-| Qwen3-8B | about 2.6 h single GPU; about 0.34 h validated on 8 full replicas with staggered loading | 24 h estimated single job; faster with projection-filtered task parallel jobs | about 160 h single GPU; about 22.7 h validated on 8 full replicas with staggered loading and float8 cache | about 2.6 h PPL plus 1.3-2 h mask calibration | about 2.7 h single GPU; about 0.3 h on 8 full replicas after path validation |
+| Qwen3-8B | about 2.6 h single GPU; about 0.34 h validated on 8 full replicas with staggered loading | 71.7 min measured wall for projection/task-parallel prerequisites on GPUs 4-7 | about 160 h single GPU; about 22.7 h validated on 8 full replicas with staggered loading and float8 cache | 26.0 min measured mask calibration plus about 0.35 h PPL on 8 full replicas | about 2.7 h single GPU; about 0.3 h on 8 full replicas after path validation |
 
 Basis:
 
@@ -215,6 +215,14 @@ Basis:
   eight-window prefix in 1120.87s with identical recorded PPL. Scaling to 73
   assigned windows per worker for the full 578-window run gives about 22.7 h on
   eight workers.
+- Qwen3-8B fixed-sum target-SNR 30 dB calibration prerequisites completed on
+  2026-05-28 with task-parallel projection jobs. Gate and up projections ran as
+  full projection-family jobs on one GPU each, while down projections were split
+  into bounded layer groups because all-down capture OOMed from retained cache
+  size. The critical-path wall time was the gate job at 4298.6s (71.7 min); the
+  merged calibration covers 108 MLP projection layers and 1,032,192 channels.
+- Qwen3-8B WANDA 2:4 final mask generation completed on 2026-05-28 in 1562.8s
+  with `--num-texts 2048 --max-length 512 --batch-size 4`.
 - Qwen3-8B sequential model-sharded MSD prefix80 measured 4144 tokens in
   2120.60s for uniform setup 6 and 2111.13s for fixed-sum 30 dB. These
   extrapolate by window count to about 170.2 h and 169.5 h for full PPL.

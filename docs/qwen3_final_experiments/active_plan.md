@@ -57,7 +57,10 @@ Representative paths:
    or add rank-level stats aggregation before reporting aggregate work metrics.
 5. For fixed-sum calibration, prefer task parallelism over model sharding:
    run projection-filtered full-replica jobs on separate GPUs, then merge the
-   resulting metadata with `tools/merge_msd_calibrations.py`.
+   resulting metadata with `tools/merge_msd_calibrations.py`. Qwen3-8B
+   fixed-sum 30 dB prerequisites are complete; gate/up fit as full
+   projection-family jobs, while down projections need bounded layer groups to
+   avoid retained-cache OOM.
 6. Update `docs/qwen3_final_experiments/runtime_estimates.md` with measured
    single-GPU and multi-GPU wall-time estimates as each representative path is
    validated.
