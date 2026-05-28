@@ -66,7 +66,12 @@ Representative paths:
 6. Update `docs/qwen3_final_experiments/runtime_estimates.md` with measured
    single-GPU and multi-GPU wall-time estimates as each representative path is
    validated.
-7. Keep generated calibration/result artifacts out of commits unless explicitly
+7. Use `scripts/run_qwen3_final_ppl_4gpu.sh` in `SWEEP_MODE=1` for the
+   Qwen3-0.6B, Qwen3-1.7B, and Qwen3-4B sweep on GPUs 4-7. The default sweep
+   is `mxfp8 act` with `LIMIT_SAMPLES=120`; the prefix sweep has succeeded for
+   all three models. Fixed-sum MSD and WANDA need model-specific artifacts
+   before they should be treated as final sweep paths.
+8. Keep generated calibration/result artifacts out of commits unless explicitly
    requested.
 
 Concrete Qwen3-8B commands are collected in

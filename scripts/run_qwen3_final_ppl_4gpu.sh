@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
-# Run the representative Qwen3 final PPL jobs end to end on GPUs 4-7.
+# Run representative Qwen3 PPL jobs on GPUs 4-7.
 #
-# Defaults are for the Qwen3-8B final run. Set SMOKE=1 to validate the script
-# mechanics on Qwen3-1.7B with a prefix-limited MXFP8 + activation run.
+# Modes:
+#   default: Qwen3-8B final run, all four representative paths
+#   SMOKE=1: Qwen3-1.7B prefix smoke, MXFP8 + activation N:M
+#   SWEEP_MODE=1: model sweep over 0.6B/1.7B/4B, MXFP8 + activation N:M by default
+#
+# The script is resume-safe at the output-file level: existing outputs are
+# skipped unless FORCE=1. Each run gets a timestamped log directory and a TSV
+# status file that records model, step, output, and log path.
 
 set -Eeuo pipefail
 
@@ -10,39 +16,15 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 PYTHON="${PYTHON:-../.venv3_10/bin/python}"
-SMOKE="${SMOKE:-0}"
 GPUS="${GPUS:-4,5,6,7}"
 NPROC="${NPROC:-4}"
 LOAD_STAGGER_SEC="${LOAD_STAGGER_SEC:-8}"
 FORCE="${FORCE:-0}"
 DRY_RUN="${DRY_RUN:-0}"
-
-if [[ "$SMOKE" == "1" ]]; then
-  MODEL="${MODEL:-../Qwen3-1.7B}"
-  RUN_LABEL="${RUN_LABEL:-qwen1_7b_smoke}"
-  FINAL_ROOT="${FINAL_ROOT:-../data/qwen3_final_experiments/smoke_qwen3_1_7b_4gpu}"
-  LIMIT_SAMPLES="${LIMIT_SAMPLES:-120}"
-  RUN_STEPS="${RUN_STEPS:-mxfp8 act}"
-else
-  MODEL="${MODEL:-../Qwen3-8B}"
-  RUN_LABEL="${RUN_LABEL:-qwen8b_final}"
-  FINAL_ROOT="${FINAL_ROOT:-../data/qwen3_final_experiments/qwen3_8b}"
-  LIMIT_SAMPLES="${LIMIT_SAMPLES:-}"
-  RUN_STEPS="${RUN_STEPS:-mxfp8 fixed_sum wanda act}"
-fi
-
-MSD_DIR="${MSD_DIR:-$FINAL_ROOT/calib_fixed_sum_30db}"
-MSD_CAL="${MSD_CAL:-$MSD_DIR/calibration_MXFP8_fixed_sum_qwen8b_final_merged.json}"
-WANDA_ROOT="${WANDA_ROOT:-../data/wanda_base}"
-WANDA_HOOK="${WANDA_HOOK:-$RUN_LABEL}"
-ACT_ROOT="${ACT_ROOT:-$FINAL_ROOT/act_base}"
-LOG_ROOT="${LOG_ROOT:-$FINAL_ROOT/logs/final_ppl_4gpu_$(date +%Y%m%d_%H%M%S)}"
-STATUS_FILE="${STATUS_FILE:-$FINAL_ROOT/final_ppl_4gpu_status.tsv}"
-
-MXFP8_OUT="${MXFP8_OUT:-$FINAL_ROOT/ppl_results_MXFP8_${RUN_LABEL}.json}"
-FIXED_SUM_OUT="${FIXED_SUM_OUT:-$FINAL_ROOT/ppl_results_MXFP8_fixed_sum30_${RUN_LABEL}.json}"
-WANDA_OUT="${WANDA_OUT:-$WANDA_ROOT/2-4/ppl_results_MXFP8_${WANDA_HOOK}.json}"
-ACT_OUT="${ACT_OUT:-$ACT_ROOT/2-4/ppl_results_MXFP8.json}"
+SMOKE="${SMOKE:-0}"
+SWEEP_MODE="${SWEEP_MODE:-0}"
+STRICT_ARTIFACTS="${STRICT_ARTIFACTS:-0}"
+RUN_ID="${RUN_ID:-$(date +%Y%m%d_%H%M%S)}"
 
 IFS=',' read -r -a GPU_ARRAY <<< "$GPUS"
 if [[ "${#GPU_ARRAY[@]}" -ne "$NPROC" ]]; then
@@ -53,17 +35,6 @@ fi
 if [[ ! -x "$PYTHON" ]]; then
   echo "ERROR: Python executable not found or not executable: $PYTHON" >&2
   exit 2
-fi
-
-if [[ ! -d "$MODEL" ]]; then
-  echo "ERROR: model path not found: $MODEL" >&2
-  exit 2
-fi
-
-mkdir -p "$FINAL_ROOT" "$LOG_ROOT" "$(dirname "$STATUS_FILE")"
-
-if [[ ! -f "$STATUS_FILE" ]]; then
-  echo "timestamp	step	status	output	log" > "$STATUS_FILE"
 fi
 
 echo "[preflight] CUDA visibility through selected GPUs: $GPUS"
@@ -89,46 +60,68 @@ append_limit_args() {
   fi
 }
 
-require_file_for_step() {
-  local step="$1"
-  local path="$2"
-  if [[ ! -f "$path" ]]; then
-    echo "ERROR: required artifact for $step is missing: $path" >&2
-    exit 2
+status_init() {
+  mkdir -p "$(dirname "$STATUS_FILE")"
+  if [[ ! -f "$STATUS_FILE" ]]; then
+    echo "timestamp	model	step	status	output	log" > "$STATUS_FILE"
   fi
 }
 
 record_status() {
-  local step="$1"
-  local status="$2"
-  local output="$3"
-  local log="$4"
-  printf '%s\t%s\t%s\t%s\t%s\n' "$(date -Is)" "$step" "$status" "$output" "$log" >> "$STATUS_FILE"
+  local model_key="$1"
+  local step="$2"
+  local status="$3"
+  local output="$4"
+  local log="$5"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -Is)" "$model_key" "$step" "$status" "$output" "$log" >> "$STATUS_FILE"
+}
+
+skip_or_fail_missing_artifact() {
+  local model_key="$1"
+  local step="$2"
+  local artifact="$3"
+  local output="$4"
+  local log="$5"
+  if [[ -f "$artifact" ]]; then
+    return 1
+  fi
+
+  local msg="missing required artifact: $artifact"
+  if [[ "$STRICT_ARTIFACTS" == "1" ]]; then
+    echo "ERROR: [$model_key/$step] $msg" >&2
+    record_status "$model_key" "$step" "missing_artifact" "$output" "$log"
+    exit 2
+  fi
+
+  echo "[$model_key/$step] skipping; $msg"
+  record_status "$model_key" "$step" "skipped_missing_artifact" "$output" "$log"
+  return 0
 }
 
 run_step() {
-  local step="$1"
-  local output="$2"
-  shift 2
-  local log="$LOG_ROOT/${step}.log"
+  local model_key="$1"
+  local step="$2"
+  local output="$3"
+  shift 3
+  local log="$MODEL_LOG_ROOT/${step}.log"
 
   if [[ -f "$output" && "$FORCE" != "1" ]]; then
-    echo "[$step] output exists; skipping: $output"
-    record_status "$step" "skipped_existing" "$output" "$log"
+    echo "[$model_key/$step] output exists; skipping: $output"
+    record_status "$model_key" "$step" "skipped_existing" "$output" "$log"
     return 0
   fi
 
-  mkdir -p "$(dirname "$output")"
-  echo "[$step] command log: $log"
-  printf '[%s] start %s\n' "$(date -Is)" "$step" | tee "$log"
+  mkdir -p "$(dirname "$output")" "$MODEL_LOG_ROOT"
+  echo "[$model_key/$step] command log: $log"
+  printf '[%s] start %s/%s\n' "$(date -Is)" "$model_key" "$step" | tee "$log"
   printf '[%s] command:' "$(date -Is)" | tee -a "$log"
   printf ' %q' "$@" | tee -a "$log"
   printf '\n' | tee -a "$log"
-  record_status "$step" "started" "$output" "$log"
+  record_status "$model_key" "$step" "started" "$output" "$log"
 
   if [[ "$DRY_RUN" == "1" ]]; then
-    echo "[$step] DRY_RUN=1; not executing"
-    record_status "$step" "dry_run" "$output" "$log"
+    echo "[$model_key/$step] DRY_RUN=1; not executing"
+    record_status "$model_key" "$step" "dry_run" "$output" "$log"
     return 0
   fi
 
@@ -138,92 +131,217 @@ run_step() {
   set -e
 
   if [[ "$status" -ne 0 ]]; then
-    echo "[$step] FAILED with exit code $status"
-    record_status "$step" "failed:$status" "$output" "$log"
+    echo "[$model_key/$step] FAILED with exit code $status"
+    record_status "$model_key" "$step" "failed:$status" "$output" "$log"
     exit "$status"
   fi
 
   if [[ ! -f "$output" ]]; then
-    echo "[$step] FAILED: command exited 0 but output is missing: $output" >&2
-    record_status "$step" "missing_output" "$output" "$log"
+    echo "[$model_key/$step] FAILED: command exited 0 but output is missing: $output" >&2
+    record_status "$model_key" "$step" "missing_output" "$output" "$log"
     exit 1
   fi
 
-  printf '[%s] complete %s\n' "$(date -Is)" "$step" | tee -a "$log"
-  record_status "$step" "completed" "$output" "$log"
+  printf '[%s] complete %s/%s\n' "$(date -Is)" "$model_key" "$step" | tee -a "$log"
+  record_status "$model_key" "$step" "completed" "$output" "$log"
 }
 
-common_ppl_args=(
-  --model-path "$MODEL"
-  --nproc "$NPROC"
-  --gpus "$GPUS"
-  --stats off
-  --load-stagger-sec "$LOAD_STAGGER_SEC"
-  --mxfp-progress-interval-sec -1
-)
+run_model() {
+  local model_key="$1"
+  local model_path="$2"
+  local run_label="$3"
+  local final_root="$4"
+  local wanda_root="$5"
+  local wanda_hook="$6"
+  local act_root="$7"
+  local msd_cal="$8"
+  local fixed_sum_cache_dtype="$9"
 
-if has_step mxfp8; then
-  limit_args=($(append_limit_args))
-  run_step mxfp8 "$MXFP8_OUT" \
-    "$PYTHON" ppltest.py \
-      --setup 2 \
-      "${common_ppl_args[@]}" \
-      "${limit_args[@]}" \
-      --output "$MXFP8_OUT"
-fi
-
-if has_step fixed_sum; then
-  if [[ "$SMOKE" == "1" ]]; then
-    echo "ERROR: fixed_sum smoke is disabled because Qwen3-8B calibration metadata is shape-specific." >&2
-    echo "       Use SMOKE=0 for the final 8B run, or provide a matching MSD_CAL for the smoke model." >&2
+  if [[ ! -d "$model_path" ]]; then
+    echo "ERROR: [$model_key] model path not found: $model_path" >&2
     exit 2
   fi
-  require_file_for_step fixed_sum "$MSD_CAL"
-  limit_args=($(append_limit_args))
-  run_step fixed_sum "$FIXED_SUM_OUT" \
-    "$PYTHON" ppltest.py \
-      --setup 6 \
-      --calibration "$MSD_CAL" \
-      "${common_ppl_args[@]}" \
-      --compile-msd-truncate \
-      --weight-cache-dtype float8 \
-      "${limit_args[@]}" \
-      --output "$FIXED_SUM_OUT"
+
+  MODEL_LOG_ROOT="$LOG_ROOT/$model_key"
+  mkdir -p "$final_root" "$MODEL_LOG_ROOT"
+
+  local output_layout="${OUTPUT_LAYOUT:-grouped}"
+  local mxfp8_out="$final_root/ppl/mxfp8/ppl_results_MXFP8_${run_label}.json"
+  local fixed_sum_out="$final_root/ppl/fixed_sum30/ppl_results_MXFP8_fixed_sum30_${run_label}.json"
+  local wanda_out="$wanda_root/2-4/ppl_results_MXFP8_${wanda_hook}.json"
+  local act_out="$act_root/2-4/ppl_results_MXFP8.json"
+
+  if [[ "$output_layout" == "flat" ]]; then
+    mxfp8_out="$final_root/ppl_results_MXFP8_${run_label}.json"
+    fixed_sum_out="$final_root/ppl_results_MXFP8_fixed_sum30_${run_label}.json"
+  elif [[ "$output_layout" != "grouped" ]]; then
+    echo "ERROR: unsupported OUTPUT_LAYOUT=$output_layout; use grouped or flat" >&2
+    exit 2
+  fi
+
+  local common_ppl_args=(
+    --model-path "$model_path"
+    --nproc "$NPROC"
+    --gpus "$GPUS"
+    --stats off
+    --load-stagger-sec "$LOAD_STAGGER_SEC"
+    --mxfp-progress-interval-sec -1
+  )
+
+  local limit_args=()
+
+  echo
+  echo "================================================================"
+  echo "Model: $model_key"
+  echo "Path : $model_path"
+  echo "Root : $final_root"
+  echo "Steps: $RUN_STEPS"
+  echo "================================================================"
+
+  if has_step mxfp8; then
+    limit_args=($(append_limit_args))
+    run_step "$model_key" mxfp8 "$mxfp8_out" \
+      "$PYTHON" ppltest.py \
+        --setup 2 \
+        "${common_ppl_args[@]}" \
+        "${limit_args[@]}" \
+        --output "$mxfp8_out"
+  fi
+
+  if has_step fixed_sum; then
+    local log="$MODEL_LOG_ROOT/fixed_sum.log"
+    if skip_or_fail_missing_artifact "$model_key" fixed_sum "$msd_cal" "$fixed_sum_out" "$log"; then
+      :
+    else
+      limit_args=($(append_limit_args))
+      run_step "$model_key" fixed_sum "$fixed_sum_out" \
+        "$PYTHON" ppltest.py \
+          --setup 6 \
+          --calibration "$msd_cal" \
+          "${common_ppl_args[@]}" \
+          --compile-msd-truncate \
+          --weight-cache-dtype "$fixed_sum_cache_dtype" \
+          "${limit_args[@]}" \
+          --output "$fixed_sum_out"
+    fi
+  fi
+
+  if has_step wanda; then
+    local mask="$wanda_root/2-4/calibration_base_MXFP8_${wanda_hook}.pt"
+    local log="$MODEL_LOG_ROOT/wanda.log"
+    if skip_or_fail_missing_artifact "$model_key" wanda "$mask" "$wanda_out" "$log"; then
+      :
+    else
+      limit_args=($(append_limit_args))
+      run_step "$model_key" wanda "$wanda_out" \
+        "$PYTHON" wanda_base/ppl_batch_base.py \
+          --model-path "$model_path" \
+          --results-root "$wanda_root" \
+          -n 2 -m 4 \
+          --only 1 \
+          --output-hook "$wanda_hook" \
+          --nproc "$NPROC" \
+          --gpus "$GPUS" \
+          --window-shard \
+          --load-stagger-sec "$LOAD_STAGGER_SEC" \
+          --mxfp-progress-interval-sec -1 \
+          "${limit_args[@]}"
+    fi
+  fi
+
+  if has_step act; then
+    limit_args=($(append_limit_args))
+    run_step "$model_key" act "$act_out" \
+      "$PYTHON" act_base/ppl_batch_base_act.py \
+        --model-path "$model_path" \
+        --results-root "$act_root" \
+        -n 2 -m 4 \
+        --only 1 \
+        --nproc "$NPROC" \
+        --gpus "$GPUS" \
+        --window-shard \
+        --load-stagger-sec "$LOAD_STAGGER_SEC" \
+        --mxfp-progress-interval-sec -1 \
+        "${limit_args[@]}"
+  fi
+}
+
+if [[ "$SWEEP_MODE" == "1" ]]; then
+  SWEEP_ROOT="${SWEEP_ROOT:-../data/qwen3_final_experiments/model_sweep_4gpu}"
+  MODEL_SPECS="${MODEL_SPECS:-qwen0_6b:../Qwen3-0.6B qwen1_7b:../Qwen3-1.7B qwen4b:../Qwen3-4B}"
+  RUN_STEPS="${RUN_STEPS:-mxfp8 act}"
+  if [[ -z "${LIMIT_SAMPLES+x}" ]]; then
+    LIMIT_SAMPLES=120
+  fi
+  OUTPUT_LAYOUT="${OUTPUT_LAYOUT:-grouped}"
+  LOG_ROOT="${LOG_ROOT:-$SWEEP_ROOT/logs/sweep_${RUN_ID}}"
+  STATUS_FILE="${STATUS_FILE:-$LOG_ROOT/status.tsv}"
+  status_init
+
+  for spec in $MODEL_SPECS; do
+    model_key="${spec%%:*}"
+    model_path="${spec#*:}"
+    model_root="$SWEEP_ROOT/$model_key"
+    run_model \
+      "$model_key" \
+      "$model_path" \
+      "${model_key}_sweep" \
+      "$model_root" \
+      "$model_root/wanda_base" \
+      "${model_key}_sweep" \
+      "$model_root/act_base" \
+      "$model_root/calib_fixed_sum_30db/calibration_MXFP8_fixed_sum_${model_key}_sweep.json" \
+      "float16"
+  done
+elif [[ "$SMOKE" == "1" ]]; then
+  MODEL="${MODEL:-../Qwen3-1.7B}"
+  RUN_LABEL="${RUN_LABEL:-qwen1_7b_smoke}"
+  FINAL_ROOT="${FINAL_ROOT:-../data/qwen3_final_experiments/smoke_qwen3_1_7b_4gpu}"
+  RUN_STEPS="${RUN_STEPS:-mxfp8 act}"
+  if [[ -z "${LIMIT_SAMPLES+x}" ]]; then
+    LIMIT_SAMPLES=120
+  fi
+  OUTPUT_LAYOUT="${OUTPUT_LAYOUT:-grouped}"
+  LOG_ROOT="${LOG_ROOT:-$FINAL_ROOT/logs/smoke_${RUN_ID}}"
+  STATUS_FILE="${STATUS_FILE:-$LOG_ROOT/status.tsv}"
+  status_init
+  run_model \
+    "$RUN_LABEL" \
+    "$MODEL" \
+    "$RUN_LABEL" \
+    "$FINAL_ROOT" \
+    "$FINAL_ROOT/wanda_base" \
+    "$RUN_LABEL" \
+    "$FINAL_ROOT/act_base" \
+    "$FINAL_ROOT/calib_fixed_sum_30db/calibration_MXFP8_fixed_sum_${RUN_LABEL}.json" \
+    "float16"
+else
+  MODEL="${MODEL:-../Qwen3-8B}"
+  RUN_LABEL="${RUN_LABEL:-qwen8b_final}"
+  FINAL_ROOT="${FINAL_ROOT:-../data/qwen3_final_experiments/qwen3_8b}"
+  RUN_STEPS="${RUN_STEPS:-mxfp8 fixed_sum wanda act}"
+  LIMIT_SAMPLES="${LIMIT_SAMPLES:-}"
+  MSD_DIR="${MSD_DIR:-$FINAL_ROOT/calib_fixed_sum_30db}"
+  MSD_CAL="${MSD_CAL:-$MSD_DIR/calibration_MXFP8_fixed_sum_qwen8b_final_merged.json}"
+  WANDA_ROOT="${WANDA_ROOT:-../data/wanda_base}"
+  WANDA_HOOK="${WANDA_HOOK:-$RUN_LABEL}"
+  ACT_ROOT="${ACT_ROOT:-$FINAL_ROOT/act_base}"
+  OUTPUT_LAYOUT="${OUTPUT_LAYOUT:-flat}"
+  LOG_ROOT="${LOG_ROOT:-$FINAL_ROOT/logs/final_ppl_4gpu_${RUN_ID}}"
+  STATUS_FILE="${STATUS_FILE:-$LOG_ROOT/status.tsv}"
+  status_init
+  run_model \
+    "$RUN_LABEL" \
+    "$MODEL" \
+    "$RUN_LABEL" \
+    "$FINAL_ROOT" \
+    "$WANDA_ROOT" \
+    "$WANDA_HOOK" \
+    "$ACT_ROOT" \
+    "$MSD_CAL" \
+    "float8"
 fi
 
-if has_step wanda; then
-  require_file_for_step wanda "$WANDA_ROOT/2-4/calibration_base_MXFP8_${WANDA_HOOK}.pt"
-  limit_args=($(append_limit_args))
-  run_step wanda "$WANDA_OUT" \
-    "$PYTHON" wanda_base/ppl_batch_base.py \
-      --model-path "$MODEL" \
-      --results-root "$WANDA_ROOT" \
-      -n 2 -m 4 \
-      --only 1 \
-      --output-hook "$WANDA_HOOK" \
-      --nproc "$NPROC" \
-      --gpus "$GPUS" \
-      --window-shard \
-      --load-stagger-sec "$LOAD_STAGGER_SEC" \
-      --mxfp-progress-interval-sec -1 \
-      "${limit_args[@]}"
-fi
-
-if has_step act; then
-  limit_args=($(append_limit_args))
-  run_step act "$ACT_OUT" \
-    "$PYTHON" act_base/ppl_batch_base_act.py \
-      --model-path "$MODEL" \
-      --results-root "$ACT_ROOT" \
-      -n 2 -m 4 \
-      --only 1 \
-      --nproc "$NPROC" \
-      --gpus "$GPUS" \
-      --window-shard \
-      --load-stagger-sec "$LOAD_STAGGER_SEC" \
-      --mxfp-progress-interval-sec -1 \
-      "${limit_args[@]}"
-fi
-
+echo
 echo "[done] status: $STATUS_FILE"
 echo "[done] logs: $LOG_ROOT"

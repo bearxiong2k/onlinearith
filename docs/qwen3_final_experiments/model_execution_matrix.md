@@ -34,9 +34,9 @@ Use these defaults unless a model/path row below overrides them.
 
 | Model | MXFP8 PPL | Fixed-sum MSD 30 dB PPL | WANDA 2:4 PPL | Activation N:M 2:4 PPL |
 |---|---|---|---|---|
-| Qwen3-0.6B | Single GPU is acceptable; use `--nproc` only for turnaround. | Single GPU or job-packed `--nproc`; default float16 cache is acceptable unless memory evidence says otherwise. | Single GPU or job-packed `--nproc`. | Single GPU or job-packed `--nproc`. |
-| Qwen3-1.7B | Prefer `--nproc 8` after one prefix validation. | Prefer `--nproc 8` after one prefix validation; keep default float16 cache unless a prefix run shows memory pressure. | Prefer `--nproc 8` after one prefix validation. | Prefer `--nproc 8` after one prefix validation. |
-| Qwen3-4B | Prefer `--nproc 8` after one prefix validation. | Prefer `--nproc 8` after one prefix validation; consider float8 cache only if default float16 cache is near OOM. | Prefer `--nproc 8` after one prefix validation. | Prefer `--nproc 8` after one prefix validation. |
+| Qwen3-0.6B | Use the four-GPU sweep wrapper on GPUs 4-7; prefix smoke is validated. | Needs a model-specific fixed-sum calibration before final PPL; default float16 cache unless prefix evidence says otherwise. | Needs a model-specific WANDA mask before final PPL. | Use the four-GPU sweep wrapper on GPUs 4-7; prefix smoke is validated. |
+| Qwen3-1.7B | Use the four-GPU sweep wrapper on GPUs 4-7; prefix smoke is validated. | Needs a model-specific fixed-sum calibration before final PPL; keep default float16 cache unless a prefix run shows memory pressure. | Needs a model-specific WANDA mask before final PPL. | Use the four-GPU sweep wrapper on GPUs 4-7; prefix smoke is validated. |
+| Qwen3-4B | Use the four-GPU sweep wrapper on GPUs 4-7; prefix smoke is validated. | Needs a model-specific fixed-sum calibration before final PPL; consider float8 cache only if default float16 cache is near OOM. | Needs a model-specific WANDA mask before final PPL. | Use the four-GPU sweep wrapper on GPUs 4-7; prefix smoke is validated. |
 | Qwen3-8B | Use `--nproc 4 --gpus 4,5,6,7 --load-stagger-sec 8`. | Use `--nproc 4 --gpus 4,5,6,7 --load-stagger-sec 8 --weight-cache-dtype float8`. | Use baseline runner `--nproc 4 --gpus 4,5,6,7 --window-shard --load-stagger-sec 8` with the Qwen3-8B-shaped mask. | Use baseline runner `--nproc 4 --gpus 4,5,6,7 --window-shard --load-stagger-sec 8`. |
 
 ## Validation Gates
@@ -55,19 +55,25 @@ Before committing to a final full PPL command for any model/path combination:
 
 ## Current Settled Choices
 
-- Qwen3-8B MXFP8: eight full replicas are validated with
-  `--load-stagger-sec 8`; use this for final MXFP8 PPL.
-- Qwen3-8B fixed-sum MSD: eight full replicas are validated with
-  `--load-stagger-sec 8 --weight-cache-dtype float8`; use this for final
-  fixed-sum MSD PPL.
-- Qwen3-8B WANDA 2:4: eight full replicas are validated through
+- Current execution availability is GPUs 4-7. Use the four-worker wrapper for
+  Qwen3-8B final PPL and the smaller-model sweep until more GPUs are available.
+- Smaller-model sweep smoke on GPUs 4-7 completed MXFP8 and activation N:M
+  with `LIMIT_SAMPLES=120` for Qwen3-0.6B, Qwen3-1.7B, and Qwen3-4B. Review
+  `../data/qwen3_final_experiments/model_sweep_4gpu/logs/sweep_20260528_144624/status.tsv`
+  before removing the sample limit.
+- Qwen3-8B MXFP8: full-replica `--load-stagger-sec 8` is validated; use
+  `--nproc 4 --gpus 4,5,6,7` for current final MXFP8 PPL.
+- Qwen3-8B fixed-sum MSD: full-replica
+  `--load-stagger-sec 8 --weight-cache-dtype float8` is validated; use
+  `--nproc 4 --gpus 4,5,6,7` for current final fixed-sum MSD PPL.
+- Qwen3-8B WANDA 2:4: full replicas are validated through
   `wanda_base/ppl_batch_base.py --window-shard --load-stagger-sec 8`; use a
   Qwen3-8B-shaped mask,
   `../data/wanda_base/2-4/calibration_base_MXFP8_qwen8b_final.pt`, not the
   older 0.6B masks under `../data/wanda_base/2-4`.
 - Qwen3-8B fixed-sum calibration metadata: use the merged final file
   `../data/qwen3_final_experiments/qwen3_8b/calib_fixed_sum_30db/calibration_MXFP8_fixed_sum_qwen8b_final_merged.json`.
-- Qwen3-8B activation N:M 2:4: eight full replicas are validated through
+- Qwen3-8B activation N:M 2:4: full replicas are validated through
   `act_base/ppl_batch_base_act.py --window-shard --load-stagger-sec 8`.
 - Qwen3-8B model sharding: sequential `--device-map` is correctness-validated
   but slower for the tested prefix; keep it as memory relief, not final speed.

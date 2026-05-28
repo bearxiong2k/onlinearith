@@ -85,11 +85,35 @@ Current status:
 - `scripts/run_qwen3_final_ppl_4gpu.sh` is the current end-to-end final PPL
   wrapper. It defaults to `GPUS=4,5,6,7`, `NPROC=4`, runs MXFP8, fixed-sum MSD,
   WANDA, and activation N:M in order, logs each step, skips existing outputs
-  unless `FORCE=1`, and stops on first failure.
+  unless `FORCE=1`, and stops on first failure. Final Qwen3-8B MXFP8 and
+  fixed-sum outputs keep the flat filenames in
+  `../data/qwen3_final_experiments/qwen3_8b/`; logs/status are timestamped
+  under `../data/qwen3_final_experiments/qwen3_8b/logs/`.
+- The same wrapper now has `SWEEP_MODE=1` for the smaller-model sweep over
+  Qwen3-0.6B, Qwen3-1.7B, and Qwen3-4B. It defaults to `RUN_STEPS="mxfp8 act"`
+  and `LIMIT_SAMPLES=120`, writes grouped outputs under
+  `../data/qwen3_final_experiments/model_sweep_4gpu/<model_key>/`, and writes
+  logs plus `status.tsv` under
+  `../data/qwen3_final_experiments/model_sweep_4gpu/logs/sweep_<RUN_ID>/`.
+  Missing fixed-sum or WANDA artifacts are recorded as
+  `skipped_missing_artifact` unless `STRICT_ARTIFACTS=1`.
 - The wrapper smoke path was validated with Qwen3-1.7B using
   `SMOKE=1 FORCE=1 RUN_STEPS="mxfp8 act" GPUS=4,5,6,7 NPROC=4
   LIMIT_SAMPLES=120 scripts/run_qwen3_final_ppl_4gpu.sh`. It completed MXFP8
   PPL 17.1189 and activation N:M PPL 24.4044 with 7,192 scored tokens.
+- The refactored sweep path was also validated on Qwen3-1.7B with
+  `SWEEP_MODE=1 MODEL_SPECS="qwen1_7b:../Qwen3-1.7B" FORCE=1 GPUS=4,5,6,7
+  NPROC=4 LIMIT_SAMPLES=120 scripts/run_qwen3_final_ppl_4gpu.sh`; it completed
+  the same MXFP8 and activation N:M prefix outputs under
+  `../data/qwen3_final_experiments/model_sweep_4gpu/qwen1_7b/`.
+- The default smaller-model prefix sweep was then validated with
+  `SWEEP_MODE=1 GPUS=4,5,6,7 NPROC=4 scripts/run_qwen3_final_ppl_4gpu.sh`.
+  It completed Qwen3-0.6B and Qwen3-4B and skipped the already-present
+  Qwen3-1.7B outputs. Status:
+  `../data/qwen3_final_experiments/model_sweep_4gpu/logs/sweep_20260528_144624/status.tsv`.
+  Prefix PPLs were: Qwen3-0.6B MXFP8 21.2746 / activation 46.3333,
+  Qwen3-1.7B MXFP8 17.1189 / activation 24.4044, and Qwen3-4B MXFP8 13.7939
+  / activation 19.7649, each with 7,192 scored tokens.
 - `tools/merge_msd_calibrations.py` is available to merge disjoint
   projection-filtered fixed-sum calibration JSONs into one PPL-ready
   calibration file.
@@ -109,20 +133,24 @@ Current status:
   1998.8s for the historical single-GPU prefix.
 
 Next iteration:
-1. Run the end-to-end four-GPU final PPL wrapper:
+1. Run the smaller-model prefix sweep if that is the next priority:
+   `SWEEP_MODE=1 GPUS=4,5,6,7 NPROC=4 scripts/run_qwen3_final_ppl_4gpu.sh`.
+   The prefix has completed once; review the timestamped `status.tsv` and
+   per-step logs before setting `LIMIT_SAMPLES=""` for a full sweep.
+2. Run the end-to-end four-GPU Qwen3-8B final PPL wrapper when ready:
    `GPUS=4,5,6,7 NPROC=4 scripts/run_qwen3_final_ppl_4gpu.sh`. It uses the
    suffixed WANDA mask and merged fixed-sum calibration file above.
-2. Treat `--device-map sequential` as memory relief only unless `balanced` or
+3. Treat `--device-map sequential` as memory relief only unless `balanced` or
    manual placement shows direct-CUDA speedup over single-GPU and `--nproc`.
-3. Remember that current `--nproc` disables MSD stats on nonzero ranks; use it
+4. Remember that current `--nproc` disables MSD stats on nonzero ranks; use it
    for PPL quality and wall time, not as an aggregate work-stats source unless
    stats aggregation is added.
-4. Keep `--device-map` single-process and separate from `--nproc`; use
+5. Keep `--device-map` single-process and separate from `--nproc`; use
    visible-device IDs in `--max-memory` after `--gpus` filtering.
-5. For future fixed-sum calibration, use projection-filtered task parallel
+6. For future fixed-sum calibration, use projection-filtered task parallel
    full-model jobs before considering model-sharded calibration. For Qwen3-8B,
    split down projections into bounded layer groups.
-6. Use `model_execution_matrix.md` to keep model-specific tricks explicit:
+7. Use `model_execution_matrix.md` to keep model-specific tricks explicit:
    smaller models should not inherit Qwen3-8B-only float8 cache or load-stagger
    settings unless their own prefix validation shows they need them.
 ```

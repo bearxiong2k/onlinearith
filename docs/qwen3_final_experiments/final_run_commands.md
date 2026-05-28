@@ -166,9 +166,10 @@ GPUS=4,5,6,7 NPROC=4 scripts/run_qwen3_final_ppl_4gpu.sh
 ```
 
 The wrapper runs MXFP8, fixed-sum MSD 30 dB, WANDA 2:4, and activation N:M
-2:4 in order, writes one log per step under `$FINAL_ROOT/logs/`, skips existing
-outputs unless `FORCE=1`, and stops on the first failing step. The individual
-commands below are the expanded form.
+2:4 in order, writes one log per step under
+`$FINAL_ROOT/logs/final_ppl_4gpu_<RUN_ID>/`, writes a `status.tsv` in the same
+directory, skips existing outputs unless `FORCE=1`, and stops on the first
+failing step. The individual commands below are the expanded form.
 
 ### MXFP8 Baseline
 
@@ -234,6 +235,33 @@ does not accelerate a single selected setup.
   --load-stagger-sec 8 \
   --mxfp-progress-interval-sec -1
 ```
+
+## Smaller-Model Sweep
+
+Use the same wrapper for the Qwen3-0.6B, Qwen3-1.7B, and Qwen3-4B sweep:
+
+```bash
+SWEEP_MODE=1 GPUS=4,5,6,7 NPROC=4 scripts/run_qwen3_final_ppl_4gpu.sh
+```
+
+Default sweep mode runs `mxfp8 act` with `LIMIT_SAMPLES=120`, grouped by model:
+
+```text
+../data/qwen3_final_experiments/model_sweep_4gpu/qwen0_6b/
+../data/qwen3_final_experiments/model_sweep_4gpu/qwen1_7b/
+../data/qwen3_final_experiments/model_sweep_4gpu/qwen4b/
+```
+
+Logs and a per-run `status.tsv` are written under:
+
+```text
+../data/qwen3_final_experiments/model_sweep_4gpu/logs/sweep_<RUN_ID>/
+```
+
+The sweep intentionally defaults to MXFP8 and activation N:M because fixed-sum
+calibrations and WANDA masks are model-shape-specific. If `RUN_STEPS` includes
+`fixed_sum` or `wanda`, missing artifacts are recorded as
+`skipped_missing_artifact` unless `STRICT_ARTIFACTS=1`.
 
 ## Expected Wall Times
 
