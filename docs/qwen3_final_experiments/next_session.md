@@ -89,14 +89,18 @@ Current status:
   fixed-sum outputs keep the flat filenames in
   `../data/qwen3_final_experiments/qwen3_8b/`; logs/status are timestamped
   under `../data/qwen3_final_experiments/qwen3_8b/logs/`.
-- The same wrapper now has `SWEEP_MODE=1` for the smaller-model sweep over
-  Qwen3-0.6B, Qwen3-1.7B, and Qwen3-4B. It defaults to `RUN_STEPS="mxfp8 act"`
-  and `LIMIT_SAMPLES=120`, writes grouped outputs under
-  `../data/qwen3_final_experiments/model_sweep_4gpu/<model_key>/`, and writes
-  logs plus `status.tsv` under
-  `../data/qwen3_final_experiments/model_sweep_4gpu/logs/sweep_<RUN_ID>/`.
-  Missing fixed-sum or WANDA artifacts are recorded as
-  `skipped_missing_artifact` unless `STRICT_ARTIFACTS=1`.
+- `scripts/run_qwen3_model_experiment_sweep_4gpu.sh` is the all-model
+  experiment-sweep wrapper. It covers Qwen3-0.6B, Qwen3-1.7B, Qwen3-4B, and
+  Qwen3-8B on GPUs 4-7, defaults to full outputs, and defaults to
+  `RUN_STEPS="mxfp8 fixed_sum wanda act"`. Use `LIMIT_SAMPLES=120` for a
+  monitored prefix. Prefix and full outputs are separated under
+  `../data/qwen3_final_experiments/model_sweep_4gpu/<model_key>/prefix120/`
+  and `../data/qwen3_final_experiments/model_sweep_4gpu/<model_key>/full/`;
+  logs plus `status.tsv` are under
+  `../data/qwen3_final_experiments/model_sweep_4gpu/logs/sweep_<tag>_<RUN_ID>/`.
+  Qwen3-8B fixed-sum and WANDA use the existing 8B calibration/mask. Smaller
+  model fixed-sum and WANDA steps are recorded as `skipped_missing_artifact`
+  until model-specific artifacts are added.
 - The wrapper smoke path was validated with Qwen3-1.7B using
   `SMOKE=1 FORCE=1 RUN_STEPS="mxfp8 act" GPUS=4,5,6,7 NPROC=4
   LIMIT_SAMPLES=120 scripts/run_qwen3_final_ppl_4gpu.sh`. It completed MXFP8
@@ -133,10 +137,11 @@ Current status:
   1998.8s for the historical single-GPU prefix.
 
 Next iteration:
-1. Run the smaller-model prefix sweep if that is the next priority:
-   `SWEEP_MODE=1 GPUS=4,5,6,7 NPROC=4 scripts/run_qwen3_final_ppl_4gpu.sh`.
-   The prefix has completed once; review the timestamped `status.tsv` and
-   per-step logs before setting `LIMIT_SAMPLES=""` for a full sweep.
+1. Run the all-model experiment sweep if that is the next priority:
+   `scripts/run_qwen3_model_experiment_sweep_4gpu.sh`. For a monitored prefix,
+   use `LIMIT_SAMPLES=120 scripts/run_qwen3_model_experiment_sweep_4gpu.sh`.
+   Full outputs use the `full/` sweep tag and will not skip older prefix/smoke
+   JSONs.
 2. Run the end-to-end four-GPU Qwen3-8B final PPL wrapper when ready:
    `GPUS=4,5,6,7 NPROC=4 scripts/run_qwen3_final_ppl_4gpu.sh`. It uses the
    suffixed WANDA mask and merged fixed-sum calibration file above.

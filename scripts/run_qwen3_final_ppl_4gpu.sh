@@ -4,7 +4,7 @@
 # Modes:
 #   default: Qwen3-8B final run, all four representative paths
 #   SMOKE=1: Qwen3-1.7B prefix smoke, MXFP8 + activation N:M
-#   SWEEP_MODE=1: model sweep over 0.6B/1.7B/4B, MXFP8 + activation N:M by default
+#   SWEEP_MODE=1: model sweep over 0.6B/1.7B/4B/8B
 #
 # The script is resume-safe at the output-file level: existing outputs are
 # skipped unless FORCE=1. Each run gets a timestamped log directory and a TSV
@@ -98,6 +98,23 @@ skip_or_fail_missing_artifact() {
   return 0
 }
 
+ensure_file_alias() {
+  local source="$1"
+  local dest="$2"
+
+  if [[ -z "$source" || "$source" == "$dest" || -e "$dest" ]]; then
+    return 0
+  fi
+  if [[ ! -f "$source" ]]; then
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$dest")"
+  if ! ln -s "$(cd "$(dirname "$source")" && pwd)/$(basename "$source")" "$dest" 2>/dev/null; then
+    cp "$source" "$dest"
+  fi
+}
+
 run_step() {
   local model_key="$1"
   local step="$2"
@@ -156,6 +173,7 @@ run_model() {
   local act_root="$7"
   local msd_cal="$8"
   local fixed_sum_cache_dtype="$9"
+  local wanda_mask="${10:-}"
 
   if [[ ! -d "$model_path" ]]; then
     echo "ERROR: [$model_key] model path not found: $model_path" >&2
@@ -229,6 +247,7 @@ run_model() {
   if has_step wanda; then
     local mask="$wanda_root/2-4/calibration_base_MXFP8_${wanda_hook}.pt"
     local log="$MODEL_LOG_ROOT/wanda.log"
+    ensure_file_alias "$wanda_mask" "$mask"
     if skip_or_fail_missing_artifact "$model_key" wanda "$mask" "$wanda_out" "$log"; then
       :
     else
@@ -268,30 +287,51 @@ run_model() {
 
 if [[ "$SWEEP_MODE" == "1" ]]; then
   SWEEP_ROOT="${SWEEP_ROOT:-../data/qwen3_final_experiments/model_sweep_4gpu}"
-  MODEL_SPECS="${MODEL_SPECS:-qwen0_6b:../Qwen3-0.6B qwen1_7b:../Qwen3-1.7B qwen4b:../Qwen3-4B}"
+  MODEL_SPECS="${MODEL_SPECS:-qwen0_6b:../Qwen3-0.6B qwen1_7b:../Qwen3-1.7B qwen4b:../Qwen3-4B qwen8b:../Qwen3-8B}"
   RUN_STEPS="${RUN_STEPS:-mxfp8 act}"
   if [[ -z "${LIMIT_SAMPLES+x}" ]]; then
     LIMIT_SAMPLES=120
   fi
+  if [[ -z "${SWEEP_TAG+x}" ]]; then
+    if [[ -n "$LIMIT_SAMPLES" ]]; then
+      SWEEP_TAG="prefix${LIMIT_SAMPLES}"
+    else
+      SWEEP_TAG="full"
+    fi
+  fi
   OUTPUT_LAYOUT="${OUTPUT_LAYOUT:-grouped}"
-  LOG_ROOT="${LOG_ROOT:-$SWEEP_ROOT/logs/sweep_${RUN_ID}}"
+  LOG_ROOT="${LOG_ROOT:-$SWEEP_ROOT/logs/sweep_${SWEEP_TAG}_${RUN_ID}}"
   STATUS_FILE="${STATUS_FILE:-$LOG_ROOT/status.tsv}"
   status_init
 
   for spec in $MODEL_SPECS; do
     model_key="${spec%%:*}"
     model_path="${spec#*:}"
-    model_root="$SWEEP_ROOT/$model_key"
+    model_root="$SWEEP_ROOT/$model_key/$SWEEP_TAG"
+    run_label="${model_key}_sweep_${SWEEP_TAG}"
+    wanda_root="$model_root/wanda_base"
+    wanda_hook="$run_label"
+    wanda_mask=""
+    msd_cal="$model_root/calib_fixed_sum_30db/calibration_MXFP8_fixed_sum_${run_label}.json"
+    fixed_sum_cache_dtype="float16"
+
+    if [[ "$model_key" == "qwen8b" || "$model_key" == "qwen8b_final" ]]; then
+      msd_cal="../data/qwen3_final_experiments/qwen3_8b/calib_fixed_sum_30db/calibration_MXFP8_fixed_sum_qwen8b_final_merged.json"
+      wanda_mask="../data/wanda_base/2-4/calibration_base_MXFP8_qwen8b_final.pt"
+      fixed_sum_cache_dtype="float8"
+    fi
+
     run_model \
       "$model_key" \
       "$model_path" \
-      "${model_key}_sweep" \
+      "$run_label" \
       "$model_root" \
-      "$model_root/wanda_base" \
-      "${model_key}_sweep" \
+      "$wanda_root" \
+      "$wanda_hook" \
       "$model_root/act_base" \
-      "$model_root/calib_fixed_sum_30db/calibration_MXFP8_fixed_sum_${model_key}_sweep.json" \
-      "float16"
+      "$msd_cal" \
+      "$fixed_sum_cache_dtype" \
+      "$wanda_mask"
   done
 elif [[ "$SMOKE" == "1" ]]; then
   MODEL="${MODEL:-../Qwen3-1.7B}"

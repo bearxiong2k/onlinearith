@@ -56,32 +56,48 @@ The Qwen3-1.7B smoke wrote outputs under
 `../data/qwen3_final_experiments/smoke_qwen3_1_7b_4gpu/` and completed both
 MXFP8 and activation N:M steps.
 
-Model sweep mode covers Qwen3-0.6B, Qwen3-1.7B, and Qwen3-4B on GPUs 4-7:
+All-model experiment sweep mode covers Qwen3-0.6B, Qwen3-1.7B, Qwen3-4B, and
+Qwen3-8B on GPUs 4-7:
 
 ```bash
-SWEEP_MODE=1 GPUS=4,5,6,7 NPROC=4 scripts/run_qwen3_final_ppl_4gpu.sh
+scripts/run_qwen3_model_experiment_sweep_4gpu.sh
 ```
 
-By default, sweep mode runs `mxfp8 act` with `LIMIT_SAMPLES=120` as a monitored
-prefix. Set `LIMIT_SAMPLES=""` for the full sweep after the prefix succeeds.
-Sweep outputs are grouped by model under:
+This wrapper defaults to full-run outputs and `RUN_STEPS="mxfp8 fixed_sum wanda
+act"`. Use this monitored prefix command before committing GPUs to the long
+run:
 
-```text
-../data/qwen3_final_experiments/model_sweep_4gpu/<model_key>/
+```bash
+LIMIT_SAMPLES=120 scripts/run_qwen3_model_experiment_sweep_4gpu.sh
 ```
 
-Sweep logs and status are timestamped under:
+Prefix and full outputs are separate, so prefix JSONs do not cause full runs to
+skip:
 
 ```text
-../data/qwen3_final_experiments/model_sweep_4gpu/logs/sweep_<RUN_ID>/
+../data/qwen3_final_experiments/model_sweep_4gpu/<model_key>/prefix120/
+../data/qwen3_final_experiments/model_sweep_4gpu/<model_key>/full/
+```
+
+Sweep logs and status are timestamped with the sweep tag:
+
+```text
+../data/qwen3_final_experiments/model_sweep_4gpu/logs/sweep_prefix120_<RUN_ID>/
+../data/qwen3_final_experiments/model_sweep_4gpu/logs/sweep_full_<RUN_ID>/
 ```
 
 Prefix sweep validation completed on GPUs 4-7 with
-`RUN_ID=20260528_144624`. Qwen3-1.7B was already present and was skipped as an
-existing output in that run.
+`RUN_ID=20260528_144624` using the older flat sweep layout. Qwen3-1.7B was
+already present and was skipped as an existing output in that run.
 
 | Model | MXFP8 PPL | Activation N:M PPL | Scored Tokens |
 |---|---:|---:|---:|
 | Qwen3-0.6B | 21.2746 | 46.3333 | 7,192 |
 | Qwen3-1.7B | 17.1189 | 24.4044 | 7,192 |
 | Qwen3-4B | 13.7939 | 19.7649 | 7,192 |
+
+Current artifact state: the all-model wrapper can run MXFP8 and activation N:M
+for all four models. It can run Qwen3-8B fixed-sum and WANDA using the existing
+8B calibration/mask. For Qwen3-0.6B, Qwen3-1.7B, and Qwen3-4B, fixed-sum and
+WANDA are recorded as `skipped_missing_artifact` until model-specific
+calibration/mask files are placed under that model's sweep output tree.

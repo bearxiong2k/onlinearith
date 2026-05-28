@@ -55,8 +55,8 @@ Before committing to a final full PPL command for any model/path combination:
 
 ## Current Settled Choices
 
-- Current execution availability is GPUs 4-7. Use the four-worker wrapper for
-  Qwen3-8B final PPL and the smaller-model sweep until more GPUs are available.
+- Current execution availability is GPUs 4-7. Use the four-worker wrappers for
+  Qwen3-8B final PPL and the all-model sweep until more GPUs are available.
 - Smaller-model sweep smoke on GPUs 4-7 completed MXFP8 and activation N:M
   with `LIMIT_SAMPLES=120` for Qwen3-0.6B, Qwen3-1.7B, and Qwen3-4B. Review
   `../data/qwen3_final_experiments/model_sweep_4gpu/logs/sweep_20260528_144624/status.tsv`
@@ -71,6 +71,11 @@ Before committing to a final full PPL command for any model/path combination:
   Qwen3-8B-shaped mask,
   `../data/wanda_base/2-4/calibration_base_MXFP8_qwen8b_final.pt`, not the
   older 0.6B masks under `../data/wanda_base/2-4`.
+- All-model sweep wrapper: use
+  `scripts/run_qwen3_model_experiment_sweep_4gpu.sh`. It writes full outputs
+  under `../data/qwen3_final_experiments/model_sweep_4gpu/<model_key>/full/`
+  and prefix outputs under the corresponding `prefix<N>/` tag, so prefix
+  smoke JSONs do not block full runs.
 - Qwen3-8B fixed-sum calibration metadata: use the merged final file
   `../data/qwen3_final_experiments/qwen3_8b/calib_fixed_sum_30db/calibration_MXFP8_fixed_sum_qwen8b_final_merged.json`.
 - Qwen3-8B activation N:M 2:4: full replicas are validated through
