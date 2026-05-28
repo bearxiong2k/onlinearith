@@ -20,7 +20,8 @@ outputs:
 
 ```bash
 MODEL=../Qwen3-8B
-GPUS=0,1,2,3,4,5,6,7
+GPUS=4,5,6,7
+NPROC=4
 FINAL_ROOT=../data/qwen3_final_experiments/qwen3_8b
 MSD_DIR=$FINAL_ROOT/calib_fixed_sum_30db
 MSD_CAL=$MSD_DIR/calibration_MXFP8_fixed_sum_qwen8b_final_merged.json
@@ -157,13 +158,25 @@ This should create:
 
 ## Final PPL Runs
 
+Current GPU availability limits the final run to GPUs 4-7. Prefer the
+resumable end-to-end wrapper:
+
+```bash
+GPUS=4,5,6,7 NPROC=4 scripts/run_qwen3_final_ppl_4gpu.sh
+```
+
+The wrapper runs MXFP8, fixed-sum MSD 30 dB, WANDA 2:4, and activation N:M
+2:4 in order, writes one log per step under `$FINAL_ROOT/logs/`, skips existing
+outputs unless `FORCE=1`, and stops on the first failing step. The individual
+commands below are the expanded form.
+
 ### MXFP8 Baseline
 
 ```bash
 ../.venv3_10/bin/python ppltest.py \
   --model-path "$MODEL" \
   --setup 2 \
-  --nproc 8 \
+  --nproc "$NPROC" \
   --gpus "$GPUS" \
   --stats off \
   --load-stagger-sec 8 \
@@ -178,7 +191,7 @@ This should create:
   --model-path "$MODEL" \
   --setup 6 \
   --calibration "$MSD_CAL" \
-  --nproc 8 \
+  --nproc "$NPROC" \
   --gpus "$GPUS" \
   --stats off \
   --compile-msd-truncate \
@@ -200,7 +213,7 @@ does not accelerate a single selected setup.
   -n 2 -m 4 \
   --only 1 \
   --output-hook "$WANDA_HOOK" \
-  --nproc 8 \
+  --nproc "$NPROC" \
   --gpus "$GPUS" \
   --window-shard \
   --load-stagger-sec 8 \
@@ -215,7 +228,7 @@ does not accelerate a single selected setup.
   --results-root "$ACT_ROOT" \
   -n 2 -m 4 \
   --only 1 \
-  --nproc 8 \
+  --nproc "$NPROC" \
   --gpus "$GPUS" \
   --window-shard \
   --load-stagger-sec 8 \
@@ -224,7 +237,7 @@ does not accelerate a single selected setup.
 
 ## Expected Wall Times
 
-- MXFP8 PPL: about 0.34 h on eight workers.
-- Fixed-sum MSD 30 dB PPL: about 22.7 h on eight workers.
-- WANDA 2:4 PPL: about 0.35 h on eight workers, after mask calibration.
-- Activation N:M 2:4 PPL: about 0.37 h on eight workers.
+- MXFP8 PPL: about 0.67 h on four workers.
+- Fixed-sum MSD 30 dB PPL: about 45.1 h on four workers.
+- WANDA 2:4 PPL: about 0.7 h on four workers, after mask calibration.
+- Activation N:M 2:4 PPL: about 0.75 h on four workers.

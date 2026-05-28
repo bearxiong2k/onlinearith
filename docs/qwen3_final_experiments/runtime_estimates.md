@@ -168,7 +168,7 @@ calibrated MSD, "calibration" means one fixed-sum calibration at target-SNR
 | Qwen3-0.6B | 5-20 min | 1.2 h measured | about 2 h | 10-30 min | 5-20 min |
 | Qwen3-1.7B | 10-30 min | 4.7 h estimated | about 8 h | 20-60 min | 10-30 min |
 | Qwen3-4B | 25-60 min | 11.9 h estimated | about 20 h | 1-2 h | 25-60 min |
-| Qwen3-8B | about 2.6 h single GPU; about 0.34 h validated on 8 full replicas with staggered loading | 71.7 min measured wall for projection/task-parallel prerequisites on GPUs 4-7 | about 160 h single GPU; about 22.7 h validated on 8 full replicas with staggered loading and float8 cache | 26.0 min measured mask calibration plus about 0.35 h PPL on 8 full replicas | about 2.7 h single GPU; about 0.3 h on 8 full replicas after path validation |
+| Qwen3-8B | about 2.6 h single GPU; about 0.67 h on four full replicas with staggered loading | 71.7 min measured wall for projection/task-parallel prerequisites on GPUs 4-7 | about 160 h single GPU; about 45.1 h on four full replicas with staggered loading and float8 cache | 26.0 min measured mask calibration plus about 0.7 h PPL on four full replicas | about 2.7 h single GPU; about 0.75 h on four full replicas |
 
 Basis:
 
@@ -189,6 +189,8 @@ Basis:
   --limit-samples 120 --stats off` completed a prefix120 slice with eight PPL
   windows in 33.2s. That is about 16.6s per assigned window, or about 0.67 h
   for the full 578-window run on four workers.
+- Current final-run availability is GPUs 4-7 only. Use the four-worker
+  estimates above and run with `--nproc 4 --gpus 4,5,6,7 --load-stagger-sec 8`.
 - An initial eight-worker launch on GPUs 0-7 failed with rank-0 `SIGKILL`
   during model loading/materialization before evaluation. Adding
   `ppltest.py --load-stagger-sec 8` resolved this for MXFP8 setup 2:

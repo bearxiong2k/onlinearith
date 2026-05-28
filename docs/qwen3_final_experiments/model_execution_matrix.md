@@ -26,8 +26,9 @@ Use these defaults unless a model/path row below overrides them.
 - Qwen3-8B fixed-sum calibration: gate/up projections fit as full projection
   families; split down projections into bounded layer groups because selecting
   all down layers in one process OOMs from retained block-cache size.
-- Qwen3-8B multi-rank loading: use `--load-stagger-sec 8` when launching eight
-  full replicas.
+- Qwen3-8B multi-rank loading: use `--load-stagger-sec 8` when launching full
+  replicas. Current final-run availability is GPUs 4-7 only, so use
+  `--nproc 4 --gpus 4,5,6,7`.
 
 ## Final PPL Recipes
 
@@ -36,7 +37,7 @@ Use these defaults unless a model/path row below overrides them.
 | Qwen3-0.6B | Single GPU is acceptable; use `--nproc` only for turnaround. | Single GPU or job-packed `--nproc`; default float16 cache is acceptable unless memory evidence says otherwise. | Single GPU or job-packed `--nproc`. | Single GPU or job-packed `--nproc`. |
 | Qwen3-1.7B | Prefer `--nproc 8` after one prefix validation. | Prefer `--nproc 8` after one prefix validation; keep default float16 cache unless a prefix run shows memory pressure. | Prefer `--nproc 8` after one prefix validation. | Prefer `--nproc 8` after one prefix validation. |
 | Qwen3-4B | Prefer `--nproc 8` after one prefix validation. | Prefer `--nproc 8` after one prefix validation; consider float8 cache only if default float16 cache is near OOM. | Prefer `--nproc 8` after one prefix validation. | Prefer `--nproc 8` after one prefix validation. |
-| Qwen3-8B | Use `--nproc 8 --load-stagger-sec 8`. | Use `--nproc 8 --load-stagger-sec 8 --weight-cache-dtype float8`. | Use baseline runner `--nproc 8 --window-shard --load-stagger-sec 8` with the Qwen3-8B-shaped mask. | Use baseline runner `--nproc 8 --window-shard --load-stagger-sec 8`. |
+| Qwen3-8B | Use `--nproc 4 --gpus 4,5,6,7 --load-stagger-sec 8`. | Use `--nproc 4 --gpus 4,5,6,7 --load-stagger-sec 8 --weight-cache-dtype float8`. | Use baseline runner `--nproc 4 --gpus 4,5,6,7 --window-shard --load-stagger-sec 8` with the Qwen3-8B-shaped mask. | Use baseline runner `--nproc 4 --gpus 4,5,6,7 --window-shard --load-stagger-sec 8`. |
 
 ## Validation Gates
 

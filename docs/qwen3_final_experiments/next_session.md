@@ -60,6 +60,8 @@ Current status:
   replicas with `--load-stagger-sec 8 --weight-cache-dtype float8`: PPL 9.8648,
   mean NLL 2.2890, wall 1120.87s. This promotes the final fixed-sum MSD PPL
   recipe from four replicas to eight replicas.
+- Current final-run availability is GPUs 4-7 only, so use the four-replica
+  script/commands even though eight-replica prefixes were validated earlier.
 - Qwen3-8B WANDA 2:4 and activation N:M 2:4 now have explicit baseline-runner
   window sharding. Use `--window-shard` with `--nproc`; default baseline-runner
   `--nproc` shards setup IDs and does not accelerate a single selected setup.
@@ -80,6 +82,14 @@ Current status:
   Qwen3-8B command sheet for fixed-sum calibration, WANDA mask generation, and
   the four final PPL runs. It uses suffixed WANDA outputs and a separate
   activation results root to avoid overwriting smaller-model artifacts.
+- `scripts/run_qwen3_final_ppl_4gpu.sh` is the current end-to-end final PPL
+  wrapper. It defaults to `GPUS=4,5,6,7`, `NPROC=4`, runs MXFP8, fixed-sum MSD,
+  WANDA, and activation N:M in order, logs each step, skips existing outputs
+  unless `FORCE=1`, and stops on first failure.
+- The wrapper smoke path was validated with Qwen3-1.7B using
+  `SMOKE=1 FORCE=1 RUN_STEPS="mxfp8 act" GPUS=4,5,6,7 NPROC=4
+  LIMIT_SAMPLES=120 scripts/run_qwen3_final_ppl_4gpu.sh`. It completed MXFP8
+  PPL 17.1189 and activation N:M PPL 24.4044 with 7,192 scored tokens.
 - `tools/merge_msd_calibrations.py` is available to merge disjoint
   projection-filtered fixed-sum calibration JSONs into one PPL-ready
   calibration file.
@@ -99,8 +109,8 @@ Current status:
   1998.8s for the historical single-GPU prefix.
 
 Next iteration:
-1. Run the four final PPL commands from `final_run_commands.md`: MXFP8,
-   fixed-sum target-SNR 30 dB MSD, WANDA 2:4, and activation N:M 2:4. Use the
+1. Run the end-to-end four-GPU final PPL wrapper:
+   `GPUS=4,5,6,7 NPROC=4 scripts/run_qwen3_final_ppl_4gpu.sh`. It uses the
    suffixed WANDA mask and merged fixed-sum calibration file above.
 2. Treat `--device-map sequential` as memory relief only unless `balanced` or
    manual placement shows direct-CUDA speedup over single-GPU and `--nproc`.

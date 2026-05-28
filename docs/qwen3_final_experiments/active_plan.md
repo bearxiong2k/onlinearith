@@ -38,16 +38,18 @@ Representative paths:
 ## Current Work
 
 1. Use full-replica data parallelism (`ppltest.py --nproc`) as the final PPL
-   acceleration path when replicas fit. Qwen3-8B MXFP8 and fixed-sum 30 dB MSD
-   are prefix-validated on eight replicas when using `--load-stagger-sec 8`.
-   For Qwen3-8B MSD, include `--weight-cache-dtype float8`; the default float16
-   persistent cache OOMed in a two-worker fixed-sum prefix run.
+   acceleration path when replicas fit. Current final-run availability is GPUs
+   4-7 only, so run Qwen3-8B with `--nproc 4 --gpus 4,5,6,7
+   --load-stagger-sec 8`. For Qwen3-8B MSD, include
+   `--weight-cache-dtype float8`; the default float16 persistent cache OOMed in
+   a two-worker fixed-sum prefix run.
 2. Use baseline-runner window sharding for the representative WANDA and
    activation N:M baselines. `wanda_base/ppl_batch_base.py` and
    `act_base/ppl_batch_base_act.py` need `--window-shard` with `--nproc` for a
    single final setup; their default `--nproc` behavior shards setup IDs.
-   Qwen3-8B WANDA 2:4 and activation N:M 2:4 are prefix-validated on eight
-   replicas with `--window-shard --load-stagger-sec 8`.
+   Qwen3-8B WANDA 2:4 and activation N:M 2:4 are prefix-validated with
+   `--window-shard --load-stagger-sec 8`; current final execution should use
+   four replicas on GPUs 4-7.
 3. Treat current `--device-map sequential` placement as memory relief only.
    Do not claim model-parallel speedup unless `balanced` or a manual placement
    policy beats single-GPU and data-parallel timing with direct-CUDA evidence.
@@ -69,6 +71,7 @@ Representative paths:
 
 Concrete Qwen3-8B commands are collected in
 `docs/qwen3_final_experiments/final_run_commands.md`.
+The end-to-end four-GPU wrapper is `scripts/run_qwen3_final_ppl_4gpu.sh`.
 
 ## Sharding Guardrails
 
