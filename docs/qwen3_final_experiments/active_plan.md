@@ -66,12 +66,12 @@ Representative paths:
 6. Update `docs/qwen3_final_experiments/runtime_estimates.md` with measured
    single-GPU and multi-GPU wall-time estimates as each representative path is
    validated.
-7. Use `scripts/run_qwen3_model_experiment_sweep_4gpu.sh` for the all-model
-   sweep on GPUs 4-7. It covers Qwen3-0.6B, Qwen3-1.7B, Qwen3-4B, and
-   Qwen3-8B, separates prefix outputs from full outputs, and defaults to
-   `RUN_STEPS="mxfp8 fixed_sum wanda act"`. Smaller-model fixed-sum MSD and
-   WANDA still need model-specific artifacts before they can run instead of
-   being recorded as missing-artifact skips.
+7. Use `BACKGROUND=1 scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh`
+   for the leave-it-running all-model sweep on GPUs 4-7. It prepares
+   smaller-model fixed-sum/WANDA artifacts first with per-model profiles
+   (0.6B on GPU 4, 1.7B on GPU 5, 4B on GPU 6), then runs the full
+   `mxfp8 fixed_sum wanda act` PPL sweep with four-GPU window sharding and
+   writes summary TSV/JSON files for review.
 8. Keep generated calibration/result artifacts out of commits unless explicitly
    requested.
 

@@ -22,6 +22,7 @@ PREP_STEPS="${PREP_STEPS:-fixed_sum wanda}"
 ARTIFACT_GPU="${ARTIFACT_GPU:-4}"
 FORCE="${FORCE:-0}"
 DRY_RUN="${DRY_RUN:-0}"
+CONTINUE_ON_ERROR="${CONTINUE_ON_ERROR:-0}"
 RUN_ID="${RUN_ID:-$(date +%Y%m%d_%H%M%S)}"
 LOG_ROOT="${ARTIFACT_LOG_ROOT:-$SWEEP_ROOT/logs/artifacts_${RUN_ID}}"
 STATUS_FILE="${ARTIFACT_STATUS_FILE:-$LOG_ROOT/status.tsv}"
@@ -111,12 +112,18 @@ run_artifact_step() {
   if [[ "$status" -ne 0 ]]; then
     echo "[$model_key/$step] FAILED with exit code $status"
     record_status "$model_key" "$step" "failed:$status" "$output" "$log"
+    if [[ "$CONTINUE_ON_ERROR" == "1" ]]; then
+      return "$status"
+    fi
     exit "$status"
   fi
 
   if [[ ! -f "$output" ]]; then
     echo "[$model_key/$step] FAILED: command exited 0 but output is missing: $output" >&2
     record_status "$model_key" "$step" "missing_output" "$output" "$log"
+    if [[ "$CONTINUE_ON_ERROR" == "1" ]]; then
+      return 1
+    fi
     exit 1
   fi
 
@@ -140,11 +147,12 @@ prepare_fixed_sum() {
 
   local projection
   local inputs=()
+  local ok=1
   for projection in $CALIB_PROJECTION_FILTERS; do
     local suffix="${projection%_proj}"
     local partial="$cal_dir/calibration_MXFP8_fixed_sum_${model_key}_sweep_${suffix}.json"
     inputs+=("$partial")
-    run_artifact_step "$model_key" "fixed_sum_${suffix}" "$partial" \
+    if ! run_artifact_step "$model_key" "fixed_sum_${suffix}" "$partial" \
       "$PYTHON" calibrate.py \
         --model-path "$model_path" \
         --setup 1 \
@@ -160,8 +168,16 @@ prepare_fixed_sum() {
         --cal-chunk-target-mib "$CALIB_CHUNK_MIB" \
         --weight-cache-dtype none \
         --compile-msd-truncate \
-        --gpus "$ARTIFACT_GPU"
+        --gpus "$ARTIFACT_GPU"; then
+      ok=0
+    fi
   done
+
+  if [[ "$ok" != "1" ]]; then
+    echo "[$model_key/fixed_sum] skipping merge because one or more partial calibrations failed"
+    record_status "$model_key" fixed_sum "skipped_partial_failure" "$final_json" "$merge_log"
+    return 1
+  fi
 
   run_artifact_step "$model_key" fixed_sum "$final_json" \
     "$PYTHON" tools/merge_msd_calibrations.py \
@@ -217,13 +233,20 @@ for spec in $MODEL_SPECS; do
   echo "Path          : $model_path"
   echo "Artifact root : $artifact_root"
   echo "Prep steps    : $PREP_STEPS"
+  echo "GPU           : $ARTIFACT_GPU"
+  echo "Calib profile : batch=$CALIB_BATCH_SIZE mx_chunk_mib=$CALIB_MX_CHUNK_MIB cal_chunk_mib=$CALIB_CHUNK_MIB projections=$CALIB_PROJECTION_FILTERS"
+  echo "WANDA profile : batch=$WANDA_BATCH_SIZE mx_chunk_mib=$WANDA_MX_CHUNK_MIB"
   echo "================================================================"
 
   if has_step fixed_sum; then
-    prepare_fixed_sum "$model_key" "$model_path" "$artifact_root"
+    if ! prepare_fixed_sum "$model_key" "$model_path" "$artifact_root"; then
+      [[ "$CONTINUE_ON_ERROR" == "1" ]] || exit 1
+    fi
   fi
   if has_step wanda; then
-    prepare_wanda "$model_key" "$model_path" "$artifact_root"
+    if ! prepare_wanda "$model_key" "$model_path" "$artifact_root"; then
+      [[ "$CONTINUE_ON_ERROR" == "1" ]] || exit 1
+    fi
   fi
 done
 

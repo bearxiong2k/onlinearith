@@ -114,6 +114,28 @@ Current status:
   A one-text GPU smoke validated the prep flow on Qwen3-0.6B in `/tmp`: the
   three fixed-sum partials merged to 84 MLP projection layers / 200,704
   channels, and WANDA wrote the expected `calibration_base_MXFP8_qwen0_6b_sweep.pt`.
+- `scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh` is the current
+  leave-it-running entry point for the full all-model sweep. It prepares
+  smaller-model artifacts with per-model profiles, runs the full
+  `mxfp8 fixed_sum wanda act` sweep with `SWEEP_TAG=full` and
+  `STRICT_ARTIFACTS=1`, and writes
+  `summary_full.tsv`, `summary_full.json`, and `final_status.txt` under
+  `../data/qwen3_final_experiments/model_sweep_4gpu/logs/full_unattended_<RUN_ID>/`.
+  Use `BACKGROUND=1 scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh`
+  to detach it from the terminal/session. The wrapper defaults to
+  `CONTINUE_ON_ERROR=1`, so independent later steps can still run after an
+  individual failure; inspect the summary/status files for missing or failed
+  rows.
+- `scripts/prepare_qwen3_model_sweep_artifacts_parallel_4gpu.sh` is used by the
+  unattended wrapper by default. It runs Qwen3-0.6B artifact prep on GPU 4 with
+  batch/chunk profile `8 / 512 MiB / 128 MiB`, Qwen3-1.7B on GPU 5 with
+  `4 / 384 MiB / 96 MiB`, and Qwen3-4B on GPU 6 with conservative
+  `2 / 256 MiB / 64 MiB`. After artifact prep, the PPL phase uses all four
+  GPUs 4-7 with full-replica window sharding. Set `ARTIFACT_PREP_MODE=serial`
+  only if parallel artifact prep is too memory- or I/O-heavy.
+- `scripts/summarize_qwen3_model_sweep.py` summarizes expected sweep outputs
+  for a tag such as `full` into TSV/JSON with PPL, mean NLL, scored tokens,
+  wall time, world size, visible CUDA devices, and missing/read-error status.
 - The wrapper smoke path was validated with Qwen3-1.7B using
   `SMOKE=1 FORCE=1 RUN_STEPS="mxfp8 act" GPUS=4,5,6,7 NPROC=4
   LIMIT_SAMPLES=120 scripts/run_qwen3_final_ppl_4gpu.sh`. It completed MXFP8
@@ -150,11 +172,11 @@ Current status:
   1998.8s for the historical single-GPU prefix.
 
 Next iteration:
-1. Run the all-model experiment sweep if that is the next priority:
-   `scripts/run_qwen3_model_experiment_sweep_4gpu.sh`. For a monitored prefix,
-   use `LIMIT_SAMPLES=120 scripts/run_qwen3_model_experiment_sweep_4gpu.sh`.
-   Full outputs use the `full/` sweep tag and will not skip older prefix/smoke
-   JSONs.
+1. Run the unattended full all-model sweep if that is the next priority:
+   `BACKGROUND=1 scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh`.
+   When it finishes, first inspect
+   `../data/qwen3_final_experiments/model_sweep_4gpu/logs/full_unattended_<RUN_ID>/summary_full.tsv`
+   and `final_status.txt`.
 2. Run the end-to-end four-GPU Qwen3-8B final PPL wrapper when ready:
    `GPUS=4,5,6,7 NPROC=4 scripts/run_qwen3_final_ppl_4gpu.sh`. It uses the
    suffixed WANDA mask and merged fixed-sum calibration file above.

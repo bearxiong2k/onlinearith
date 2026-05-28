@@ -26,6 +26,11 @@ Use these defaults unless a model/path row below overrides them.
 - Qwen3-8B fixed-sum calibration: gate/up projections fit as full projection
   families; split down projections into bounded layer groups because selecting
   all down layers in one process OOMs from retained block-cache size.
+- Smaller-model fixed-sum/WANDA artifact prep: use model-specific profiles
+  instead of the Qwen3-8B recipe. The unattended wrapper runs Qwen3-0.6B on GPU
+  4 with `CALIB_BATCH_SIZE=8`, `CALIB_MX_CHUNK_MIB=512`,
+  `CALIB_CHUNK_MIB=128`, `WANDA_BATCH_SIZE=8`; Qwen3-1.7B on GPU 5 with
+  `4/384/96/4`; and Qwen3-4B on GPU 6 with conservative `2/256/64/2`.
 - Qwen3-8B multi-rank loading: use `--load-stagger-sec 8` when launching full
   replicas. Current final-run availability is GPUs 4-7 only, so use
   `--nproc 4 --gpus 4,5,6,7`.
@@ -34,9 +39,9 @@ Use these defaults unless a model/path row below overrides them.
 
 | Model | MXFP8 PPL | Fixed-sum MSD 30 dB PPL | WANDA 2:4 PPL | Activation N:M 2:4 PPL |
 |---|---|---|---|---|
-| Qwen3-0.6B | Use the four-GPU sweep wrapper on GPUs 4-7; prefix smoke is validated. | Needs a model-specific fixed-sum calibration before final PPL; default float16 cache unless prefix evidence says otherwise. | Needs a model-specific WANDA mask before final PPL. | Use the four-GPU sweep wrapper on GPUs 4-7; prefix smoke is validated. |
-| Qwen3-1.7B | Use the four-GPU sweep wrapper on GPUs 4-7; prefix smoke is validated. | Needs a model-specific fixed-sum calibration before final PPL; keep default float16 cache unless a prefix run shows memory pressure. | Needs a model-specific WANDA mask before final PPL. | Use the four-GPU sweep wrapper on GPUs 4-7; prefix smoke is validated. |
-| Qwen3-4B | Use the four-GPU sweep wrapper on GPUs 4-7; prefix smoke is validated. | Needs a model-specific fixed-sum calibration before final PPL; consider float8 cache only if default float16 cache is near OOM. | Needs a model-specific WANDA mask before final PPL. | Use the four-GPU sweep wrapper on GPUs 4-7; prefix smoke is validated. |
+| Qwen3-0.6B | Use the four-GPU sweep wrapper on GPUs 4-7; prefix smoke is validated. | Use the per-model artifact prep profile on GPU 4, then PPL with default float16 cache unless prefix evidence says otherwise. | Use the per-model WANDA profile on GPU 4, then baseline runner with `--window-shard`. | Use the four-GPU sweep wrapper on GPUs 4-7; prefix smoke is validated. |
+| Qwen3-1.7B | Use the four-GPU sweep wrapper on GPUs 4-7; prefix smoke is validated. | Use the per-model artifact prep profile on GPU 5, then PPL with default float16 cache unless a prefix run shows memory pressure. | Use the per-model WANDA profile on GPU 5, then baseline runner with `--window-shard`. | Use the four-GPU sweep wrapper on GPUs 4-7; prefix smoke is validated. |
+| Qwen3-4B | Use the four-GPU sweep wrapper on GPUs 4-7; prefix smoke is validated. | Use the conservative per-model artifact prep profile on GPU 6; consider float8 cache only if default float16 cache is near OOM. | Use the conservative per-model WANDA profile on GPU 6, then baseline runner with `--window-shard`. | Use the four-GPU sweep wrapper on GPUs 4-7; prefix smoke is validated. |
 | Qwen3-8B | Use `--nproc 4 --gpus 4,5,6,7 --load-stagger-sec 8`. | Use `--nproc 4 --gpus 4,5,6,7 --load-stagger-sec 8 --weight-cache-dtype float8`. | Use baseline runner `--nproc 4 --gpus 4,5,6,7 --window-shard --load-stagger-sec 8` with the Qwen3-8B-shaped mask. | Use baseline runner `--nproc 4 --gpus 4,5,6,7 --window-shard --load-stagger-sec 8`. |
 
 ## Validation Gates
@@ -71,11 +76,12 @@ Before committing to a final full PPL command for any model/path combination:
   Qwen3-8B-shaped mask,
   `../data/wanda_base/2-4/calibration_base_MXFP8_qwen8b_final.pt`, not the
   older 0.6B masks under `../data/wanda_base/2-4`.
-- All-model sweep wrapper: use
-  `scripts/run_qwen3_model_experiment_sweep_4gpu.sh`. It writes full outputs
-  under `../data/qwen3_final_experiments/model_sweep_4gpu/<model_key>/full/`
-  and prefix outputs under the corresponding `prefix<N>/` tag, so prefix
-  smoke JSONs do not block full runs.
+- Full all-model unattended wrapper: use
+  `BACKGROUND=1 scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh`. It
+  prepares smaller-model artifacts in parallel with the profiles above, then
+  writes full outputs under
+  `../data/qwen3_final_experiments/model_sweep_4gpu/<model_key>/full/` and
+  final summaries under `logs/full_unattended_<RUN_ID>/`.
 - Qwen3-8B fixed-sum calibration metadata: use the merged final file
   `../data/qwen3_final_experiments/qwen3_8b/calib_fixed_sum_30db/calibration_MXFP8_fixed_sum_qwen8b_final_merged.json`.
 - Qwen3-8B activation N:M 2:4: full replicas are validated through

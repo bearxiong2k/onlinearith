@@ -24,6 +24,7 @@ DRY_RUN="${DRY_RUN:-0}"
 SMOKE="${SMOKE:-0}"
 SWEEP_MODE="${SWEEP_MODE:-0}"
 STRICT_ARTIFACTS="${STRICT_ARTIFACTS:-0}"
+CONTINUE_ON_ERROR="${CONTINUE_ON_ERROR:-0}"
 RUN_ID="${RUN_ID:-$(date +%Y%m%d_%H%M%S)}"
 
 IFS=',' read -r -a GPU_ARRAY <<< "$GPUS"
@@ -90,6 +91,9 @@ skip_or_fail_missing_artifact() {
   if [[ "$STRICT_ARTIFACTS" == "1" ]]; then
     echo "ERROR: [$model_key/$step] $msg" >&2
     record_status "$model_key" "$step" "missing_artifact" "$output" "$log"
+    if [[ "$CONTINUE_ON_ERROR" == "1" ]]; then
+      return 0
+    fi
     exit 2
   fi
 
@@ -150,12 +154,18 @@ run_step() {
   if [[ "$status" -ne 0 ]]; then
     echo "[$model_key/$step] FAILED with exit code $status"
     record_status "$model_key" "$step" "failed:$status" "$output" "$log"
+    if [[ "$CONTINUE_ON_ERROR" == "1" ]]; then
+      return 0
+    fi
     exit "$status"
   fi
 
   if [[ ! -f "$output" ]]; then
     echo "[$model_key/$step] FAILED: command exited 0 but output is missing: $output" >&2
     record_status "$model_key" "$step" "missing_output" "$output" "$log"
+    if [[ "$CONTINUE_ON_ERROR" == "1" ]]; then
+      return 0
+    fi
     exit 1
   fi
 
