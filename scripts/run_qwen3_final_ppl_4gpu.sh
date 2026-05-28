@@ -308,11 +308,12 @@ if [[ "$SWEEP_MODE" == "1" ]]; then
     model_key="${spec%%:*}"
     model_path="${spec#*:}"
     model_root="$SWEEP_ROOT/$model_key/$SWEEP_TAG"
+    artifact_root="$SWEEP_ROOT/$model_key/artifacts"
     run_label="${model_key}_sweep_${SWEEP_TAG}"
     wanda_root="$model_root/wanda_base"
     wanda_hook="$run_label"
-    wanda_mask=""
-    msd_cal="$model_root/calib_fixed_sum_30db/calibration_MXFP8_fixed_sum_${run_label}.json"
+    wanda_mask="$artifact_root/wanda_base/2-4/calibration_base_MXFP8_${model_key}_sweep.pt"
+    msd_cal="$artifact_root/calib_fixed_sum_30db/calibration_MXFP8_fixed_sum_${model_key}_sweep.json"
     fixed_sum_cache_dtype="float16"
 
     if [[ "$model_key" == "qwen8b" || "$model_key" == "qwen8b_final" ]]; then

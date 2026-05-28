@@ -92,15 +92,28 @@ Current status:
 - `scripts/run_qwen3_model_experiment_sweep_4gpu.sh` is the all-model
   experiment-sweep wrapper. It covers Qwen3-0.6B, Qwen3-1.7B, Qwen3-4B, and
   Qwen3-8B on GPUs 4-7, defaults to full outputs, and defaults to
-  `RUN_STEPS="mxfp8 fixed_sum wanda act"`. Use `LIMIT_SAMPLES=120` for a
-  monitored prefix. Prefix and full outputs are separated under
+  `RUN_STEPS="mxfp8 fixed_sum wanda act"`. By default it first runs
+  `scripts/prepare_qwen3_model_sweep_artifacts_4gpu.sh`, which prepares
+  model-specific smaller-model fixed-sum and WANDA artifacts under
+  `../data/qwen3_final_experiments/model_sweep_4gpu/<model_key>/artifacts/`;
+  set `PREPARE_ARTIFACTS=0` only when those artifacts are already present and
+  you want a PPL-only rerun. Use `LIMIT_SAMPLES=120` for a monitored prefix.
+  Prefix and full outputs are separated under
   `../data/qwen3_final_experiments/model_sweep_4gpu/<model_key>/prefix120/`
   and `../data/qwen3_final_experiments/model_sweep_4gpu/<model_key>/full/`;
   logs plus `status.tsv` are under
   `../data/qwen3_final_experiments/model_sweep_4gpu/logs/sweep_<tag>_<RUN_ID>/`.
-  Qwen3-8B fixed-sum and WANDA use the existing 8B calibration/mask. Smaller
-  model fixed-sum and WANDA steps are recorded as `skipped_missing_artifact`
-  until model-specific artifacts are added.
+  Qwen3-8B fixed-sum and WANDA use the existing 8B calibration/mask.
+- `scripts/prepare_qwen3_model_sweep_artifacts_4gpu.sh` prepares Qwen3-0.6B,
+  Qwen3-1.7B, and Qwen3-4B artifacts. Fixed-sum calibration uses setup 1,
+  target-SNR 30 dB, projection-filtered gate/up/down jobs, then merges them
+  with `tools/merge_msd_calibrations.py`. WANDA uses setup 1 and keep-count
+  `2:4`. It is resume-safe at the artifact-file level and writes artifact logs
+  under
+  `../data/qwen3_final_experiments/model_sweep_4gpu/logs/artifacts_<RUN_ID>/`.
+  A one-text GPU smoke validated the prep flow on Qwen3-0.6B in `/tmp`: the
+  three fixed-sum partials merged to 84 MLP projection layers / 200,704
+  channels, and WANDA wrote the expected `calibration_base_MXFP8_qwen0_6b_sweep.pt`.
 - The wrapper smoke path was validated with Qwen3-1.7B using
   `SMOKE=1 FORCE=1 RUN_STEPS="mxfp8 act" GPUS=4,5,6,7 NPROC=4
   LIMIT_SAMPLES=120 scripts/run_qwen3_final_ppl_4gpu.sh`. It completed MXFP8
