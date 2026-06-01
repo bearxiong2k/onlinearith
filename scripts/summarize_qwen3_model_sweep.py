@@ -48,6 +48,8 @@ def load_result(path: Path) -> dict[str, Any]:
     performance = data.get("performance", {})
     reliability = data.get("reliability", {})
     config = data.get("config", {})
+    msd_global = data.get("msd_perf_stats", {}).get("global", {})
+    mean_eff = msd_global.get("mean_effective_precision")
     return {
         "status": "ok",
         "token_perplexity": metrics.get("token_perplexity"),
@@ -56,6 +58,13 @@ def load_result(path: Path) -> dict[str, Any]:
         "wall_time_sec": performance.get("wall_time_sec"),
         "world_size": config.get("world_size"),
         "visible_cuda_devices": ",".join(config.get("visible_cuda_devices", []) or []),
+        "stats": config.get("stats"),
+        "msd_utilization_mode": config.get("msd_utilization_mode"),
+        "figure5_layer_cycles": config.get("figure5_layer_cycles"),
+        "mean_effective_precision": mean_eff,
+        "plot_norm_digit_read": round(float(mean_eff) / 3.0, 6) if mean_eff is not None else None,
+        "global_utilization": msd_global.get("global_utilization"),
+        "hw_latency_overhead": msd_global.get("hw_latency_overhead"),
     }
 
 
@@ -114,6 +123,13 @@ def main() -> None:
         "wall_time_sec",
         "world_size",
         "visible_cuda_devices",
+        "stats",
+        "msd_utilization_mode",
+        "figure5_layer_cycles",
+        "mean_effective_precision",
+        "plot_norm_digit_read",
+        "global_utilization",
+        "hw_latency_overhead",
         "output",
     )
     with tsv_path.open("w") as f:

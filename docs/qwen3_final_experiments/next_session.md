@@ -135,7 +135,25 @@ Current status:
   only if parallel artifact prep is too memory- or I/O-heavy.
 - `scripts/summarize_qwen3_model_sweep.py` summarizes expected sweep outputs
   for a tag such as `full` into TSV/JSON with PPL, mean NLL, scored tokens,
-  wall time, world size, visible CUDA devices, and missing/read-error status.
+  wall time, world size, visible CUDA devices, optional MSD stats columns, and
+  missing/read-error status. The refreshed full-run summary with explicit
+  blank stats columns is
+  `../data/qwen3_final_experiments/model_sweep_4gpu/logs/full_unattended_20260528_155226/summary_full_with_stats_columns/summary_full.tsv`.
+- The 2026-05-28 full unattended all-model sweep completed valid PPL outputs
+  for Qwen3-0.6B, 1.7B, 4B, and 8B, but it did not collect
+  `plot_norm_digit_read` or Figure 5 layer-cycle data. Use separate
+  single-process `--msd-utilization-mode --figure5-layer-cycles` probes for
+  that accounting.
+- `scripts/run_qwen3_fixed_sum_norm_target_sweep.sh` and
+  `scripts/summarize_fixed_sum_norm_sweep.py` are now available for fixed-sum
+  low-SNR normalized-digit-read sweeps. The Qwen3-0.6B limit-120 probe
+  completed SNR 17 and 18 dB:
+  `../data/qwen3_final_experiments/fixed_sum_norm_sweep/logs/qwen_fixed_sum_norm_20260601_160336/summary_limit120/fixed_sum_norm_sweep_limit120.tsv`.
+  SNR 17 dB gave PPL 23.7696 and `plot_norm_digit_read=0.485333`; SNR 18 dB
+  gave PPL 22.8602 and `plot_norm_digit_read=0.5159`. Therefore SNR 17 dB is
+  the conservative fixed-sum 50%-work point; run 17.5 dB only if an exact
+  near-0.5 point is required. For larger models, probe SNR 17 dB first and add
+  a 17/18 dB bracket only if normalized digit read drifts noticeably.
 - The wrapper smoke path was validated with Qwen3-1.7B using
   `SMOKE=1 FORCE=1 RUN_STEPS="mxfp8 act" GPUS=4,5,6,7 NPROC=4
   LIMIT_SAMPLES=120 scripts/run_qwen3_final_ppl_4gpu.sh`. It completed MXFP8
@@ -177,20 +195,25 @@ Next iteration:
    When it finishes, first inspect
    `../data/qwen3_final_experiments/model_sweep_4gpu/logs/full_unattended_<RUN_ID>/summary_full.tsv`
    and `final_status.txt`.
-2. Run the end-to-end four-GPU Qwen3-8B final PPL wrapper when ready:
+2. For the fixed-sum 50%-work result, do not reuse target-SNR 30 dB. Start
+   larger-model accounting at SNR 17 dB with
+   `scripts/run_qwen3_fixed_sum_norm_target_sweep.sh`, using
+   `MODEL_SPECS` to select the model and `TARGET_SNRS="17"` unless drift
+   requires a bracket.
+3. Run the end-to-end four-GPU Qwen3-8B final PPL wrapper when ready:
    `GPUS=4,5,6,7 NPROC=4 scripts/run_qwen3_final_ppl_4gpu.sh`. It uses the
    suffixed WANDA mask and merged fixed-sum calibration file above.
-3. Treat `--device-map sequential` as memory relief only unless `balanced` or
+4. Treat `--device-map sequential` as memory relief only unless `balanced` or
    manual placement shows direct-CUDA speedup over single-GPU and `--nproc`.
-4. Remember that current `--nproc` disables MSD stats on nonzero ranks; use it
+5. Remember that current `--nproc` disables MSD stats on nonzero ranks; use it
    for PPL quality and wall time, not as an aggregate work-stats source unless
    stats aggregation is added.
-5. Keep `--device-map` single-process and separate from `--nproc`; use
+6. Keep `--device-map` single-process and separate from `--nproc`; use
    visible-device IDs in `--max-memory` after `--gpus` filtering.
-6. For future fixed-sum calibration, use projection-filtered task parallel
+7. For future fixed-sum calibration, use projection-filtered task parallel
    full-model jobs before considering model-sharded calibration. For Qwen3-8B,
    split down projections into bounded layer groups.
-7. Use `model_execution_matrix.md` to keep model-specific tricks explicit:
+8. Use `model_execution_matrix.md` to keep model-specific tricks explicit:
    smaller models should not inherit Qwen3-8B-only float8 cache or load-stagger
    settings unless their own prefix validation shows they need them.
 ```

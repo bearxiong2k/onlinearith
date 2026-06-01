@@ -86,6 +86,20 @@ Important implementation details:
   final layers on different visible CUDA devices. Keep tensor index movement
   and loss-device handling local to `Qwen3ForCausalLM.forward()` rather than
   depending on caller-side tensor placement.
+- `ppltest.py` records `config.limit_samples` in result JSONs so prefix probes
+  can be separated from full runs after the fact.
+- `scripts/run_qwen3_fixed_sum_norm_target_sweep.sh` prepares fixed-sum
+  calibration artifacts and single-process utilization/Figure 5 PPL probes for
+  low-SNR normalized-digit-read sweeps. Keep this separate from the four-rank
+  final PPL sweep because current `--nproc` runs do not aggregate MSD stats
+  from nonzero ranks.
+- `scripts/summarize_fixed_sum_norm_sweep.py` summarizes those low-SNR probes
+  into TSV/JSON. It reads PPL fields from `metrics`, work fields from
+  `msd_perf_stats.global`, and Figure 5 cycle inputs from
+  `msd_perf_stats.per_layer`.
+- `scripts/summarize_qwen3_model_sweep.py` includes explicit stats columns
+  when present; blank stats columns in a summary mean the underlying PPL output
+  did not collect MSD utilization/Figure 5 accounting.
 
 ## Baseline Parity Status
 

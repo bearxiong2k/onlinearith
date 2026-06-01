@@ -312,6 +312,56 @@ Observed old fixed-sum MXFP8 runtime `global_utilization`:
 These are runtime diagnostics only. They are useful to record for performance
 accounting, but they are not equivalent sparsity/work values.
 
+## 2026-06-01 Fixed-Sum 50% Work Probe
+
+The full unattended all-model sweep completed valid PPL rows, but those runs
+used four-rank window sharding and did not collect MSD utilization/Figure 5
+statistics. A separate single-process stats probe is required for
+`plot_norm_digit_read` and layer-cycle accounting.
+
+The valid full-run summary with explicit blank stats columns is:
+
+```text
+../data/qwen3_final_experiments/model_sweep_4gpu/logs/full_unattended_20260528_155226/summary_full_with_stats_columns/summary_full.tsv
+```
+
+The duplicate run
+`../data/qwen3_final_experiments/model_sweep_4gpu/logs/full_unattended_20260528_155242/`
+was stopped and should be ignored.
+
+Qwen3-0.6B fixed-sum target-SNR probes were run with projection-filtered
+calibration, merged calibration JSONs, then single-process PPL accounting:
+
+```bash
+TARGET_SNRS="17 18 19" UTIL_LIMIT_SAMPLES=120 ARTIFACT_GPU=4 PPL_GPU=5 \
+  scripts/run_qwen3_fixed_sum_norm_target_sweep.sh
+```
+
+SNR 19 was not needed once 17/18 bracketed the target; completed summary:
+
+```text
+../data/qwen3_final_experiments/fixed_sum_norm_sweep/logs/qwen_fixed_sum_norm_20260601_160336/summary_limit120/fixed_sum_norm_sweep_limit120.tsv
+```
+
+| Model | Target SNR | PPL | `plot_norm_digit_read` | Mean effective precision | Runtime `global_utilization` | Mean avg layer cycle |
+|---|---:|---:|---:|---:|---:|---:|
+| Qwen3-0.6B | 17 dB | 23.7696 | 0.485333 | 1.4560 | 0.167043 | 414.955740 |
+| Qwen3-0.6B | 18 dB | 22.8602 | 0.515900 | 1.5477 | 0.174111 | 422.711006 |
+
+Conclusion: target-SNR 17 dB is the conservative fixed-sum point for a
+50%-work comparison because it stays just below 0.5 normalized digit read.
+Target-SNR 18 dB is slightly above the target. If the paper needs an exact
+near-0.5 point instead of a conservative point, run a 17.5 dB probe before the
+larger-model sweep. For larger models, start with SNR 17 dB and only add a
+small 17/18 dB sweep if `plot_norm_digit_read` drifts by more than about 0.02.
+
+Current JSON layout for these probes:
+
+- PPL and mean NLL live under `metrics`.
+- Wall time lives under `performance.wall_time_sec`.
+- Work metrics live under `msd_perf_stats.global`.
+- Figure 5 layer-cycle inputs live per layer under `msd_perf_stats.per_layer`.
+
 ## Invalid Evidence
 
 - Ignore 2026-05-21 sandbox progress files without `cuda_*` fields. They were

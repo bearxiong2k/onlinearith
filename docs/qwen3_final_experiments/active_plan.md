@@ -8,13 +8,18 @@ under `docs/qwen3_final_experiments/references/`.
 Prepare the final experiment execution path and wall-time estimates for the
 focused Qwen3 model family.
 
-Representative paths:
+Representative quality paths:
 
 - MXFP8 baseline: `ppltest.py --setup 2`
 - Fixed-sum calibrated MSD: `calibrate.py --optimizer fixed_sum --target-snr 30`
   plus `ppltest.py --setup 6 --calibration <fixed_sum.json>`
 - WANDA structured baseline: common keep-count `2:4`
 - Runtime activation N:M baseline: common keep-count `2:4`
+
+For the 50% equivalent-work comparison against WANDA 2:4 and activation N:M
+2:4, use a lower fixed-sum target SNR selected by
+`plot_norm_digit_read = mean_effective_precision / 3.0`; target-SNR 30 dB is
+the high-quality fixed-sum point, not the 50% work point.
 
 ## Invariants
 
@@ -74,6 +79,13 @@ Representative paths:
    writes summary TSV/JSON files for review.
 8. Keep generated calibration/result artifacts out of commits unless explicitly
    requested.
+9. For the fixed-sum 50% equivalent-work point, the current Qwen3-0.6B probe
+   brackets the target with target-SNR 17 dB at `plot_norm_digit_read=0.485333`
+   and 18 dB at `0.5159`. Use SNR 17 dB when the point must stay at or below
+   50% work; use a 17.5 dB probe if an interpolated near-exact 0.5 point is
+   needed before committing larger-model hours. For larger models, first run a
+   single-process utilization/Figure 5 probe at SNR 17 dB; sweep 17/18 dB only
+   if the norm-digit-read drift is obvious.
 
 Concrete Qwen3-8B commands are collected in
 `docs/qwen3_final_experiments/final_run_commands.md`.

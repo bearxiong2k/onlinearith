@@ -747,6 +747,7 @@ calibration workflow:
                        "hf_device_map": serialize_hf_device_map(model),
                        "calibration_file": args.calibration if args.calibration else None,
                        "text_manifest": str(manifest_path) if manifest_path else None,
+                       "limit_samples": args.limit_samples,
                        "stats": args.stats,
                        "msd_utilization_mode": bool(args.msd_utilization_mode),
                        "load_stagger_sec": args.load_stagger_sec,
