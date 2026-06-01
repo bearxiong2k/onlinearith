@@ -17,7 +17,7 @@ Quality/PPL sweep, already run with four-rank window sharding where applicable:
 
 - Fixed-sum calibrated MSD at target-SNR 17 dB
 - Full WikiText-2 test split, no `--limit-samples`
-- Single-process PPL with `--msd-utilization-mode --figure5-layer-cycles`
+- Stats PPL with `--stats lite --figure5-layer-cycles`
 - Output must include PPL, `plot_norm_digit_read`, and Figure 5 layer-cycle
   accounting.
 
@@ -56,7 +56,13 @@ Formal all-model fixed-sum 17 dB full stats sweep:
 BACKGROUND=1 scripts/run_qwen3_fixed_sum17_full_stats_4gpu.sh
 ```
 
-This launches one single-process stats job per model on GPUs 4-7, prepares the
+This runs models sequentially from Qwen3-0.6B to 1.7B to 4B to 8B. For each
+model, PPL stats run on GPUs 4-7 with explicit single-process model sharding
+(`--device-map sequential`) so MSD stats remain collectable without `--nproc`.
+Calibration defaults to projection/task parallelism across GPUs 4-7 because
+that is the validated 8B strategy and keeps otherwise idle GPUs busy, but the
+script supports `CALIBRATION_MODE=serial` if model-load or I/O contention makes
+parallel projection jobs counterproductive for smaller models. It prepares the
 17 dB calibration artifacts, runs full WikiText-2 PPL with MSD/Figure 5 stats,
 and writes a summary under:
 
@@ -83,8 +89,10 @@ Use this only if the quality/PPL sweep needs to be regenerated.
 - `ppltest.py --nproc` is data-parallel window sharding with one full model
   replica per process. It is valid for final PPL wall-time acceleration, but it
   is not a stats aggregation path.
-- Use single-process `--msd-utilization-mode --figure5-layer-cycles` runs for
-  `plot_norm_digit_read` and Figure 5 latency/accounting data.
+- Use `--stats lite --figure5-layer-cycles` for formal `plot_norm_digit_read`
+  and Figure 5 latency/accounting data. Do not use `--msd-utilization-mode`
+  for formal full-sample runs because it defaults to 100 samples when no
+  explicit limit is passed.
 - Keep generated calibration/result artifacts out of commits unless explicitly
   requested.
 

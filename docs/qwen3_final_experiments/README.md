@@ -10,7 +10,8 @@ implementation history under `references/`.
   rules.
 - `final_run_commands.md`: concrete entry points for the full PPL sweep and the
   fixed-sum 17 dB stats sweep.
-- `next_session.md`: short handoff prompt for resuming work.
+- `fixed_sum17_full_stats_handoff.md`: start, monitor, and artifact layout for
+  the fixed-sum 17 dB full-stats run.
 - `codex_prompt.md`: durable invariants for future Codex sessions.
 
 ## Read When Needed

@@ -271,13 +271,22 @@ Run this for the formal 50% equivalent-work fixed-sum data:
 BACKGROUND=1 scripts/run_qwen3_fixed_sum17_full_stats_4gpu.sh
 ```
 
+For the operator handoff, monitoring commands, and artifact layout, see
+`fixed_sum17_full_stats_handoff.md`.
+
 This script:
 
 - uses target-SNR 17 dB for all four models;
 - prepares model-specific fixed-sum calibration artifacts;
 - runs full WikiText-2 PPL with no `--limit-samples`;
-- uses `--msd-utilization-mode --figure5-layer-cycles`;
-- runs one single-process stats job per model on GPUs 4-7.
+- uses `--stats lite --figure5-layer-cycles`;
+- runs models sequentially from Qwen3-0.6B to 1.7B to 4B to 8B;
+- prepares each model's calibration with projection/task parallelism across
+  GPUs 4-7 by default, using bounded down-projection waves for Qwen3-8B;
+- can be run with `CALIBRATION_MODE=serial` if projection-parallel calibration
+  is slower from model-load or I/O contention on the current machine;
+- runs each model's PPL stats on GPUs 4-7 with
+  `--device-map sequential --max-memory 0:30GiB,1:30GiB,2:30GiB,3:30GiB`.
 
 Outputs and summaries are written under:
 

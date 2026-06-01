@@ -37,6 +37,9 @@ CALIB_PROJECTION_FILTERS="${CALIB_PROJECTION_FILTERS:-gate_proj up_proj down_pro
 UTIL_LIMIT_SAMPLES="${UTIL_LIMIT_SAMPLES:-}"
 PPL_MX_CHUNK_MIB="${PPL_MX_CHUNK_MIB:-256}"
 PPL_MSD_CHUNK_MIB="${PPL_MSD_CHUNK_MIB:-1536}"
+PPL_GPUS="${PPL_GPUS:-$PPL_GPU}"
+PPL_DEVICE_MAP="${PPL_DEVICE_MAP:-none}"
+PPL_MAX_MEMORY="${PPL_MAX_MEMORY:-}"
 
 if [[ ! -x "$PYTHON" ]]; then
   echo "ERROR: Python executable not found or not executable: $PYTHON" >&2
@@ -217,33 +220,41 @@ run_ppl_probe() {
   local out="$ppl_dir/ppl_results_MXFP8_fixed_sum_${model_key}_${label}_util_fig5_${sample_label}.json"
   local log="$log_dir/ppl_util_fig5_${sample_label}.log"
   local limit_args=()
+  local device_map_args=()
 
   if [[ -n "$UTIL_LIMIT_SAMPLES" ]]; then
     limit_args=(--limit-samples "$UTIL_LIMIT_SAMPLES")
+  fi
+  if [[ "$PPL_DEVICE_MAP" != "none" ]]; then
+    device_map_args=(--device-map "$PPL_DEVICE_MAP")
+    if [[ -n "$PPL_MAX_MEMORY" ]]; then
+      device_map_args+=(--max-memory "$PPL_MAX_MEMORY")
+    fi
   fi
 
   if [[ ! -f "$cal" ]]; then
     echo "[$model_key/$snr/ppl] missing calibration: $cal" >&2
     record_status "$model_key" "$snr" "ppl_util_fig5" "missing_calibration" "$out" "$log"
-    if [[ "$CONTINUE_ON_ERROR" == "1" ]]; then
+    if [[ "$CONTINUE_ON_ERROR" == "1" || "$DRY_RUN" == "1" ]]; then
       return 0
     fi
     exit 2
   fi
 
   run_step "$model_key" "$snr" "ppl_util_fig5" "$out" "$log" \
-    env CUDA_VISIBLE_DEVICES="$PPL_GPU" "$PYTHON" ppltest.py \
+    env CUDA_VISIBLE_DEVICES="$PPL_GPUS" "$PYTHON" ppltest.py \
       --model-path "$model_path" \
       --setup 6 \
       --calibration "$cal" \
-      --msd-utilization-mode \
+      --stats lite \
       --figure5-layer-cycles \
       "${limit_args[@]}" \
+      "${device_map_args[@]}" \
       --mx-chunk-target-mib "$PPL_MX_CHUNK_MIB" \
       --msd-chunk-target-mib "$PPL_MSD_CHUNK_MIB" \
       --weight-cache-dtype "$cache_dtype" \
       --compile-msd-truncate \
-      --gpus "$PPL_GPU" \
+      --gpus "$PPL_GPUS" \
       --output "$out"
 }
 
@@ -256,8 +267,8 @@ if not torch.cuda.is_available() or torch.cuda.device_count() == 0:
     raise SystemExit("CUDA is not visible to the artifact GPU")
 PY
 
-  echo "[preflight] CUDA visibility through PPL GPU: $PPL_GPU"
-  CUDA_VISIBLE_DEVICES="$PPL_GPU" "$PYTHON" - <<'PY'
+  echo "[preflight] CUDA visibility through PPL GPUs: $PPL_GPUS"
+  CUDA_VISIBLE_DEVICES="$PPL_GPUS" "$PYTHON" - <<'PY'
 import torch
 print(torch.cuda.is_available(), torch.cuda.device_count())
 if not torch.cuda.is_available() or torch.cuda.device_count() == 0:
@@ -272,7 +283,8 @@ echo "Sweep root        : $SWEEP_ROOT"
 echo "Log root          : $LOG_ROOT"
 echo "Model specs       : $MODEL_SPECS"
 echo "Target SNRs       : $TARGET_SNRS"
-echo "Artifact/PPL GPUs : $ARTIFACT_GPU / $PPL_GPU"
+echo "Artifact/PPL GPUs : $ARTIFACT_GPU / $PPL_GPUS"
+echo "PPL device map    : $PPL_DEVICE_MAP"
 echo "Sample mode       : $(ppl_sample_label)"
 
 for spec in $MODEL_SPECS; do

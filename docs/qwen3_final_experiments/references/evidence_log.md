@@ -367,6 +367,15 @@ That writes to:
 ../data/qwen3_final_experiments/fixed_sum17_full_stats/
 ```
 
+This formal driver runs models sequentially from Qwen3-0.6B to 1.7B to 4B to
+8B. PPL stats use all GPUs 4-7 with explicit `--device-map sequential` model
+sharding. Calibration defaults to projection/task parallelism across GPUs 4-7;
+this is validated for 8B, while smaller-model projection parallelism is a
+reasonable GPU-utilization choice in the sequential schedule but not separately
+timed. Use `CALIBRATION_MODE=serial` if model-load or I/O contention dominates.
+The driver uses `--stats lite --figure5-layer-cycles`, not
+`--msd-utilization-mode`, so a full run remains full-sample.
+
 Current JSON layout for these probes:
 
 - PPL and mean NLL live under `metrics`.
