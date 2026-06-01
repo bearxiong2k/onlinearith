@@ -88,12 +88,15 @@ Important implementation details:
   depending on caller-side tensor placement.
 - `ppltest.py` records `config.limit_samples` in result JSONs so prefix probes
   can be separated from full runs after the fact.
-- `scripts/run_qwen3_fixed_sum_norm_target_sweep.sh` prepares fixed-sum
-  calibration artifacts and single-process utilization/Figure 5 PPL probes for
-  low-SNR normalized-digit-read sweeps. Keep this separate from the four-rank
-  final PPL sweep because current `--nproc` runs do not aggregate MSD stats
-  from nonzero ranks.
-- `scripts/summarize_fixed_sum_norm_sweep.py` summarizes those low-SNR probes
+- `scripts/run_qwen3_fixed_sum17_full_stats_4gpu.sh` is the formal all-model
+  fixed-sum 17 dB full-stats driver. It runs one single-process stats job per
+  model on GPUs 4-7 and leaves `--limit-samples` unset.
+- `scripts/run_qwen3_fixed_sum_norm_target_sweep.sh` is the underlying
+  fixed-sum stats worker. It defaults to full-sample SNR 17 dB. Set
+  `UTIL_LIMIT_SAMPLES=120` only for smoke or work-point selection probes. Keep
+  this path separate from four-rank final PPL sweeps because current `--nproc`
+  runs do not aggregate MSD stats from nonzero ranks.
+- `scripts/summarize_fixed_sum_norm_sweep.py` summarizes fixed-sum stats runs
   into TSV/JSON. It reads PPL fields from `metrics`, work fields from
   `msd_perf_stats.global`, and Figure 5 cycle inputs from
   `msd_perf_stats.per_layer`.

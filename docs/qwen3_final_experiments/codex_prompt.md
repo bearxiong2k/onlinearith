@@ -37,7 +37,10 @@ Work in:
 
 ## Experiment Conventions
 
-- Representative MSD point: fixed-sum target-SNR 30 dB.
+- Quality/PPL sweep: MXFP8 baseline, fixed-sum target-SNR 30 dB, WANDA 2:4,
+  and activation N:M 2:4.
+- 50% equivalent-work stats sweep: fixed-sum target-SNR 17 dB with full
+  WikiText-2 PPL, `--msd-utilization-mode`, and `--figure5-layer-cycles`.
 - MSD equivalent-work axis: `plot_norm_digit_read = mean_effective_precision / 3.0`.
 - WANDA and activation N:M use common keep-count notation: `2:4` means keep two
   values per group of four.
@@ -52,7 +55,6 @@ Work in:
 ## File Map
 
 - Active plan: `docs/qwen3_final_experiments/active_plan.md`
-- Runtime estimates: `docs/qwen3_final_experiments/runtime_estimates.md`
-- Sharding prep: `docs/qwen3_final_experiments/references/multigpu_sharding_plan.md`
+- Final commands: `docs/qwen3_final_experiments/final_run_commands.md`
 - Detailed measurements: `docs/qwen3_final_experiments/references/evidence_log.md`
 - Implementation history: `docs/qwen3_final_experiments/references/implementation_notes.md`

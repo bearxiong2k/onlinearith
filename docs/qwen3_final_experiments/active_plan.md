@@ -1,25 +1,76 @@
 # Active Qwen3 Final Experiment Plan
 
-This file is the concise active plan. Historical implementation details live
-under `docs/qwen3_final_experiments/references/`.
+This file tracks the experiment setup and stats collection plan only. Detailed
+measurements and historical implementation notes live under `references/`.
 
-## Scope
+## Experiment Matrix
 
-Prepare the final experiment execution path and wall-time estimates for the
-focused Qwen3 model family.
-
-Representative quality paths:
+Quality/PPL sweep, already run with four-rank window sharding where applicable:
 
 - MXFP8 baseline: `ppltest.py --setup 2`
-- Fixed-sum calibrated MSD: `calibrate.py --optimizer fixed_sum --target-snr 30`
-  plus `ppltest.py --setup 6 --calibration <fixed_sum.json>`
+- Fixed-sum calibrated MSD at target-SNR 30 dB:
+  `ppltest.py --setup 6 --calibration <fixed_sum_30db.json>`
 - WANDA structured baseline: common keep-count `2:4`
 - Runtime activation N:M baseline: common keep-count `2:4`
 
-For the 50% equivalent-work comparison against WANDA 2:4 and activation N:M
-2:4, use a lower fixed-sum target SNR selected by
-`plot_norm_digit_read = mean_effective_precision / 3.0`; target-SNR 30 dB is
-the high-quality fixed-sum point, not the 50% work point.
+50% equivalent-work fixed-sum stats sweep, still to run formally:
+
+- Fixed-sum calibrated MSD at target-SNR 17 dB
+- Full WikiText-2 test split, no `--limit-samples`
+- Single-process PPL with `--msd-utilization-mode --figure5-layer-cycles`
+- Output must include PPL, `plot_norm_digit_read`, and Figure 5 layer-cycle
+  accounting.
+
+Target-SNR 30 dB is the high-quality fixed-sum point. It is not the 50%
+equivalent-work point. For equivalent-work comparisons, use
+`plot_norm_digit_read = mean_effective_precision / 3.0`.
+
+## Current Results
+
+Valid full PPL sweep:
+
+```text
+../data/qwen3_final_experiments/model_sweep_4gpu/logs/full_unattended_20260528_155226/summary_full_with_stats_columns/summary_full.tsv
+```
+
+That sweep has complete PPL for Qwen3-0.6B, 1.7B, 4B, and 8B across MXFP8,
+fixed-sum 30 dB, WANDA 2:4, and activation N:M 2:4. It does not contain
+fixed-sum work stats because current `--nproc` runs do not aggregate MSD stats
+from nonzero ranks.
+
+The Qwen3-0.6B work-point selection probe bracketed 50% normalized digit read:
+
+| Target SNR | PPL | `plot_norm_digit_read` |
+|---:|---:|---:|
+| 17 dB | 23.7696 | 0.485333 |
+| 18 dB | 22.8602 | 0.515900 |
+
+Use 17 dB as the conservative fixed-sum 50% work point for the formal sweep.
+Use 17.5 dB only if an exact near-0.5 point is required later.
+
+## Entry Points
+
+Formal all-model fixed-sum 17 dB full stats sweep:
+
+```bash
+BACKGROUND=1 scripts/run_qwen3_fixed_sum17_full_stats_4gpu.sh
+```
+
+This launches one single-process stats job per model on GPUs 4-7, prepares the
+17 dB calibration artifacts, runs full WikiText-2 PPL with MSD/Figure 5 stats,
+and writes a summary under:
+
+```text
+../data/qwen3_final_experiments/fixed_sum17_full_stats/logs/full_stats_<RUN_ID>/
+```
+
+Previous four-method all-model PPL sweep:
+
+```bash
+BACKGROUND=1 scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh
+```
+
+Use this only if the quality/PPL sweep needs to be regenerated.
 
 ## Invariants
 
@@ -27,102 +78,22 @@ the high-quality fixed-sum point, not the 50% work point.
   `STRIDE=512`, masked context labels, and weighted NLL accumulation.
 - Preserve setup IDs, result JSON schemas, calibration JSON schemas, tokenizer
   behavior, and calibration semantics.
-- For MSD equivalent-work comparisons, use
-  `plot_norm_digit_read = mean_effective_precision / 3.0`.
-- `--limit-samples` and `--msd-utilization-mode` are non-final probes unless
-  explicitly labeled otherwise.
+- `--limit-samples` is only for work-point selection or smoke testing. Formal
+  result scripts must leave it unset.
 - `ppltest.py --nproc` is data-parallel window sharding with one full model
-  replica per process. It is valid for final PPL wall-time acceleration when
-  each selected GPU can fit a full replica, but it is not model sharding and
-  is not an OOM solution.
-- Different model sizes may need different execution recipes. Before a full
-  final run, settle the model/path-specific recipe in
-  `model_execution_matrix.md` and validate it on a prefix with a full
-  4096-token context window.
-
-## Current Work
-
-1. Use full-replica data parallelism (`ppltest.py --nproc`) as the final PPL
-   acceleration path when replicas fit. Current final-run availability is GPUs
-   4-7 only, so run Qwen3-8B with `--nproc 4 --gpus 4,5,6,7
-   --load-stagger-sec 8`. For Qwen3-8B MSD, include
-   `--weight-cache-dtype float8`; the default float16 persistent cache OOMed in
-   a two-worker fixed-sum prefix run.
-2. Use baseline-runner window sharding for the representative WANDA and
-   activation N:M baselines. `wanda_base/ppl_batch_base.py` and
-   `act_base/ppl_batch_base_act.py` need `--window-shard` with `--nproc` for a
-   single final setup; their default `--nproc` behavior shards setup IDs.
-   Qwen3-8B WANDA 2:4 and activation N:M 2:4 are prefix-validated with
-   `--window-shard --load-stagger-sec 8`; current final execution should use
-   four replicas on GPUs 4-7.
-3. Treat current `--device-map sequential` placement as memory relief only.
-   Do not claim model-parallel speedup unless `balanced` or a manual placement
-   policy beats single-GPU and data-parallel timing with direct-CUDA evidence.
-4. Do not treat MSD stats from a current `--nproc` run as full-dataset work
-   aggregates: nonzero ranks disable MSD stats. Use `--nproc` for PPL quality
-   and wall time, and use a separate single-process utilization/accounting run
-   or add rank-level stats aggregation before reporting aggregate work metrics.
-5. For fixed-sum calibration, prefer task parallelism over model sharding:
-   run projection-filtered full-replica jobs on separate GPUs, then merge the
-   resulting metadata with `tools/merge_msd_calibrations.py`. Qwen3-8B
-   fixed-sum 30 dB prerequisites are complete; gate/up fit as full
-   projection-family jobs, while down projections need bounded layer groups to
-   avoid retained-cache OOM.
-6. Update `docs/qwen3_final_experiments/runtime_estimates.md` with measured
-   single-GPU and multi-GPU wall-time estimates as each representative path is
-   validated.
-7. Use `BACKGROUND=1 scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh`
-   for the leave-it-running all-model sweep on GPUs 4-7. It prepares
-   smaller-model fixed-sum/WANDA artifacts first with per-model profiles
-   (0.6B on GPU 4, 1.7B on GPU 5, 4B on GPU 6), then runs the full
-   `mxfp8 fixed_sum wanda act` PPL sweep with four-GPU window sharding and
-   writes summary TSV/JSON files for review.
-8. Keep generated calibration/result artifacts out of commits unless explicitly
-   requested.
-9. For the fixed-sum 50% equivalent-work point, the current Qwen3-0.6B probe
-   brackets the target with target-SNR 17 dB at `plot_norm_digit_read=0.485333`
-   and 18 dB at `0.5159`. Use SNR 17 dB when the point must stay at or below
-   50% work; use a 17.5 dB probe if an interpolated near-exact 0.5 point is
-   needed before committing larger-model hours. For larger models, first run a
-   single-process utilization/Figure 5 probe at SNR 17 dB; sweep 17/18 dB only
-   if the norm-digit-read drift is obvious.
-
-Concrete Qwen3-8B commands are collected in
-`docs/qwen3_final_experiments/final_run_commands.md`.
-The end-to-end four-GPU wrapper is `scripts/run_qwen3_final_ppl_4gpu.sh`.
-
-## Sharding Guardrails
-
-- Keep the two multi-GPU modes distinct:
-  `--nproc` means data-parallel PPL window sharding with one full model replica
-  per process; `--device-map` means single-process layer placement across GPUs.
-- Do not combine model sharding with `--nproc` in the current runner.
-- Use `--nproc` for final PPL acceleration only when direct CUDA is visible and
-  every selected GPU has enough memory for a full model replica.
-- Do not silently use `device_map="auto"` as a default. Sharding must be
-  opt-in and visible in output metadata.
-- Use visible-device IDs in `--max-memory`, after `--gpus` has narrowed
-  `CUDA_VISIBLE_DEVICES`; for example `--gpus 4,5,6,7 --max-memory
-  0:30GiB,1:30GiB,2:30GiB,3:30GiB`.
-- Keep custom Qwen3 MX/MSD modules on the device of the layer they replace.
-- Input tensors should enter on the model's input embedding device; layer
-  dispatch should then follow the sharded model layout.
-- Validate loss equality on tiny windows before trusting timing.
-
-Detailed design notes: `references/multigpu_sharding_plan.md`.
+  replica per process. It is valid for final PPL wall-time acceleration, but it
+  is not a stats aggregation path.
+- Use single-process `--msd-utilization-mode --figure5-layer-cycles` runs for
+  `plot_norm_digit_read` and Figure 5 latency/accounting data.
+- Keep generated calibration/result artifacts out of commits unless explicitly
+  requested.
 
 ## Cheap Contracts
 
 ```bash
-../.venv3_10/bin/python tests/test_msd_truncate_equivalence.py
-../.venv3_10/bin/python tests/test_msd_stats_off_equivalence.py
-../.venv3_10/bin/python tests/test_ppl_device_map_utils.py
-../.venv3_10/bin/python tests/test_mx_exact_chunked.py
-../.venv3_10/bin/python tests/test_mxfp_weight_cache_compact.py
-../.venv3_10/bin/python tests/test_ppl_tail_logits_loss.py
-../.venv3_10/bin/python tests/test_nm_keep_semantics.py
-../.venv3_10/bin/python test_fixed_sum_optimizer.py
 ../.venv3_10/bin/python ppltest.py --list
 ../.venv3_10/bin/python ppl_batch.py --list
 ../.venv3_10/bin/python calibrate.py --list
+../.venv3_10/bin/python -m py_compile scripts/summarize_fixed_sum_norm_sweep.py scripts/summarize_qwen3_model_sweep.py
+bash -n scripts/run_qwen3_fixed_sum17_full_stats_4gpu.sh scripts/run_qwen3_fixed_sum_norm_target_sweep.sh
 ```

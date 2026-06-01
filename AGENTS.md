@@ -28,7 +28,7 @@ Active onlinearith files:
 - `dist_utils.py`: torchrun/NCCL and lite distributed helpers.
 - `test_mxfp8linear.py`, `test_fixed_sum_optimizer.py`, `test_distributed.py`: validation scripts. Modernize these before relying on them for major changes.
 - `perf_viz.py`, `calibration_viz.py`, `visualization.py`: plotting and diagnostic helpers.
-- `docs/qwen3_final_experiments/`: active Qwen3 final experiment docs. Start with `next_session.md`, `codex_prompt.md`, `active_plan.md`, and `runtime_estimates.md`; read `references/` only when detailed evidence, implementation history, or sharding design is needed.
+- `docs/qwen3_final_experiments/`: active Qwen3 final experiment docs. Start with `next_session.md`, `active_plan.md`, `final_run_commands.md`, and `codex_prompt.md`; read `references/` only when detailed evidence, implementation history, or execution-strategy history is needed.
 - `tests/test_mx_exact_chunked.py`, `tests/test_mxfp_weight_cache_compact.py`: contract tests for the OOM iteration.
 - `tools/probe_mxfp_memory.py`, `scripts/run_qwen8b_oom_ladder.sh`: memory probe and staged acceptance ladder for Qwen3-8B.
 
@@ -96,8 +96,9 @@ sharding design notes under `docs/qwen3_final_experiments/references/`.
 
 Current principles:
 
-1. The representative experiment family is MXFP8 baseline, fixed-sum calibrated
-   MSD at target-SNR 30 dB, WANDA 2:4, and activation N:M 2:4.
+1. The quality/PPL experiment family is MXFP8 baseline, fixed-sum calibrated
+   MSD at target-SNR 30 dB, WANDA 2:4, and activation N:M 2:4. The 50%
+   equivalent-work fixed-sum stats point is target-SNR 17 dB.
 2. For WANDA and activation N:M, use common keep-count notation: `N:M` means
    keep N values per group of M, internally pruning `(M-N):M`.
 3. For MSD equivalent-work comparisons, use
@@ -109,8 +110,9 @@ Current principles:
 5. `ppltest.py --device-map {auto,sequential,balanced}` is the explicit
    single-process model-sharding entry point. Do not combine it with `--nproc`;
    validate direct-CUDA correctness before accepting timing estimates.
-6. The next technical focus is validating explicit multi-GPU model sharding and
-   final wall-time estimation without changing MSD or PPL math.
+6. The current technical focus is experiment execution and stats collection,
+   not further optimization. Use the formal scripts in
+   `docs/qwen3_final_experiments/final_run_commands.md`.
 
 ## Coding conventions
 

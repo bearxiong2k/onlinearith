@@ -355,6 +355,18 @@ near-0.5 point instead of a conservative point, run a 17.5 dB probe before the
 larger-model sweep. For larger models, start with SNR 17 dB and only add a
 small 17/18 dB sweep if `plot_norm_digit_read` drifts by more than about 0.02.
 
+Formal full-sample SNR 17 dB stats should now use:
+
+```bash
+BACKGROUND=1 scripts/run_qwen3_fixed_sum17_full_stats_4gpu.sh
+```
+
+That writes to:
+
+```text
+../data/qwen3_final_experiments/fixed_sum17_full_stats/
+```
+
 Current JSON layout for these probes:
 
 - PPL and mean NLL live under `metrics`.

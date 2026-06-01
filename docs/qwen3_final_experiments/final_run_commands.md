@@ -236,40 +236,58 @@ does not accelerate a single selected setup.
   --mxfp-progress-interval-sec -1
 ```
 
-## All-Model Experiment Sweep
+## All-Model Quality/PPL Sweep
 
-Use the dedicated wrapper for the Qwen3-0.6B, Qwen3-1.7B, Qwen3-4B, and
-Qwen3-8B sweep:
-
-```bash
-scripts/run_qwen3_model_experiment_sweep_4gpu.sh
-```
-
-This is a full-output sweep by default. Use the prefix command for a monitored
-test:
+Use the unattended wrapper for the Qwen3-0.6B, Qwen3-1.7B, Qwen3-4B, and
+Qwen3-8B quality/PPL sweep:
 
 ```bash
-LIMIT_SAMPLES=120 scripts/run_qwen3_model_experiment_sweep_4gpu.sh
+BACKGROUND=1 scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh
 ```
 
-Outputs are separated by sweep tag:
+This prepares smaller-model fixed-sum 30 dB and WANDA artifacts, runs full PPL
+for MXFP8, fixed-sum 30 dB, WANDA 2:4, and activation N:M 2:4, and writes:
 
 ```text
-../data/qwen3_final_experiments/model_sweep_4gpu/<model_key>/prefix120/
-../data/qwen3_final_experiments/model_sweep_4gpu/<model_key>/full/
+../data/qwen3_final_experiments/model_sweep_4gpu/logs/full_unattended_<RUN_ID>/summary_full.tsv
+../data/qwen3_final_experiments/model_sweep_4gpu/logs/full_unattended_<RUN_ID>/summary_full.json
 ```
 
-Logs and a per-run `status.tsv` are written under:
+The valid completed run from 2026-05-28 is:
 
 ```text
-../data/qwen3_final_experiments/model_sweep_4gpu/logs/sweep_<tag>_<RUN_ID>/
+../data/qwen3_final_experiments/model_sweep_4gpu/logs/full_unattended_20260528_155226/summary_full_with_stats_columns/summary_full.tsv
 ```
 
-The wrapper defaults to `RUN_STEPS="mxfp8 fixed_sum wanda act"`. Qwen3-8B
-fixed-sum and WANDA use the existing 8B calibration and mask. For the smaller
-models, fixed-sum and WANDA require model-specific artifacts; until those are
-created, those steps are recorded as `skipped_missing_artifact` unless
-`STRICT_ARTIFACTS=1`.
+That PPL run does not contain `plot_norm_digit_read` or Figure 5 layer-cycle
+data because current `--nproc` jobs do not aggregate MSD stats from nonzero
+ranks.
+
+## Fixed-Sum 17 dB Full Stats Sweep
+
+Run this for the formal 50% equivalent-work fixed-sum data:
+
+```bash
+BACKGROUND=1 scripts/run_qwen3_fixed_sum17_full_stats_4gpu.sh
+```
+
+This script:
+
+- uses target-SNR 17 dB for all four models;
+- prepares model-specific fixed-sum calibration artifacts;
+- runs full WikiText-2 PPL with no `--limit-samples`;
+- uses `--msd-utilization-mode --figure5-layer-cycles`;
+- runs one single-process stats job per model on GPUs 4-7.
+
+Outputs and summaries are written under:
+
+```text
+../data/qwen3_final_experiments/fixed_sum17_full_stats/logs/full_stats_<RUN_ID>/
+```
+
+Use `UTIL_LIMIT_SAMPLES=120` only with
+`scripts/run_qwen3_fixed_sum_norm_target_sweep.sh` for smoke or work-point
+selection probes. Formal stats runs leave `UTIL_LIMIT_SAMPLES` unset.
 
 ## Expected Wall Times
 

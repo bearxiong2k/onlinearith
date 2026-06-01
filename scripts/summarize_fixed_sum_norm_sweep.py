@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize fixed-sum SNR probes for equivalent digit-read targeting."""
+"""Summarize fixed-sum SNR stats runs for equivalent digit-read targeting."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from statistics import mean
 from typing import Any
 
 
-DEFAULT_ROOT = Path("../data/qwen3_final_experiments/fixed_sum_norm_sweep")
+DEFAULT_ROOT = Path("../data/qwen3_final_experiments/fixed_sum17_full_stats")
 
 
 def snr_label(snr: str) -> str:
@@ -34,9 +34,18 @@ def find_ppl_result(snr_dir: Path, model_key: str, label: str, limit_samples: st
         )
         return path if path.is_file() else None
 
+    full_path = (
+        snr_dir
+        / "ppl"
+        / "util_fig5_full"
+        / f"ppl_results_MXFP8_fixed_sum_{model_key}_{label}_util_fig5_full.json"
+    )
+    if full_path.is_file():
+        return full_path
+
     matches = sorted(
         (snr_dir / "ppl").glob(
-            f"util_fig5_limit*/ppl_results_MXFP8_fixed_sum_{model_key}_{label}_util_fig5_limit*.json"
+            f"util_fig5_*/ppl_results_MXFP8_fixed_sum_{model_key}_{label}_util_fig5_*.json"
         ),
         key=lambda p: p.stat().st_mtime,
         reverse=True,
@@ -133,8 +142,8 @@ def summarize_one(root: Path, model_key: str, snr: str, limit_samples: str | Non
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=DEFAULT_ROOT)
-    parser.add_argument("--models", default="qwen0_6b")
-    parser.add_argument("--target-snrs", default="17 18 19")
+    parser.add_argument("--models", default="qwen0_6b qwen1_7b qwen4b qwen8b")
+    parser.add_argument("--target-snrs", default="17")
     parser.add_argument("--limit-samples", default=None)
     parser.add_argument("--output-dir", type=Path, default=None)
     args = parser.parse_args()
@@ -147,9 +156,9 @@ def main() -> None:
 
     output_dir = args.output_dir or (args.root / "summaries")
     output_dir.mkdir(parents=True, exist_ok=True)
-    suffix = f"limit{args.limit_samples}" if args.limit_samples else "latest"
-    json_path = output_dir / f"fixed_sum_norm_sweep_{suffix}.json"
-    tsv_path = output_dir / f"fixed_sum_norm_sweep_{suffix}.tsv"
+    suffix = f"limit{args.limit_samples}" if args.limit_samples else "full"
+    json_path = output_dir / f"fixed_sum_stats_{suffix}.json"
+    tsv_path = output_dir / f"fixed_sum_stats_{suffix}.tsv"
 
     payload = {
         "root": str(args.root),
