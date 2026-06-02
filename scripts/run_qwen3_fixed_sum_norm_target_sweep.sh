@@ -2,10 +2,8 @@
 # Generate fixed-sum target-SNR calibration artifacts plus stats/PPL accounting
 # for equivalent digit-read targeting.
 #
-# This is the single-model worker used by
-# run_qwen3_fixed_sum17_full_stats_4gpu.sh. Defaults run Qwen3-0.6B at 17 dB
-# with full samples. Set UTIL_LIMIT_SAMPLES=120 and TARGET_SNRS="17 18" only
-# for work-point selection probes.
+# This is the single-model worker for work-point selection probes. Set
+# UTIL_LIMIT_SAMPLES=120 and TARGET_SNRS="17 18" for the 0.6B SNR bracket.
 
 set -Eeuo pipefail
 
@@ -13,7 +11,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 PYTHON="${PYTHON:-../.venv3_10/bin/python}"
-SWEEP_ROOT="${SWEEP_ROOT:-../data/qwen3_final_experiments/fixed_sum17_full_stats}"
+SWEEP_ROOT="${SWEEP_ROOT:-../data/qwen3_final_experiments/fixed_sum_norm_sweep}"
 MODEL_SPECS="${MODEL_SPECS:-qwen0_6b:../Qwen3-0.6B:float16}"
 TARGET_SNRS="${TARGET_SNRS:-17}"
 ARTIFACT_GPU="${ARTIFACT_GPU:-4}"

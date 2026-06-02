@@ -88,22 +88,17 @@ Important implementation details:
   depending on caller-side tensor placement.
 - `ppltest.py` records `config.limit_samples` in result JSONs so prefix probes
   can be separated from full runs after the fact.
-- `scripts/run_qwen3_fixed_sum17_full_stats_4gpu.sh` is the formal all-model
-  fixed-sum 17 dB full-stats driver. It runs models sequentially from
-  Qwen3-0.6B to 1.7B to 4B to 8B. For each model, PPL stats run on GPUs 4-7
-  with `--device-map sequential`. Calibration defaults to projection/task
-  parallelism across GPUs 4-7 because the 8B evidence supports that strategy
-  and the GPUs are otherwise idle in the sequential schedule; set
-  `CALIBRATION_MODE=serial` if model-load or I/O contention dominates. It
-  leaves `--limit-samples` unset.
-- `scripts/run_qwen3_fixed_sum_norm_target_sweep.sh` is the underlying
-  fixed-sum stats worker. It defaults to full-sample SNR 17 dB. Set
-  `UTIL_LIMIT_SAMPLES=120` only for smoke or work-point selection probes. Keep
-  this path separate from four-rank final PPL sweeps because current `--nproc`
-  runs do not aggregate MSD stats from nonzero ranks.
-- Formal full-sample stats use `--stats lite --figure5-layer-cycles`, not
-  `--msd-utilization-mode`, because `--msd-utilization-mode` defaults
-  `--limit-samples` to 100 when no explicit limit is passed.
+- `scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh` is the current
+  all-model fixed-sum 17 dB driver. It runs models sequentially from
+  Qwen3-0.6B to 1.7B to 4B to 8B. For each model it prepares/reuses
+  calibration, runs full PPL with `--nproc 4 --stats off`, then runs a
+  sampled `--limit-samples 300 --stats lite --figure5-layer-cycles` accounting
+  pass with `--device-map sequential`.
+- `scripts/run_qwen3_fixed_sum_norm_target_sweep.sh` is the work-point probe
+  worker. It defaults to the separate `fixed_sum_norm_sweep` output root. Set
+  `UTIL_LIMIT_SAMPLES=120` only for smoke or SNR selection probes.
+- Do not use `--msd-utilization-mode` for final result scripts because it
+  defaults `--limit-samples` to 100 when no explicit limit is passed.
 - `scripts/summarize_fixed_sum_norm_sweep.py` summarizes fixed-sum stats runs
   into TSV/JSON. It reads PPL fields from `metrics`, work fields from
   `msd_perf_stats.global`, and Figure 5 cycle inputs from

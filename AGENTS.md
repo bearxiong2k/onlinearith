@@ -28,7 +28,7 @@ Active onlinearith files:
 - `dist_utils.py`: torchrun/NCCL and lite distributed helpers.
 - `test_mxfp8linear.py`, `test_fixed_sum_optimizer.py`, `test_distributed.py`: validation scripts. Modernize these before relying on them for major changes.
 - `perf_viz.py`, `calibration_viz.py`, `visualization.py`: plotting and diagnostic helpers.
-- `docs/qwen3_final_experiments/`: active Qwen3 final experiment docs. Start with `active_plan.md`, `final_run_commands.md`, `fixed_sum17_full_stats_handoff.md`, and `codex_prompt.md`; read `references/` only when detailed evidence, implementation history, or execution-strategy history is needed.
+- `docs/qwen3_final_experiments/`: active Qwen3 final experiment docs. Start with `active_plan.md`, `final_run_commands.md`, `fixed_sum17_ppl_stats300_handoff.md`, and `codex_prompt.md`; read `references/` only when detailed evidence, implementation history, or execution-strategy history is needed.
 - `tests/test_mx_exact_chunked.py`, `tests/test_mxfp_weight_cache_compact.py`: contract tests for the OOM iteration.
 - `tools/probe_mxfp_memory.py`, `scripts/run_qwen8b_oom_ladder.sh`: memory probe and staged acceptance ladder for Qwen3-8B.
 

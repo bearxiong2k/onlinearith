@@ -10,8 +10,8 @@ implementation history under `references/`.
   rules.
 - `final_run_commands.md`: concrete entry points for the full PPL sweep and the
   fixed-sum 17 dB stats sweep.
-- `fixed_sum17_full_stats_handoff.md`: start, monitor, and artifact layout for
-  the fixed-sum 17 dB full-stats run.
+- `fixed_sum17_ppl_stats300_handoff.md`: start, monitor, and artifact layout
+  for the fixed-sum 17 dB full-PPL plus sampled-stats run.
 - `codex_prompt.md`: durable invariants for future Codex sessions.
 
 ## Read When Needed
@@ -29,9 +29,10 @@ The live scripts and tests are at repo root. Do not keep duplicate executable
 copies under `docs/`.
 
 - `scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh`
-- `scripts/run_qwen3_fixed_sum17_full_stats_4gpu.sh`
+- `scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh`
 - `scripts/run_qwen3_fixed_sum_norm_target_sweep.sh`
 - `scripts/summarize_qwen3_model_sweep.py`
+- `scripts/summarize_qwen3_fixed_sum17_ppl_stats.py`
 - `scripts/summarize_fixed_sum_norm_sweep.py`
 - `tools/probe_mxfp_memory.py`
 - `tools/merge_msd_calibrations.py`

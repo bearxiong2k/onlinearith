@@ -355,26 +355,32 @@ near-0.5 point instead of a conservative point, run a 17.5 dB probe before the
 larger-model sweep. For larger models, start with SNR 17 dB and only add a
 small 17/18 dB sweep if `plot_norm_digit_read` drifts by more than about 0.02.
 
-Formal full-sample SNR 17 dB stats should now use:
+The attempted full-sample SNR 17 dB stats run was stopped because MSD stats
+made runtime impractical:
+
+```text
+../data/qwen3_final_experiments/fixed_sum17_full_stats/logs/full_stats_20260601_181331/fixed_sum_stats_full.tsv
+```
+
+Completed sanity row:
+
+| Model | Target SNR | PPL | `plot_norm_digit_read` | Wall time |
+|---|---:|---:|---:|---:|
+| Qwen3-0.6B | 17 dB | 19.4307 | 0.482267 | 70005.96 s |
+
+Qwen3-1.7B calibration completed, but PPL stats were interrupted before a JSON
+result was written. The current replacement plan is full no-stats PPL followed
+by sampled stats:
 
 ```bash
-BACKGROUND=1 scripts/run_qwen3_fixed_sum17_full_stats_4gpu.sh
+BACKGROUND=1 scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh
 ```
 
 That writes to:
 
 ```text
-../data/qwen3_final_experiments/fixed_sum17_full_stats/
+../data/qwen3_final_experiments/fixed_sum17_ppl_stats300/
 ```
-
-This formal driver runs models sequentially from Qwen3-0.6B to 1.7B to 4B to
-8B. PPL stats use all GPUs 4-7 with explicit `--device-map sequential` model
-sharding. Calibration defaults to projection/task parallelism across GPUs 4-7;
-this is validated for 8B, while smaller-model projection parallelism is a
-reasonable GPU-utilization choice in the sequential schedule but not separately
-timed. Use `CALIBRATION_MODE=serial` if model-load or I/O contention dominates.
-The driver uses `--stats lite --figure5-layer-cycles`, not
-`--msd-utilization-mode`, so a full run remains full-sample.
 
 Current JSON layout for these probes:
 

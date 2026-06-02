@@ -39,8 +39,10 @@ Work in:
 
 - Quality/PPL sweep: MXFP8 baseline, fixed-sum target-SNR 30 dB, WANDA 2:4,
   and activation N:M 2:4.
-- 50% equivalent-work stats sweep: fixed-sum target-SNR 17 dB with full
-  WikiText-2 PPL, `--stats lite`, and `--figure5-layer-cycles`.
+- 50% equivalent-work fixed-sum run: target-SNR 17 dB with full WikiText-2 PPL
+  using `--stats off`, plus a separate `--limit-samples 300 --stats lite
+  --figure5-layer-cycles` accounting pass for normalized digit read and
+  Figure 5 cycle data.
 - MSD equivalent-work axis: `plot_norm_digit_read = mean_effective_precision / 3.0`.
 - WANDA and activation N:M use common keep-count notation: `2:4` means keep two
   values per group of four.

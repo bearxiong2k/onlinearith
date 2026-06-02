@@ -263,40 +263,46 @@ That PPL run does not contain `plot_norm_digit_read` or Figure 5 layer-cycle
 data because current `--nproc` jobs do not aggregate MSD stats from nonzero
 ranks.
 
-## Fixed-Sum 17 dB Full Stats Sweep
+## Fixed-Sum 17 dB Full PPL Plus Stats300
 
 Run this for the formal 50% equivalent-work fixed-sum data:
 
 ```bash
-BACKGROUND=1 scripts/run_qwen3_fixed_sum17_full_stats_4gpu.sh
+BACKGROUND=1 scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh
 ```
 
 For the operator handoff, monitoring commands, and artifact layout, see
-`fixed_sum17_full_stats_handoff.md`.
+`fixed_sum17_ppl_stats300_handoff.md`.
 
 This script:
 
 - uses target-SNR 17 dB for all four models;
-- prepares model-specific fixed-sum calibration artifacts;
-- runs full WikiText-2 PPL with no `--limit-samples`;
-- uses `--stats lite --figure5-layer-cycles`;
+- prepares or reuses model-specific fixed-sum calibration artifacts;
+- runs full WikiText-2 PPL with no `--limit-samples` and `--stats off`;
+- runs the full PPL phase with `--nproc 4 --gpus 4,5,6,7`, matching the
+  previous final experiment sweep's wall-time strategy;
+- then runs a sampled stats pass with `--limit-samples 300 --stats lite
+  --figure5-layer-cycles`;
 - runs models sequentially from Qwen3-0.6B to 1.7B to 4B to 8B;
 - prepares each model's calibration with projection/task parallelism across
   GPUs 4-7 by default, using bounded down-projection waves for Qwen3-8B;
 - can be run with `CALIBRATION_MODE=serial` if projection-parallel calibration
   is slower from model-load or I/O contention on the current machine;
-- runs each model's PPL stats on GPUs 4-7 with
+- runs each model's sampled stats pass on GPUs 4-7 with
   `--device-map sequential --max-memory 0:30GiB,1:30GiB,2:30GiB,3:30GiB`.
+
+Use the full no-stats output for formal PPL. Use the limit-300 stats output for
+`plot_norm_digit_read`, read/utilization accounting, and Figure 5 cycle inputs.
 
 Outputs and summaries are written under:
 
 ```text
-../data/qwen3_final_experiments/fixed_sum17_full_stats/logs/full_stats_<RUN_ID>/
+../data/qwen3_final_experiments/fixed_sum17_ppl_stats300/logs/ppl_stats300_<RUN_ID>/
 ```
 
 Use `UTIL_LIMIT_SAMPLES=120` only with
 `scripts/run_qwen3_fixed_sum_norm_target_sweep.sh` for smoke or work-point
-selection probes. Formal stats runs leave `UTIL_LIMIT_SAMPLES` unset.
+selection probes.
 
 ## Expected Wall Times
 

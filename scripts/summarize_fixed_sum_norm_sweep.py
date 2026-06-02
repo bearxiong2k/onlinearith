@@ -10,7 +10,7 @@ from statistics import mean
 from typing import Any
 
 
-DEFAULT_ROOT = Path("../data/qwen3_final_experiments/fixed_sum17_full_stats")
+DEFAULT_ROOT = Path("../data/qwen3_final_experiments/fixed_sum_norm_sweep")
 
 
 def snr_label(snr: str) -> str:

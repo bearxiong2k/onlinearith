@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
-# Formal fixed-sum 17 dB full-sample stats sweep for Qwen3 models on GPUs 4-7.
-#
-# This collects the data missing from the four-rank final PPL sweep:
-# full WikiText-2 PPL, plot_norm_digit_read, and Figure 5 layer-cycle inputs.
-# It runs models sequentially from small to large. For each model, calibration
-# uses projection/task parallelism across the available GPUs, then PPL stats use
-# explicit single-process model sharding over GPUs 4-7. This avoids --nproc
-# because current multi-rank PPL does not aggregate MSD stats from nonzero ranks.
+# Fixed-sum 17 dB all-model run on GPUs 4-7:
+#   1. prepare/reuse calibration artifacts;
+#   2. run full WikiText-2 PPL with stats disabled using four-rank sharding;
+#   3. run a sampled MSD-stat pass with --limit-samples=300.
 #
 # To detach:
-#   BACKGROUND=1 scripts/run_qwen3_fixed_sum17_full_stats_4gpu.sh
+#   BACKGROUND=1 scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh
 
 set -Eeuo pipefail
 
@@ -18,26 +14,33 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR"
 
 PYTHON="${PYTHON:-../.venv3_10/bin/python}"
-SWEEP_ROOT="${SWEEP_ROOT:-../data/qwen3_final_experiments/fixed_sum17_full_stats}"
+SWEEP_ROOT="${SWEEP_ROOT:-../data/qwen3_final_experiments/fixed_sum17_ppl_stats300}"
+CALIB_REUSE_ROOT="${CALIB_REUSE_ROOT:-../data/qwen3_final_experiments/fixed_sum17_full_stats}"
 RUN_ID="${RUN_ID:-$(date +%Y%m%d_%H%M%S)}"
-DRIVER_ROOT="${DRIVER_ROOT:-$SWEEP_ROOT/logs/full_stats_${RUN_ID}}"
+DRIVER_ROOT="${DRIVER_ROOT:-$SWEEP_ROOT/logs/ppl_stats300_${RUN_ID}}"
 TARGET_SNRS="${TARGET_SNRS:-17}"
 GPUS="${GPUS:-4,5,6,7}"
-PPL_DEVICE_MAP="${PPL_DEVICE_MAP:-sequential}"
-PPL_MAX_MEMORY="${PPL_MAX_MEMORY:-0:30GiB,1:30GiB,2:30GiB,3:30GiB}"
+NPROC="${NPROC:-4}"
+LOAD_STAGGER_SEC="${LOAD_STAGGER_SEC:-8}"
+STATS_LIMIT_SAMPLES="${STATS_LIMIT_SAMPLES:-300}"
+STATS_DEVICE_MAP="${STATS_DEVICE_MAP:-sequential}"
+STATS_MAX_MEMORY="${STATS_MAX_MEMORY:-0:30GiB,1:30GiB,2:30GiB,3:30GiB}"
+STATS_PROGRESS_INTERVAL_SEC="${STATS_PROGRESS_INTERVAL_SEC:-300}"
 CALIBRATION_MODE="${CALIBRATION_MODE:-parallel}"
 CONTINUE_ON_ERROR="${CONTINUE_ON_ERROR:-0}"
 FORCE="${FORCE:-0}"
+FORCE_CALIBRATION="${FORCE_CALIBRATION:-0}"
 DRY_RUN="${DRY_RUN:-0}"
 
-# key:model_path:ppl_cache_dtype:calib_batch:calib_mx_chunk_mib:calib_chunk_mib:ppl_msd_chunk_mib
-MODEL_JOBS="${MODEL_JOBS:-qwen0_6b:../Qwen3-0.6B:float16:8:512:128:1536 qwen1_7b:../Qwen3-1.7B:float16:4:384:96:1536 qwen4b:../Qwen3-4B:float16:2:256:64:1536 qwen8b:../Qwen3-8B:float8:4:256:64:1536}"
+# key:model_path:full_cache_dtype:stats_cache_dtype:calib_batch:calib_mx_chunk_mib:calib_chunk_mib:stats_msd_chunk_mib
+MODEL_JOBS="${MODEL_JOBS:-qwen0_6b:../Qwen3-0.6B:float16:float16:8:512:128:1536 qwen1_7b:../Qwen3-1.7B:float16:float16:4:384:96:1536 qwen4b:../Qwen3-4B:float16:float16:2:256:64:1536 qwen8b:../Qwen3-8B:float8:float8:4:256:64:1536}"
 
-if [[ "${BACKGROUND:-0}" == "1" && "${QWEN_FIXED_SUM17_BACKGROUND_CHILD:-0}" != "1" ]]; then
+if [[ "${BACKGROUND:-0}" == "1" && "${QWEN_FIXED_SUM17_PPL_STATS_CHILD:-0}" != "1" ]]; then
   mkdir -p "$DRIVER_ROOT"
-  export QWEN_FIXED_SUM17_BACKGROUND_CHILD=1
-  export RUN_ID SWEEP_ROOT DRIVER_ROOT TARGET_SNRS GPUS PPL_DEVICE_MAP PPL_MAX_MEMORY CALIBRATION_MODE
-  export CONTINUE_ON_ERROR FORCE DRY_RUN MODEL_JOBS
+  export QWEN_FIXED_SUM17_PPL_STATS_CHILD=1
+  export PYTHON RUN_ID SWEEP_ROOT CALIB_REUSE_ROOT DRIVER_ROOT TARGET_SNRS GPUS NPROC LOAD_STAGGER_SEC
+  export STATS_LIMIT_SAMPLES STATS_DEVICE_MAP STATS_MAX_MEMORY STATS_PROGRESS_INTERVAL_SEC
+  export CALIBRATION_MODE CONTINUE_ON_ERROR FORCE FORCE_CALIBRATION DRY_RUN MODEL_JOBS
   nohup "$0" "$@" > "$DRIVER_ROOT/nohup.out" 2>&1 &
   echo "[launched] PID: $!"
   echo "[launched] driver log: $DRIVER_ROOT/driver.log"
@@ -59,10 +62,11 @@ model_keys_arg() {
 }
 
 write_summary() {
-  "$PYTHON" "$SCRIPT_DIR/summarize_fixed_sum_norm_sweep.py" \
+  "$PYTHON" "$SCRIPT_DIR/summarize_qwen3_fixed_sum17_ppl_stats.py" \
     --root "$SWEEP_ROOT" \
     --models "$(model_keys_arg)" \
     --target-snrs "$TARGET_SNRS" \
+    --stats-limit "$STATS_LIMIT_SAMPLES" \
     --output-dir "$DRIVER_ROOT" || true
   SUMMARY_WRITTEN=1
 }
@@ -78,13 +82,16 @@ finish() {
     echo "run_id=$RUN_ID"
     echo "target_snrs=$TARGET_SNRS"
     echo "gpus=$GPUS"
-    echo "ppl_device_map=$PPL_DEVICE_MAP"
-    echo "ppl_max_memory=$PPL_MAX_MEMORY"
+    echo "nproc=$NPROC"
+    echo "stats_limit_samples=$STATS_LIMIT_SAMPLES"
+    echo "stats_device_map=$STATS_DEVICE_MAP"
+    echo "stats_max_memory=$STATS_MAX_MEMORY"
     echo "calibration_mode=$CALIBRATION_MODE"
     echo "sweep_root=$SWEEP_ROOT"
+    echo "calib_reuse_root=$CALIB_REUSE_ROOT"
     echo "driver_root=$DRIVER_ROOT"
-    echo "summary_tsv=$DRIVER_ROOT/fixed_sum_stats_full.tsv"
-    echo "summary_json=$DRIVER_ROOT/fixed_sum_stats_full.json"
+    echo "summary_tsv=$DRIVER_ROOT/fixed_sum17_ppl_stats_summary.tsv"
+    echo "summary_json=$DRIVER_ROOT/fixed_sum17_ppl_stats_summary.json"
     echo "status_tsv=$STATUS_FILE"
   } > "$DRIVER_ROOT/final_status.txt"
   echo "[driver] final status written to $DRIVER_ROOT/final_status.txt"
@@ -94,11 +101,12 @@ trap finish EXIT
 record_status() {
   local model_key="$1"
   local snr="$2"
-  local step="$3"
-  local status="$4"
-  local output="$5"
-  local log="$6"
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -Is)" "$model_key" "$snr" "$step" "$status" "$output" "$log" >> "$STATUS_FILE"
+  local phase="$3"
+  local step="$4"
+  local status="$5"
+  local output="$6"
+  local log="$7"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -Is)" "$model_key" "$snr" "$phase" "$step" "$status" "$output" "$log" >> "$STATUS_FILE"
 }
 
 snr_label() {
@@ -128,6 +136,38 @@ calibration_tasks() {
   fi
 }
 
+adopt_existing_calibration() {
+  local model_key="$1"
+  local snr="$2"
+  local label="$3"
+  local cal_dir="$SWEEP_ROOT/$model_key/$label/calib"
+  local final_json="$cal_dir/calibration_MXFP8_fixed_sum_${model_key}_${label}.json"
+  local reuse_dir="$CALIB_REUSE_ROOT/$model_key/$label/calib"
+  local reuse_final="$reuse_dir/calibration_MXFP8_fixed_sum_${model_key}_${label}.json"
+  local log="$DRIVER_ROOT/$model_key/calib/$label/adopt_existing_calibration.log"
+
+  if [[ "$FORCE_CALIBRATION" == "1" || "$FORCE" == "1" ]]; then
+    return 1
+  fi
+  if [[ -f "$final_json" ]]; then
+    record_status "$model_key" "$snr" "calibration" "fixed_sum" "skipped_existing" "$final_json" "$log"
+    return 0
+  fi
+  if [[ ! -f "$reuse_final" ]]; then
+    return 1
+  fi
+
+  mkdir -p "$cal_dir" "$(dirname "$log")"
+  cp "$reuse_dir"/calibration_MXFP8_fixed_sum_"$model_key"_"$label"*.json "$cal_dir"/
+  {
+    echo "adopted_at=$(date -Is)"
+    echo "from=$reuse_dir"
+    echo "to=$cal_dir"
+  } > "$log"
+  record_status "$model_key" "$snr" "calibration" "fixed_sum" "adopted_existing" "$final_json" "$log"
+  return 0
+}
+
 run_calibration_task() {
   local model_key="$1"
   local model_path="$2"
@@ -144,16 +184,15 @@ run_calibration_task() {
   local partial="$cal_dir/calibration_MXFP8_fixed_sum_${model_key}_${label}_${suffix}.json"
   local log="$log_dir/fixed_sum_${suffix}.log"
 
-  if [[ -f "$partial" && "$FORCE" != "1" ]]; then
+  if [[ -f "$partial" && "$FORCE_CALIBRATION" != "1" && "$FORCE" != "1" ]]; then
     echo "[driver][$model_key/$snr/$suffix] calibration exists; skipping: $partial"
-    record_status "$model_key" "$snr" "fixed_sum_${suffix}" "skipped_existing" "$partial" "$log"
+    record_status "$model_key" "$snr" "calibration" "fixed_sum_${suffix}" "skipped_existing" "$partial" "$log"
     return 0
   fi
 
   mkdir -p "$cal_dir" "$log_dir"
   echo "[driver][$model_key/$snr/$suffix] start calibration on GPU $gpu; log: $log"
-  printf '[%s] start %s/%s/fixed_sum_%s on GPU %s\n' "$(date -Is)" "$model_key" "$snr" "$suffix" "$gpu" > "$log"
-  printf '[%s] command:' "$(date -Is)" >> "$log"
+  printf '[%s] command:' "$(date -Is)" > "$log"
   printf ' %q' env "CUDA_VISIBLE_DEVICES=$gpu" "$PYTHON" calibrate.py \
     --model-path "$model_path" \
     --setup 1 \
@@ -171,11 +210,10 @@ run_calibration_task() {
     --compile-msd-truncate \
     --gpus "$gpu" >> "$log"
   printf '\n' >> "$log"
-  record_status "$model_key" "$snr" "fixed_sum_${suffix}" "started" "$partial" "$log"
+  record_status "$model_key" "$snr" "calibration" "fixed_sum_${suffix}" "started" "$partial" "$log"
 
   if [[ "$DRY_RUN" == "1" ]]; then
-    echo "[driver][$model_key/$snr/$suffix] DRY_RUN=1; not executing" >> "$log"
-    record_status "$model_key" "$snr" "fixed_sum_${suffix}" "dry_run" "$partial" "$log"
+    record_status "$model_key" "$snr" "calibration" "fixed_sum_${suffix}" "dry_run" "$partial" "$log"
     return 0
   fi
 
@@ -195,10 +233,10 @@ run_calibration_task() {
     --weight-cache-dtype none \
     --compile-msd-truncate \
     --gpus "$gpu" >> "$log" 2>&1; then
-    record_status "$model_key" "$snr" "fixed_sum_${suffix}" "completed" "$partial" "$log"
+    record_status "$model_key" "$snr" "calibration" "fixed_sum_${suffix}" "completed" "$partial" "$log"
   else
     local status=$?
-    record_status "$model_key" "$snr" "fixed_sum_${suffix}" "failed:$status" "$partial" "$log"
+    record_status "$model_key" "$snr" "calibration" "fixed_sum_${suffix}" "failed:$status" "$partial" "$log"
     return "$status"
   fi
 }
@@ -223,13 +261,7 @@ run_calibration_wave() {
       pids+=("$!")
       names+=("$suffix")
     elif [[ "$CALIBRATION_MODE" == "serial" ]]; then
-      if run_calibration_task "$model_key" "$model_path" "$snr" "$label" "$suffix" "$projection_filter" "$gpu" "$calib_batch" "$calib_mx_chunk" "$calib_chunk"; then
-        echo "[driver][$model_key/$snr] complete calibration $suffix"
-      else
-        local status=$?
-        echo "[driver][$model_key/$snr] FAILED calibration $suffix with exit code $status"
-        return "$status"
-      fi
+      run_calibration_task "$model_key" "$model_path" "$snr" "$label" "$suffix" "$projection_filter" "$gpu" "$calib_batch" "$calib_mx_chunk" "$calib_chunk"
     else
       echo "ERROR: unsupported CALIBRATION_MODE=$CALIBRATION_MODE; use parallel or serial" >&2
       return 2
@@ -268,9 +300,11 @@ prepare_calibration() {
   local inputs=()
   local suffix projection_filter gpu task_wave
 
-  if [[ -f "$final_json" && "$FORCE" != "1" ]]; then
-    echo "[driver][$model_key/$snr] merged calibration exists; skipping: $final_json"
-    record_status "$model_key" "$snr" "fixed_sum" "skipped_existing" "$final_json" "$merge_log"
+  if adopt_existing_calibration "$model_key" "$snr" "$label"; then
+    return 0
+  fi
+  if [[ -f "$final_json" && "$FORCE_CALIBRATION" != "1" && "$FORCE" != "1" ]]; then
+    record_status "$model_key" "$snr" "calibration" "fixed_sum" "skipped_existing" "$final_json" "$merge_log"
     return 0
   fi
 
@@ -293,97 +327,133 @@ prepare_calibration() {
   printf '[%s] command:' "$(date -Is)" | tee "$merge_log"
   printf ' %q' "$PYTHON" tools/merge_msd_calibrations.py "${inputs[@]}" --output "$final_json" | tee -a "$merge_log"
   printf '\n' | tee -a "$merge_log"
-  record_status "$model_key" "$snr" "fixed_sum" "started" "$final_json" "$merge_log"
+  record_status "$model_key" "$snr" "calibration" "fixed_sum" "started" "$final_json" "$merge_log"
 
   if [[ "$DRY_RUN" == "1" ]]; then
-    echo "[driver][$model_key/$snr] DRY_RUN=1; not merging" | tee -a "$merge_log"
-    record_status "$model_key" "$snr" "fixed_sum" "dry_run" "$final_json" "$merge_log"
+    record_status "$model_key" "$snr" "calibration" "fixed_sum" "dry_run" "$final_json" "$merge_log"
     return 0
   fi
 
   if "$PYTHON" tools/merge_msd_calibrations.py "${inputs[@]}" --output "$final_json" >> "$merge_log" 2>&1; then
-    record_status "$model_key" "$snr" "fixed_sum" "completed" "$final_json" "$merge_log"
+    record_status "$model_key" "$snr" "calibration" "fixed_sum" "completed" "$final_json" "$merge_log"
   else
     local status=$?
-    record_status "$model_key" "$snr" "fixed_sum" "failed:$status" "$final_json" "$merge_log"
+    record_status "$model_key" "$snr" "calibration" "fixed_sum" "failed:$status" "$final_json" "$merge_log"
     return "$status"
   fi
 }
 
-run_ppl_stats() {
+run_logged_step() {
+  local model_key="$1"
+  local snr="$2"
+  local phase="$3"
+  local step="$4"
+  local output="$5"
+  local log="$6"
+  shift 6
+
+  if [[ -f "$output" && "$FORCE" != "1" ]]; then
+    echo "[driver][$model_key/$snr/$step] output exists; skipping: $output"
+    record_status "$model_key" "$snr" "$phase" "$step" "skipped_existing" "$output" "$log"
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$output")" "$(dirname "$log")"
+  printf '[%s] start %s/%s/%s\n' "$(date -Is)" "$model_key" "$snr" "$step" | tee "$log"
+  printf '[%s] command:' "$(date -Is)" | tee -a "$log"
+  printf ' %q' "$@" | tee -a "$log"
+  printf '\n' | tee -a "$log"
+  record_status "$model_key" "$snr" "$phase" "$step" "started" "$output" "$log"
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    record_status "$model_key" "$snr" "$phase" "$step" "dry_run" "$output" "$log"
+    return 0
+  fi
+
+  set +e
+  "$@" 2>&1 | tee -a "$log"
+  local status=${PIPESTATUS[0]}
+  set -e
+
+  if [[ "$status" -ne 0 ]]; then
+    record_status "$model_key" "$snr" "$phase" "$step" "failed:$status" "$output" "$log"
+    return "$status"
+  fi
+  if [[ ! -f "$output" ]]; then
+    record_status "$model_key" "$snr" "$phase" "$step" "missing_output" "$output" "$log"
+    return 2
+  fi
+  record_status "$model_key" "$snr" "$phase" "$step" "completed" "$output" "$log"
+}
+
+run_full_ppl() {
   local model_key="$1"
   local model_path="$2"
   local snr="$3"
   local cache_dtype="$4"
-  local ppl_msd_chunk="$5"
   local label
   label="$(snr_label "$snr")"
   local cal="$SWEEP_ROOT/$model_key/$label/calib/calibration_MXFP8_fixed_sum_${model_key}_${label}.json"
-  local ppl_dir="$SWEEP_ROOT/$model_key/$label/ppl/util_fig5_full"
-  local out="$ppl_dir/ppl_results_MXFP8_fixed_sum_${model_key}_${label}_util_fig5_full.json"
-  local log="$DRIVER_ROOT/$model_key/ppl/$label/ppl_util_fig5_full.log"
-  local device_map_args=(--device-map "$PPL_DEVICE_MAP")
-
-  if [[ "$PPL_DEVICE_MAP" != "none" && -n "$PPL_MAX_MEMORY" ]]; then
-    device_map_args+=(--max-memory "$PPL_MAX_MEMORY")
-  fi
-
-  if [[ -f "$out" && "$FORCE" != "1" ]]; then
-    echo "[driver][$model_key/$snr/ppl] output exists; skipping: $out"
-    record_status "$model_key" "$snr" "ppl_util_fig5" "skipped_existing" "$out" "$log"
-    return 0
-  fi
+  local out="$SWEEP_ROOT/$model_key/$label/ppl/full_no_stats/ppl_results_MXFP8_fixed_sum_${model_key}_${label}_full_no_stats.json"
+  local log="$DRIVER_ROOT/$model_key/ppl/$label/full_no_stats.log"
 
   if [[ ! -f "$cal" && "$DRY_RUN" != "1" ]]; then
-    echo "[driver][$model_key/$snr/ppl] missing calibration: $cal" >&2
-    record_status "$model_key" "$snr" "ppl_util_fig5" "missing_calibration" "$out" "$log"
+    record_status "$model_key" "$snr" "full_ppl" "full_no_stats" "missing_calibration" "$out" "$log"
     return 2
   fi
 
-  mkdir -p "$ppl_dir" "$(dirname "$log")"
-  printf '[%s] start %s/%s/ppl_util_fig5\n' "$(date -Is)" "$model_key" "$snr" | tee "$log"
-  printf '[%s] command:' "$(date -Is)" | tee -a "$log"
-  printf ' %q' env "CUDA_VISIBLE_DEVICES=$GPUS" "$PYTHON" ppltest.py \
-    --model-path "$model_path" \
-    --setup 6 \
-    --calibration "$cal" \
-    --stats lite \
-    --figure5-layer-cycles \
-    "${device_map_args[@]}" \
-    --mx-chunk-target-mib 256 \
-    --msd-chunk-target-mib "$ppl_msd_chunk" \
-    --weight-cache-dtype "$cache_dtype" \
-    --compile-msd-truncate \
-    --gpus "$GPUS" \
-    --output "$out" | tee -a "$log"
-  printf '\n' | tee -a "$log"
-  record_status "$model_key" "$snr" "ppl_util_fig5" "started" "$out" "$log"
+  run_logged_step "$model_key" "$snr" "full_ppl" "full_no_stats" "$out" "$log" \
+    env CUDA_VISIBLE_DEVICES="$GPUS" "$PYTHON" ppltest.py \
+      --model-path "$model_path" \
+      --setup 6 \
+      --calibration "$cal" \
+      --nproc "$NPROC" \
+      --gpus "$GPUS" \
+      --stats off \
+      --compile-msd-truncate \
+      --weight-cache-dtype "$cache_dtype" \
+      --load-stagger-sec "$LOAD_STAGGER_SEC" \
+      --mxfp-progress-interval-sec -1 \
+      --output "$out"
+}
 
-  if [[ "$DRY_RUN" == "1" ]]; then
-    echo "[driver][$model_key/$snr/ppl] DRY_RUN=1; not executing" | tee -a "$log"
-    record_status "$model_key" "$snr" "ppl_util_fig5" "dry_run" "$out" "$log"
-    return 0
+run_stats_ppl() {
+  local model_key="$1"
+  local model_path="$2"
+  local snr="$3"
+  local cache_dtype="$4"
+  local stats_msd_chunk="$5"
+  local label
+  label="$(snr_label "$snr")"
+  local cal="$SWEEP_ROOT/$model_key/$label/calib/calibration_MXFP8_fixed_sum_${model_key}_${label}.json"
+  local out="$SWEEP_ROOT/$model_key/$label/ppl/stats_limit${STATS_LIMIT_SAMPLES}/ppl_results_MXFP8_fixed_sum_${model_key}_${label}_stats_limit${STATS_LIMIT_SAMPLES}.json"
+  local log="$DRIVER_ROOT/$model_key/ppl/$label/stats_limit${STATS_LIMIT_SAMPLES}.log"
+  local device_map_args=(--device-map "$STATS_DEVICE_MAP")
+
+  if [[ "$STATS_DEVICE_MAP" != "none" && -n "$STATS_MAX_MEMORY" ]]; then
+    device_map_args+=(--max-memory "$STATS_MAX_MEMORY")
+  fi
+  if [[ ! -f "$cal" && "$DRY_RUN" != "1" ]]; then
+    record_status "$model_key" "$snr" "stats_limit" "stats_limit${STATS_LIMIT_SAMPLES}" "missing_calibration" "$out" "$log"
+    return 2
   fi
 
-  if env CUDA_VISIBLE_DEVICES="$GPUS" "$PYTHON" ppltest.py \
-    --model-path "$model_path" \
-    --setup 6 \
-    --calibration "$cal" \
-    --stats lite \
-    --figure5-layer-cycles \
-    "${device_map_args[@]}" \
-    --mx-chunk-target-mib 256 \
-    --msd-chunk-target-mib "$ppl_msd_chunk" \
-    --weight-cache-dtype "$cache_dtype" \
-    --compile-msd-truncate \
-    --gpus "$GPUS" \
-    --output "$out" >> "$log" 2>&1; then
-    record_status "$model_key" "$snr" "ppl_util_fig5" "completed" "$out" "$log"
-  else
-    local status=$?
-    record_status "$model_key" "$snr" "ppl_util_fig5" "failed:$status" "$out" "$log"
-    return "$status"
-  fi
+  run_logged_step "$model_key" "$snr" "stats_limit" "stats_limit${STATS_LIMIT_SAMPLES}" "$out" "$log" \
+    env CUDA_VISIBLE_DEVICES="$GPUS" "$PYTHON" ppltest.py \
+      --model-path "$model_path" \
+      --setup 6 \
+      --calibration "$cal" \
+      --limit-samples "$STATS_LIMIT_SAMPLES" \
+      --stats lite \
+      --figure5-layer-cycles \
+      "${device_map_args[@]}" \
+      --mx-chunk-target-mib 256 \
+      --msd-chunk-target-mib "$stats_msd_chunk" \
+      --weight-cache-dtype "$cache_dtype" \
+      --compile-msd-truncate \
+      --gpus "$GPUS" \
+      --mxfp-progress-interval-sec "$STATS_PROGRESS_INTERVAL_SEC" \
+      --output "$out"
 }
 
 if [[ ! -x "$PYTHON" ]]; then
@@ -406,13 +476,19 @@ fi
   echo "started_at=$(date -Is)"
   echo "target_snrs=$TARGET_SNRS"
   echo "gpus=$GPUS"
-  echo "ppl_device_map=$PPL_DEVICE_MAP"
-  echo "ppl_max_memory=$PPL_MAX_MEMORY"
+  echo "nproc=$NPROC"
+  echo "load_stagger_sec=$LOAD_STAGGER_SEC"
+  echo "stats_limit_samples=$STATS_LIMIT_SAMPLES"
+  echo "stats_device_map=$STATS_DEVICE_MAP"
+  echo "stats_max_memory=$STATS_MAX_MEMORY"
+  echo "stats_progress_interval_sec=$STATS_PROGRESS_INTERVAL_SEC"
   echo "calibration_mode=$CALIBRATION_MODE"
   echo "sweep_root=$SWEEP_ROOT"
+  echo "calib_reuse_root=$CALIB_REUSE_ROOT"
   echo "driver_root=$DRIVER_ROOT"
   echo "continue_on_error=$CONTINUE_ON_ERROR"
   echo "force=$FORCE"
+  echo "force_calibration=$FORCE_CALIBRATION"
   echo "dry_run=$DRY_RUN"
   echo "model_jobs=$MODEL_JOBS"
 } > "$DRIVER_ROOT/run.env"
@@ -420,22 +496,23 @@ fi
 echo "[driver] run id: $RUN_ID"
 echo "[driver] target SNRs: $TARGET_SNRS"
 echo "[driver] GPUs: $GPUS"
-echo "[driver] PPL device map: $PPL_DEVICE_MAP"
+echo "[driver] full PPL: nproc=$NPROC stats=off"
+echo "[driver] stats PPL: limit=$STATS_LIMIT_SAMPLES device_map=$STATS_DEVICE_MAP"
 echo "[driver] calibration mode: $CALIBRATION_MODE"
 echo "[driver] sweep root: $SWEEP_ROOT"
+echo "[driver] calibration reuse root: $CALIB_REUSE_ROOT"
 echo "[driver] logs: $DRIVER_ROOT"
-echo "[driver] sample mode: full WikiText-2, no --limit-samples"
-echo "[driver] schedule: sequential models from small to large; each PPL uses all GPUs"
-echo "timestamp	model	target_snr_db	step	status	output	log" > "$STATUS_FILE"
+echo "timestamp	model	target_snr_db	phase	step	status	output	log" > "$STATUS_FILE"
 
 failed=0
 for job in $MODEL_JOBS; do
-  IFS=':' read -r model_key model_path cache_dtype calib_batch calib_mx_chunk calib_chunk ppl_msd_chunk <<< "$job"
-  cache_dtype="${cache_dtype:-float16}"
+  IFS=':' read -r model_key model_path full_cache_dtype stats_cache_dtype calib_batch calib_mx_chunk calib_chunk stats_msd_chunk <<< "$job"
+  full_cache_dtype="${full_cache_dtype:-float16}"
+  stats_cache_dtype="${stats_cache_dtype:-$full_cache_dtype}"
   calib_batch="${calib_batch:-4}"
   calib_mx_chunk="${calib_mx_chunk:-256}"
   calib_chunk="${calib_chunk:-64}"
-  ppl_msd_chunk="${ppl_msd_chunk:-1536}"
+  stats_msd_chunk="${stats_msd_chunk:-1536}"
 
   if [[ ! -d "$model_path" ]]; then
     echo "ERROR: [$model_key] model path not found: $model_path" >&2
@@ -446,9 +523,9 @@ for job in $MODEL_JOBS; do
   echo "================================================================"
   echo "Model        : $model_key"
   echo "Path         : $model_path"
-  echo "Cache dtype  : $cache_dtype"
+  echo "Full PPL     : nproc=$NPROC cache=$full_cache_dtype stats=off"
+  echo "Stats PPL    : limit=$STATS_LIMIT_SAMPLES cache=$stats_cache_dtype msd_chunk_mib=$stats_msd_chunk"
   echo "Calib profile: batch=$calib_batch mx_chunk_mib=$calib_mx_chunk cal_chunk_mib=$calib_chunk"
-  echo "PPL profile  : gpus=$GPUS device_map=$PPL_DEVICE_MAP msd_chunk_mib=$ppl_msd_chunk"
   echo "================================================================"
 
   for snr in $TARGET_SNRS; do
@@ -457,7 +534,12 @@ for job in $MODEL_JOBS; do
       [[ "$CONTINUE_ON_ERROR" == "1" ]] || exit 1
       continue
     fi
-    if ! run_ppl_stats "$model_key" "$model_path" "$snr" "$cache_dtype" "$ppl_msd_chunk"; then
+    if ! run_full_ppl "$model_key" "$model_path" "$snr" "$full_cache_dtype"; then
+      failed=1
+      [[ "$CONTINUE_ON_ERROR" == "1" ]] || exit 1
+      continue
+    fi
+    if ! run_stats_ppl "$model_key" "$model_path" "$snr" "$stats_cache_dtype" "$stats_msd_chunk"; then
       failed=1
       [[ "$CONTINUE_ON_ERROR" == "1" ]] || exit 1
     fi
