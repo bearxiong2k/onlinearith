@@ -73,9 +73,7 @@ write_summary() {
 
 finish() {
   local status=$?
-  if [[ "$SUMMARY_WRITTEN" != "1" ]]; then
-    write_summary
-  fi
+  write_summary
   {
     echo "finished_at=$(date -Is)"
     echo "exit_status=$status"
