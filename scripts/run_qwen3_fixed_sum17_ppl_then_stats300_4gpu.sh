@@ -27,20 +27,22 @@ STATS_DEVICE_MAP="${STATS_DEVICE_MAP:-sequential}"
 STATS_MAX_MEMORY="${STATS_MAX_MEMORY:-0:30GiB,1:30GiB,2:30GiB,3:30GiB}"
 STATS_PROGRESS_INTERVAL_SEC="${STATS_PROGRESS_INTERVAL_SEC:-300}"
 CALIBRATION_MODE="${CALIBRATION_MODE:-parallel}"
+RUN_FULL_PPL="${RUN_FULL_PPL:-1}"
+RUN_STATS_PPL="${RUN_STATS_PPL:-1}"
 CONTINUE_ON_ERROR="${CONTINUE_ON_ERROR:-0}"
 FORCE="${FORCE:-0}"
 FORCE_CALIBRATION="${FORCE_CALIBRATION:-0}"
 DRY_RUN="${DRY_RUN:-0}"
 
-# key:model_path:full_cache_dtype:stats_cache_dtype:calib_batch:calib_mx_chunk_mib:calib_chunk_mib:stats_msd_chunk_mib
-MODEL_JOBS="${MODEL_JOBS:-qwen0_6b:../Qwen3-0.6B:float16:float16:8:512:128:1536 qwen1_7b:../Qwen3-1.7B:float16:float16:4:384:96:1536 qwen4b:../Qwen3-4B:float16:float16:2:256:64:1536 qwen8b:../Qwen3-8B:float8:float8:4:256:64:1536}"
+# key:model_path:full_cache_dtype:stats_cache_dtype:calib_batch:calib_mx_chunk_mib:calib_chunk_mib:stats_msd_chunk_mib[,retry...]
+MODEL_JOBS="${MODEL_JOBS:-qwen0_6b:../Qwen3-0.6B:float16:float16:8:512:128:1536 qwen1_7b:../Qwen3-1.7B:float16:float16:4:384:96:1536 qwen4b:../Qwen3-4B:float16:float16:2:256:64:1536 qwen8b:../Qwen3-8B:float8:float8:4:256:64:768,512,384}"
 
 if [[ "${BACKGROUND:-0}" == "1" && "${QWEN_FIXED_SUM17_PPL_STATS_CHILD:-0}" != "1" ]]; then
   mkdir -p "$DRIVER_ROOT"
   export QWEN_FIXED_SUM17_PPL_STATS_CHILD=1
   export PYTHON RUN_ID SWEEP_ROOT CALIB_REUSE_ROOT DRIVER_ROOT TARGET_SNRS GPUS NPROC LOAD_STAGGER_SEC
   export STATS_LIMIT_SAMPLES STATS_DEVICE_MAP STATS_MAX_MEMORY STATS_PROGRESS_INTERVAL_SEC
-  export CALIBRATION_MODE CONTINUE_ON_ERROR FORCE FORCE_CALIBRATION DRY_RUN MODEL_JOBS
+  export CALIBRATION_MODE RUN_FULL_PPL RUN_STATS_PPL CONTINUE_ON_ERROR FORCE FORCE_CALIBRATION DRY_RUN MODEL_JOBS
   nohup "$0" "$@" > "$DRIVER_ROOT/nohup.out" 2>&1 &
   echo "[launched] PID: $!"
   echo "[launched] driver log: $DRIVER_ROOT/driver.log"
@@ -85,6 +87,8 @@ finish() {
     echo "stats_device_map=$STATS_DEVICE_MAP"
     echo "stats_max_memory=$STATS_MAX_MEMORY"
     echo "calibration_mode=$CALIBRATION_MODE"
+    echo "run_full_ppl=$RUN_FULL_PPL"
+    echo "run_stats_ppl=$RUN_STATS_PPL"
     echo "sweep_root=$SWEEP_ROOT"
     echo "calib_reuse_root=$CALIB_REUSE_ROOT"
     echo "driver_root=$DRIVER_ROOT"
@@ -420,12 +424,11 @@ run_stats_ppl() {
   local model_path="$2"
   local snr="$3"
   local cache_dtype="$4"
-  local stats_msd_chunk="$5"
+  local stats_msd_chunks="$5"
   local label
   label="$(snr_label "$snr")"
   local cal="$SWEEP_ROOT/$model_key/$label/calib/calibration_MXFP8_fixed_sum_${model_key}_${label}.json"
   local out="$SWEEP_ROOT/$model_key/$label/ppl/stats_limit${STATS_LIMIT_SAMPLES}/ppl_results_MXFP8_fixed_sum_${model_key}_${label}_stats_limit${STATS_LIMIT_SAMPLES}.json"
-  local log="$DRIVER_ROOT/$model_key/ppl/$label/stats_limit${STATS_LIMIT_SAMPLES}.log"
   local device_map_args=(--device-map "$STATS_DEVICE_MAP")
 
   if [[ "$STATS_DEVICE_MAP" != "none" && -n "$STATS_MAX_MEMORY" ]]; then
@@ -436,22 +439,38 @@ run_stats_ppl() {
     return 2
   fi
 
-  run_logged_step "$model_key" "$snr" "stats_limit" "stats_limit${STATS_LIMIT_SAMPLES}" "$out" "$log" \
-    env CUDA_VISIBLE_DEVICES="$GPUS" "$PYTHON" ppltest.py \
-      --model-path "$model_path" \
-      --setup 6 \
-      --calibration "$cal" \
-      --limit-samples "$STATS_LIMIT_SAMPLES" \
-      --stats lite \
-      --figure5-layer-cycles \
-      "${device_map_args[@]}" \
-      --mx-chunk-target-mib 256 \
-      --msd-chunk-target-mib "$stats_msd_chunk" \
-      --weight-cache-dtype "$cache_dtype" \
-      --compile-msd-truncate \
-      --gpus "$GPUS" \
-      --mxfp-progress-interval-sec "$STATS_PROGRESS_INTERVAL_SEC" \
-      --output "$out"
+  local chunk_candidates
+  chunk_candidates="${stats_msd_chunks//,/ }"
+  local chunk
+  local failed=0
+  for chunk in $chunk_candidates; do
+    local step="stats_limit${STATS_LIMIT_SAMPLES}_chunk${chunk}"
+    local log="$DRIVER_ROOT/$model_key/ppl/$label/${step}.log"
+    if run_logged_step "$model_key" "$snr" "stats_limit" "$step" "$out" "$log" \
+      env CUDA_VISIBLE_DEVICES="$GPUS" "$PYTHON" ppltest.py \
+        --model-path "$model_path" \
+        --setup 6 \
+        --calibration "$cal" \
+        --limit-samples "$STATS_LIMIT_SAMPLES" \
+        --stats lite \
+        --figure5-layer-cycles \
+        "${device_map_args[@]}" \
+        --mx-chunk-target-mib 256 \
+        --msd-chunk-target-mib "$chunk" \
+        --weight-cache-dtype "$cache_dtype" \
+        --compile-msd-truncate \
+        --gpus "$GPUS" \
+        --mxfp-progress-interval-sec "$STATS_PROGRESS_INTERVAL_SEC" \
+        --output "$out"; then
+      return 0
+    fi
+    failed=1
+    if [[ -f "$out" ]]; then
+      return 0
+    fi
+    echo "[driver][$model_key/$snr/stats] chunk $chunk failed; trying next chunk if available"
+  done
+  return "$failed"
 }
 
 if [[ ! -x "$PYTHON" ]]; then
@@ -481,6 +500,8 @@ fi
   echo "stats_max_memory=$STATS_MAX_MEMORY"
   echo "stats_progress_interval_sec=$STATS_PROGRESS_INTERVAL_SEC"
   echo "calibration_mode=$CALIBRATION_MODE"
+  echo "run_full_ppl=$RUN_FULL_PPL"
+  echo "run_stats_ppl=$RUN_STATS_PPL"
   echo "sweep_root=$SWEEP_ROOT"
   echo "calib_reuse_root=$CALIB_REUSE_ROOT"
   echo "driver_root=$DRIVER_ROOT"
@@ -494,8 +515,8 @@ fi
 echo "[driver] run id: $RUN_ID"
 echo "[driver] target SNRs: $TARGET_SNRS"
 echo "[driver] GPUs: $GPUS"
-echo "[driver] full PPL: nproc=$NPROC stats=off"
-echo "[driver] stats PPL: limit=$STATS_LIMIT_SAMPLES device_map=$STATS_DEVICE_MAP"
+echo "[driver] full PPL: enabled=$RUN_FULL_PPL nproc=$NPROC stats=off"
+echo "[driver] stats PPL: enabled=$RUN_STATS_PPL limit=$STATS_LIMIT_SAMPLES device_map=$STATS_DEVICE_MAP"
 echo "[driver] calibration mode: $CALIBRATION_MODE"
 echo "[driver] sweep root: $SWEEP_ROOT"
 echo "[driver] calibration reuse root: $CALIB_REUSE_ROOT"
@@ -532,14 +553,22 @@ for job in $MODEL_JOBS; do
       [[ "$CONTINUE_ON_ERROR" == "1" ]] || exit 1
       continue
     fi
-    if ! run_full_ppl "$model_key" "$model_path" "$snr" "$full_cache_dtype"; then
-      failed=1
-      [[ "$CONTINUE_ON_ERROR" == "1" ]] || exit 1
-      continue
+    if [[ "$RUN_FULL_PPL" == "1" ]]; then
+      if ! run_full_ppl "$model_key" "$model_path" "$snr" "$full_cache_dtype"; then
+        failed=1
+        [[ "$CONTINUE_ON_ERROR" == "1" ]] || exit 1
+        continue
+      fi
+    else
+      record_status "$model_key" "$snr" "full_ppl" "full_no_stats" "skipped_disabled" "" ""
     fi
-    if ! run_stats_ppl "$model_key" "$model_path" "$snr" "$stats_cache_dtype" "$stats_msd_chunk"; then
-      failed=1
-      [[ "$CONTINUE_ON_ERROR" == "1" ]] || exit 1
+    if [[ "$RUN_STATS_PPL" == "1" ]]; then
+      if ! run_stats_ppl "$model_key" "$model_path" "$snr" "$stats_cache_dtype" "$stats_msd_chunk"; then
+        failed=1
+        [[ "$CONTINUE_ON_ERROR" == "1" ]] || exit 1
+      fi
+    else
+      record_status "$model_key" "$snr" "stats_limit" "stats_limit${STATS_LIMIT_SAMPLES}" "skipped_disabled" "" ""
     fi
   done
 

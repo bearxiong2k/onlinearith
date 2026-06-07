@@ -56,10 +56,10 @@ watch -n 30 scripts/monitor_qwen3_fixed_sum17_ppl_stats300.sh 20260602_150000
 For the sampled stats phase, the per-model logs are:
 
 ```bash
-tail -f ../data/qwen3_final_experiments/fixed_sum17_ppl_stats300/logs/ppl_stats300_<RUN_ID>/qwen0_6b/ppl/snr17db/stats_limit300.log
-tail -f ../data/qwen3_final_experiments/fixed_sum17_ppl_stats300/logs/ppl_stats300_<RUN_ID>/qwen1_7b/ppl/snr17db/stats_limit300.log
-tail -f ../data/qwen3_final_experiments/fixed_sum17_ppl_stats300/logs/ppl_stats300_<RUN_ID>/qwen4b/ppl/snr17db/stats_limit300.log
-tail -f ../data/qwen3_final_experiments/fixed_sum17_ppl_stats300/logs/ppl_stats300_<RUN_ID>/qwen8b/ppl/snr17db/stats_limit300.log
+tail -f ../data/qwen3_final_experiments/fixed_sum17_ppl_stats300/logs/ppl_stats300_<RUN_ID>/qwen0_6b/ppl/snr17db/stats_limit300_chunk1536.log
+tail -f ../data/qwen3_final_experiments/fixed_sum17_ppl_stats300/logs/ppl_stats300_<RUN_ID>/qwen1_7b/ppl/snr17db/stats_limit300_chunk1536.log
+tail -f ../data/qwen3_final_experiments/fixed_sum17_ppl_stats300/logs/ppl_stats300_<RUN_ID>/qwen4b/ppl/snr17db/stats_limit300_chunk1536.log
+tail -f ../data/qwen3_final_experiments/fixed_sum17_ppl_stats300/logs/ppl_stats300_<RUN_ID>/qwen8b/ppl/snr17db/stats_limit300_chunk768.log
 ```
 
 Periodic status and GPU checks:
@@ -146,6 +146,26 @@ Limit-300 stats result for each model:
 The summary TSV/JSON joins full PPL with sampled stats columns:
 `full_token_perplexity`, `full_scored_tokens`, `stats_plot_norm_digit_read`,
 `stats_hw_latency_overhead`, and Figure 5 mean cycle columns.
+
+## Qwen8B Stats Retry
+
+The first Qwen8B stats300 attempt with `--msd-chunk-target-mib 1536` OOMed.
+The wrapper now uses smaller Qwen8B stats chunks, trying `768`, then `512`,
+then `384`. To resume after the failed run, rerun the same wrapper:
+
+```bash
+BACKGROUND=1 scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh
+```
+
+Existing calibration, full-PPL outputs, and completed stats outputs are skipped.
+Only the missing Qwen8B stats300 artifact should run.
+
+To run only the missing Qwen8B row:
+
+```bash
+MODEL_JOBS='qwen8b:../Qwen3-8B:float8:float8:4:256:64:768,512,384' \
+BACKGROUND=1 scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh
+```
 
 ## Interrupted Prior Run
 

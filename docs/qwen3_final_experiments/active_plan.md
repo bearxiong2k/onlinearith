@@ -28,6 +28,19 @@ Target-SNR 30 dB is the high-quality fixed-sum point. It is not the 50%
 equivalent-work point. For equivalent-work comparisons, use
 `plot_norm_digit_read = mean_effective_precision / 3.0`.
 
+Sampled larger-model rebuttal sweep, planned next:
+
+- Fixed-sum target-SNR summary grid: `15 17 20`, with
+  `--limit-samples 300 --stats lite --figure5-layer-cycles`.
+- Ordered fixed-sum best-effort phases:
+  `qwen8b@17 qwen4b@17 qwen1_7b@17 qwen4b@15,20 qwen1_7b@15,20`.
+- WANDA and runtime activation N:M points: `1:4 2:4 3:4`, also with
+  `--limit-samples 300`.
+- The sweep is for curve coverage and plotting, not formal full-PPL reporting.
+  See `sparsity_norm_sweep300_handoff.md`.
+- Qwen3-0.6B is excluded by default because the paper figure already covers it.
+  The default rebuttal model order is Qwen3-8B, 4B, then 1.7B.
+
 ## Current Results
 
 Valid full PPL sweep:
@@ -73,6 +86,10 @@ a summary under:
 ../data/qwen3_final_experiments/fixed_sum17_ppl_stats300/logs/ppl_stats300_<RUN_ID>/
 ```
 
+Qwen3-8B stats300 uses smaller MSD chunks than the smaller models. The first
+attempt at `--msd-chunk-target-mib 1536` OOMed; the current wrapper retries
+Qwen3-8B stats with `768`, then `512`, then `384`.
+
 Previous four-method all-model PPL sweep:
 
 ```bash
@@ -80,6 +97,19 @@ BACKGROUND=1 scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh
 ```
 
 Use this only if the quality/PPL sweep needs to be regenerated.
+
+Sampled sparsity/norm work-curve sweep:
+
+```bash
+BACKGROUND=1 scripts/run_qwen3_sparsity_norm_sweep300_4gpu.sh
+```
+
+By default this runs Qwen3-8B, 4B, and 1.7B. It writes fixed-sum stats, WANDA
+sampled PPL, activation sampled PPL, and a combined summary under:
+
+```text
+../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_<RUN_ID>/
+```
 
 ## Invariants
 
@@ -106,6 +136,6 @@ Use this only if the quality/PPL sweep needs to be regenerated.
 ../.venv3_10/bin/python ppltest.py --list
 ../.venv3_10/bin/python ppl_batch.py --list
 ../.venv3_10/bin/python calibrate.py --list
-../.venv3_10/bin/python -m py_compile scripts/summarize_qwen3_fixed_sum17_ppl_stats.py scripts/summarize_fixed_sum_norm_sweep.py scripts/summarize_qwen3_model_sweep.py
-bash -n scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh scripts/run_qwen3_fixed_sum_norm_target_sweep.sh
+../.venv3_10/bin/python -m py_compile scripts/summarize_qwen3_fixed_sum17_ppl_stats.py scripts/summarize_fixed_sum_norm_sweep.py scripts/summarize_qwen3_model_sweep.py scripts/summarize_qwen3_sparsity_norm_sweep300.py
+bash -n scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh scripts/run_qwen3_fixed_sum_norm_target_sweep.sh scripts/run_qwen3_sparsity_norm_sweep300_4gpu.sh
 ```

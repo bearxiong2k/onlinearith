@@ -304,6 +304,31 @@ Use `UTIL_LIMIT_SAMPLES=120` only with
 `scripts/run_qwen3_fixed_sum_norm_target_sweep.sh` for smoke or work-point
 selection probes.
 
+## Sampled Sparsity/Norm Curve Sweep
+
+Use this for the rebuttal-oriented sampled sweep across fixed-sum digit-read
+points and WANDA/activation sparsity points. The default excludes Qwen3-0.6B
+because it is already covered in the paper figure, and prioritizes Qwen3-8B,
+4B, and 1.7B:
+
+```bash
+BACKGROUND=1 scripts/run_qwen3_sparsity_norm_sweep300_4gpu.sh
+```
+
+The default grid is:
+
+- fixed-sum summary target SNR: `15 17 20`;
+- fixed-sum ordered best-effort phases:
+  `qwen8b@17 qwen4b@17 qwen1_7b@17 qwen4b@15,20 qwen1_7b@15,20`;
+- WANDA and activation common keep-ratio N:M: `1:4 2:4 3:4`;
+- all rows use `--limit-samples 300`.
+
+Use `MODEL_SPECS=...` and `FIXED_SUM_PHASES=...` to add or remove models. The
+fixed-sum stats300 points on 4B/8B are the expensive part.
+
+For launch, monitoring commands, and artifact layout, see
+`sparsity_norm_sweep300_handoff.md`.
+
 ## Expected Wall Times
 
 - MXFP8 PPL: about 0.67 h on four workers.

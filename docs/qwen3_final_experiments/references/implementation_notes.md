@@ -93,7 +93,9 @@ Important implementation details:
   Qwen3-0.6B to 1.7B to 4B to 8B. For each model it prepares/reuses
   calibration, runs full PPL with `--nproc 4 --stats off`, then runs a
   sampled `--limit-samples 300 --stats lite --figure5-layer-cycles` accounting
-  pass with `--device-map sequential`.
+  pass with `--device-map sequential`. Qwen3-8B stats uses smaller chunk retry
+  candidates, currently `768`, `512`, and `384` MiB, because the original
+  1536 MiB stats chunk OOMed during lite stats accumulation.
 - `scripts/run_qwen3_fixed_sum_norm_target_sweep.sh` is the work-point probe
   worker. It defaults to the separate `fixed_sum_norm_sweep` output root. Set
   `UTIL_LIMIT_SAMPLES=120` only for smoke or SNR selection probes.

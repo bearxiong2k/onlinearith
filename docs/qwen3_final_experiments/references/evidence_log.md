@@ -382,6 +382,10 @@ That writes to:
 ../data/qwen3_final_experiments/fixed_sum17_ppl_stats300/
 ```
 
+The first Qwen3-8B stats300 attempt under this replacement plan OOMed with
+`--msd-chunk-target-mib 1536` while recording lite stats. The runner was updated
+to retry Qwen3-8B stats with smaller chunks: `768`, `512`, then `384`.
+
 Current JSON layout for these probes:
 
 - PPL and mean NLL live under `metrics`.
