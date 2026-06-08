@@ -222,7 +222,26 @@ run_fixed_sum_phase() {
   mkdir -p "$FIXED_LOG_ROOT"
   local failed=0
   local index=0
-  local phase model_key snrs_csv snrs spec job phase_label phase_log_root log status
+  local max_jobs
+  max_jobs="$(artifact_gpu_count)"
+  local pids=()
+  local names=()
+  local phase model_key snrs_csv snrs spec job phase_label phase_log_root log status gpu
+
+  wait_fixed_batch() {
+    local i status
+    for i in "${!pids[@]}"; do
+      if wait "${pids[$i]}"; then
+        echo "[fixed_sum] completed ${names[$i]}"
+      else
+        status=$?
+        echo "[fixed_sum] FAILED ${names[$i]} exit=$status" >&2
+        failed=1
+      fi
+    done
+    pids=()
+    names=()
+  }
 
   for phase in $FIXED_SUM_PHASES; do
     if [[ "$phase" != *@* ]]; then
@@ -241,46 +260,58 @@ run_fixed_sum_phase() {
     phase_label="$(printf '%02d_%s_%s' "$index" "$model_key" "${snrs_csv//,/p}")"
     phase_log_root="$FIXED_LOG_ROOT/$phase_label"
     log="$phase_log_root/driver.log"
+    gpu="$(artifact_gpu_by_index "$index")"
     mkdir -p "$phase_log_root"
     record_status fixed_sum "$model_key" "$snrs_csv" driver started "$FIXED_ROOT/$model_key" "$log"
 
     if [[ "$DRY_RUN" == "1" ]]; then
-      echo "[fixed_sum] DRY_RUN=1; would launch $model_key snrs=$snrs through $FIXED_DRIVER"
+      echo "[fixed_sum] DRY_RUN=1; would launch $model_key snrs=$snrs on GPU $gpu through $FIXED_DRIVER"
       record_status fixed_sum "$model_key" "$snrs_csv" driver dry_run "$FIXED_ROOT/$model_key" "$log"
       index=$((index + 1))
       continue
     fi
 
-    set +e
-    RUN_FULL_PPL=0 \
-    RUN_STATS_PPL=1 \
-    SWEEP_ROOT="$FIXED_ROOT" \
-    DRIVER_ROOT="$phase_log_root" \
-    TARGET_SNRS="$snrs" \
-    STATS_LIMIT_SAMPLES="$LIMIT_SAMPLES" \
-    STATS_DEVICE_MAP="$FIXED_STATS_DEVICE_MAP" \
-    STATS_MAX_MEMORY="$FIXED_STATS_MAX_MEMORY" \
-    STATS_PROGRESS_INTERVAL_SEC="$FIXED_STATS_PROGRESS_INTERVAL_SEC" \
-    GPUS="$GPUS" \
-    NPROC="$NPROC" \
-    LOAD_STAGGER_SEC="$LOAD_STAGGER_SEC" \
-    MODEL_JOBS="$job" \
-    CONTINUE_ON_ERROR="$CONTINUE_ON_ERROR" \
-    FORCE="$FORCE" \
-    "$FIXED_DRIVER"
-    status=$?
-    set -e
+    echo "[fixed_sum] launch $model_key snrs=$snrs on GPU $gpu"
+    (
+      set +e
+      RUN_FULL_PPL=0 \
+      RUN_STATS_PPL=1 \
+      SWEEP_ROOT="$FIXED_ROOT" \
+      DRIVER_ROOT="$phase_log_root" \
+      TARGET_SNRS="$snrs" \
+      STATS_LIMIT_SAMPLES="$LIMIT_SAMPLES" \
+      STATS_DEVICE_MAP=none \
+      STATS_MAX_MEMORY="" \
+      STATS_PROGRESS_INTERVAL_SEC="$FIXED_STATS_PROGRESS_INTERVAL_SEC" \
+      GPUS="$gpu" \
+      NPROC=1 \
+      LOAD_STAGGER_SEC=0 \
+      CALIBRATION_MODE=serial \
+      MODEL_JOBS="$job" \
+      CONTINUE_ON_ERROR="$CONTINUE_ON_ERROR" \
+      FORCE="$FORCE" \
+      "$FIXED_DRIVER"
+      status=$?
+      if [[ "$status" -eq 0 ]]; then
+        record_status fixed_sum "$model_key" "$snrs_csv" driver completed "$FIXED_ROOT/$model_key" "$log"
+      else
+        record_status fixed_sum "$model_key" "$snrs_csv" driver "failed:$status" "$FIXED_ROOT/$model_key" "$log"
+      fi
+      exit "$status"
+    ) &
+    pids+=("$!")
+    names+=("$model_key@$snrs_csv/gpu$gpu")
 
-    if [[ "$status" -eq 0 ]]; then
-      record_status fixed_sum "$model_key" "$snrs_csv" driver completed "$FIXED_ROOT/$model_key" "$log"
-    else
-      failed=1
-      record_status fixed_sum "$model_key" "$snrs_csv" driver "failed:$status" "$FIXED_ROOT/$model_key" "$log"
-      [[ "$CONTINUE_ON_ERROR" == "1" ]] || return "$status"
-    fi
     index=$((index + 1))
+    if [[ "${#pids[@]}" -ge "$max_jobs" ]]; then
+      wait_fixed_batch
+      [[ "$failed" == "0" || "$CONTINUE_ON_ERROR" == "1" ]] || return 1
+    fi
   done
 
+  if [[ "${#pids[@]}" -gt 0 ]]; then
+    wait_fixed_batch
+  fi
   return "$failed"
 }
 

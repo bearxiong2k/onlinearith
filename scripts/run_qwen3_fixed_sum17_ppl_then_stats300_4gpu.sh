@@ -119,7 +119,12 @@ snr_label() {
 gpu_by_index() {
   local index="$1"
   IFS=',' read -r -a gpu_list <<< "$GPUS"
-  printf '%s' "${gpu_list[$index]}"
+  local count="${#gpu_list[@]}"
+  if [[ "$count" -eq 0 ]]; then
+    echo "ERROR: GPUS is empty" >&2
+    return 2
+  fi
+  printf '%s' "${gpu_list[$((index % count))]}"
 }
 
 calibration_tasks() {
