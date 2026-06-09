@@ -47,6 +47,7 @@ if [[ "${BACKGROUND:-0}" == "1" && "${QWEN_FIXED_SUM17_PPL_STATS_CHILD:-0}" != "
   echo "[launched] PID: $!"
   echo "[launched] driver log: $DRIVER_ROOT/driver.log"
   echo "[launched] nohup log : $DRIVER_ROOT/nohup.out"
+  echo "[launched] ETA monitor: $PYTHON scripts/monitor_qwen3_sweep_eta.py --log-root $DRIVER_ROOT --watch 60"
   exit 0
 fi
 
@@ -111,6 +112,20 @@ record_status() {
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -Is)" "$model_key" "$snr" "$phase" "$step" "$status" "$output" "$log" >> "$STATUS_FILE"
 }
 
+artifact_complete() {
+  local path="$1"
+  [[ -s "$path" ]] || return 1
+  if [[ "$path" == *.json ]]; then
+    "$PYTHON" - "$path" >/dev/null 2>&1 <<'PY' || return 1
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as f:
+    json.load(f)
+PY
+  fi
+}
+
 snr_label() {
   local snr="$1"
   printf 'snr%sdb' "${snr//./p}"
@@ -156,11 +171,11 @@ adopt_existing_calibration() {
   if [[ "$FORCE_CALIBRATION" == "1" || "$FORCE" == "1" ]]; then
     return 1
   fi
-  if [[ -f "$final_json" ]]; then
+  if artifact_complete "$final_json"; then
     record_status "$model_key" "$snr" "calibration" "fixed_sum" "skipped_existing" "$final_json" "$log"
     return 0
   fi
-  if [[ ! -f "$reuse_final" ]]; then
+  if ! artifact_complete "$reuse_final"; then
     return 1
   fi
 
@@ -191,7 +206,7 @@ run_calibration_task() {
   local partial="$cal_dir/calibration_MXFP8_fixed_sum_${model_key}_${label}_${suffix}.json"
   local log="$log_dir/fixed_sum_${suffix}.log"
 
-  if [[ -f "$partial" && "$FORCE_CALIBRATION" != "1" && "$FORCE" != "1" ]]; then
+  if [[ "$FORCE_CALIBRATION" != "1" && "$FORCE" != "1" ]] && artifact_complete "$partial"; then
     echo "[driver][$model_key/$snr/$suffix] calibration exists; skipping: $partial"
     record_status "$model_key" "$snr" "calibration" "fixed_sum_${suffix}" "skipped_existing" "$partial" "$log"
     return 0
@@ -310,7 +325,7 @@ prepare_calibration() {
   if adopt_existing_calibration "$model_key" "$snr" "$label"; then
     return 0
   fi
-  if [[ -f "$final_json" && "$FORCE_CALIBRATION" != "1" && "$FORCE" != "1" ]]; then
+  if [[ "$FORCE_CALIBRATION" != "1" && "$FORCE" != "1" ]] && artifact_complete "$final_json"; then
     record_status "$model_key" "$snr" "calibration" "fixed_sum" "skipped_existing" "$final_json" "$merge_log"
     return 0
   fi
@@ -359,7 +374,7 @@ run_logged_step() {
   local log="$6"
   shift 6
 
-  if [[ -f "$output" && "$FORCE" != "1" ]]; then
+  if [[ "$FORCE" != "1" ]] && artifact_complete "$output"; then
     echo "[driver][$model_key/$snr/$step] output exists; skipping: $output"
     record_status "$model_key" "$snr" "$phase" "$step" "skipped_existing" "$output" "$log"
     return 0
@@ -386,7 +401,7 @@ run_logged_step() {
     record_status "$model_key" "$snr" "$phase" "$step" "failed:$status" "$output" "$log"
     return "$status"
   fi
-  if [[ ! -f "$output" ]]; then
+  if ! artifact_complete "$output"; then
     record_status "$model_key" "$snr" "$phase" "$step" "missing_output" "$output" "$log"
     return 2
   fi
@@ -404,7 +419,7 @@ run_full_ppl() {
   local out="$SWEEP_ROOT/$model_key/$label/ppl/full_no_stats/ppl_results_MXFP8_fixed_sum_${model_key}_${label}_full_no_stats.json"
   local log="$DRIVER_ROOT/$model_key/ppl/$label/full_no_stats.log"
 
-  if [[ ! -f "$cal" && "$DRY_RUN" != "1" ]]; then
+  if ! artifact_complete "$cal" && [[ "$DRY_RUN" != "1" ]]; then
     record_status "$model_key" "$snr" "full_ppl" "full_no_stats" "missing_calibration" "$out" "$log"
     return 2
   fi
@@ -434,13 +449,14 @@ run_stats_ppl() {
   label="$(snr_label "$snr")"
   local cal="$SWEEP_ROOT/$model_key/$label/calib/calibration_MXFP8_fixed_sum_${model_key}_${label}.json"
   local out="$SWEEP_ROOT/$model_key/$label/ppl/stats_limit${STATS_LIMIT_SAMPLES}/ppl_results_MXFP8_fixed_sum_${model_key}_${label}_stats_limit${STATS_LIMIT_SAMPLES}.json"
+  local missing_log="$DRIVER_ROOT/$model_key/ppl/$label/stats_limit${STATS_LIMIT_SAMPLES}_missing_calibration.log"
   local device_map_args=(--device-map "$STATS_DEVICE_MAP")
 
   if [[ "$STATS_DEVICE_MAP" != "none" && -n "$STATS_MAX_MEMORY" ]]; then
     device_map_args+=(--max-memory "$STATS_MAX_MEMORY")
   fi
-  if [[ ! -f "$cal" && "$DRY_RUN" != "1" ]]; then
-    record_status "$model_key" "$snr" "stats_limit" "stats_limit${STATS_LIMIT_SAMPLES}" "missing_calibration" "$out" "$log"
+  if ! artifact_complete "$cal" && [[ "$DRY_RUN" != "1" ]]; then
+    record_status "$model_key" "$snr" "stats_limit" "stats_limit${STATS_LIMIT_SAMPLES}" "missing_calibration" "$out" "$missing_log"
     return 2
   fi
 
@@ -470,7 +486,7 @@ run_stats_ppl() {
       return 0
     fi
     failed=1
-    if [[ -f "$out" ]]; then
+    if artifact_complete "$out"; then
       return 0
     fi
     echo "[driver][$model_key/$snr/stats] chunk $chunk failed; trying next chunk if available"

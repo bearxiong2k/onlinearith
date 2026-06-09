@@ -111,6 +111,12 @@ sampled PPL, activation sampled PPL, and a combined summary under:
 ../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_<RUN_ID>/
 ```
 
+Monitor future active runs with per-process ETA:
+
+```bash
+../.venv3_10/bin/python scripts/monitor_qwen3_sweep_eta.py --log-root ../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_<RUN_ID> --watch 60
+```
+
 ## Invariants
 
 - Preserve PPL methodology: WikiText-2 raw test split, `MAX_LENGTH=4096`,

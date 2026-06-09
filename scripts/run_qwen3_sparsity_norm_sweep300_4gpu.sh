@@ -69,6 +69,7 @@ if [[ "${BACKGROUND:-0}" == "1" && "${QWEN_SPARSITY_NORM_SWEEP_CHILD:-0}" != "1"
   echo "[launched] PID: $!"
   echo "[launched] driver log: $LOG_ROOT/driver.log"
   echo "[launched] nohup log : $LOG_ROOT/nohup.out"
+  echo "[launched] ETA monitor: $PYTHON scripts/monitor_qwen3_sweep_eta.py --log-root $LOG_ROOT --watch 60"
   exit 0
 fi
 
@@ -139,6 +140,20 @@ record_status() {
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -Is)" "$phase" "$model_key" "$point" "$step" "$status" "$output" "$log" >> "$STATUS_FILE"
 }
 
+artifact_complete() {
+  local path="$1"
+  [[ -s "$path" ]] || return 1
+  if [[ "$path" == *.json ]]; then
+    "$PYTHON" - "$path" >/dev/null 2>&1 <<'PY' || return 1
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as f:
+    json.load(f)
+PY
+  fi
+}
+
 parse_nm() {
   local token="$1"
   if [[ "$token" != *:* ]]; then
@@ -184,7 +199,7 @@ run_logged() {
   local log="$6"
   shift 6
 
-  if [[ -f "$output" && "$FORCE" != "1" ]]; then
+  if [[ "$FORCE" != "1" ]] && artifact_complete "$output"; then
     echo "[$phase/$model_key/$point/$step] exists; skipping: $output"
     record_status "$phase" "$model_key" "$point" "$step" "skipped_existing" "$output" "$log"
     return 0
@@ -211,7 +226,7 @@ run_logged() {
     record_status "$phase" "$model_key" "$point" "$step" "failed:$status" "$output" "$log"
     return "$status"
   fi
-  if [[ ! -f "$output" ]]; then
+  if ! artifact_complete "$output"; then
     record_status "$phase" "$model_key" "$point" "$step" "missing_output" "$output" "$log"
     return 2
   fi

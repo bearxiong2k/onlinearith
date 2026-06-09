@@ -63,13 +63,29 @@ The background wrapper prints the exact timestamped log directory, for example:
 [launched] nohup log : ../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_YYYYMMDD_HHMMSS/nohup.out
 ```
 
-Monitor the overall driver:
+Monitor active tasks with per-process ETA:
+
+```bash
+../.venv3_10/bin/python scripts/monitor_qwen3_sweep_eta.py --log-root ../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_YYYYMMDD_HHMMSS
+```
+
+Refresh it automatically:
+
+```bash
+../.venv3_10/bin/python scripts/monitor_qwen3_sweep_eta.py --log-root ../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_YYYYMMDD_HHMMSS --watch 60
+```
+
+The ETA monitor is the default monitoring method for future runs. It combines
+live `ppltest.py`/`calibrate.py` processes, GPU utilization, status TSV rows,
+and PPL progress lines. PPL ETAs update at evaluated-window boundaries.
+
+Raw overall driver log:
 
 ```bash
 tail -f ../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_YYYYMMDD_HHMMSS/driver.log
 ```
 
-Monitor the main task status:
+Raw main task status:
 
 ```bash
 tail -f ../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_YYYYMMDD_HHMMSS/status.tsv

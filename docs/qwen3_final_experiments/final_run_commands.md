@@ -329,6 +329,12 @@ fixed-sum stats300 points on 4B/8B are the expensive part.
 For launch, monitoring commands, and artifact layout, see
 `sparsity_norm_sweep300_handoff.md`.
 
+Default monitor for this sweep, with per-process ETA:
+
+```bash
+../.venv3_10/bin/python scripts/monitor_qwen3_sweep_eta.py --log-root ../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_<RUN_ID> --watch 60
+```
+
 ## Expected Wall Times
 
 - MXFP8 PPL: about 0.67 h on four workers.
