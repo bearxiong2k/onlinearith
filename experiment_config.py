@@ -415,19 +415,29 @@ def reconfigure_mlp_layers(model, device: torch.device | None = None) -> None:
     If *device* is ``None``, each replacement stays on the device of the
     projection it replaces. This preserves explicit model sharding layouts.
     """
+    from transformers.models.llama.modeling_llama import LlamaMLP, _make_llama_linear
     from transformers.models.qwen3.modeling_qwen3 import _make_linear, Qwen3MLP
 
     config = model.config
     for module in model.modules():
-        if not isinstance(module, Qwen3MLP):
+        if isinstance(module, Qwen3MLP):
+            make_linear = _make_linear
+        elif isinstance(module, LlamaMLP):
+            make_linear = _make_llama_linear
+        else:
             continue
         for attr in ("gate_proj", "up_proj", "down_proj"):
             old = getattr(module, attr)
             target_device = device if device is not None else old.weight.device
-            new = _make_linear(old.in_features, old.out_features, config)
+            new = make_linear(old.in_features, old.out_features, config)
             new.weight = old.weight          # share nn.Parameter (no copy)
             if hasattr(old, "bias_param") and old.bias_param is not None:
                 new.bias_param = old.bias_param
+            elif hasattr(old, "bias") and old.bias is not None:
+                if hasattr(new, "bias_param"):
+                    new.bias_param = old.bias
+                else:
+                    new.bias = old.bias
             new = new.to(target_device)
             # Preserve train/eval mode of replaced projections.
             # This is required because new modules default to train mode.
