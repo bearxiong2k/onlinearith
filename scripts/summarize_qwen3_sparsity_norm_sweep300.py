@@ -31,10 +31,13 @@ def parse_nm_points(raw: str) -> list[tuple[int, int]]:
 
 
 def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.is_file():
+    if not path.is_file() or path.stat().st_size == 0:
         return None
-    with path.open() as f:
-        return json.load(f)
+    try:
+        with path.open() as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        return None
 
 
 def figure5_means(per_layer: dict[str, Any]) -> dict[str, float | None]:

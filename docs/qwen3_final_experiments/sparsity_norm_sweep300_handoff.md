@@ -75,6 +75,13 @@ Refresh it automatically:
 ../.venv3_10/bin/python scripts/monitor_qwen3_sweep_eta.py --log-root ../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_YYYYMMDD_HHMMSS --watch 60
 ```
 
+When companion runs use separate log roots, monitor all active sweep processes
+with:
+
+```bash
+../.venv3_10/bin/python scripts/monitor_qwen3_sweep_eta.py --all-log-roots --watch 60
+```
+
 The ETA monitor is the default monitoring method for future runs. It combines
 live `ppltest.py`/`calibrate.py` processes, GPU utilization, status TSV rows,
 and PPL progress lines. PPL ETAs update at evaluated-window boundaries.

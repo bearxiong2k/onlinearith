@@ -208,6 +208,18 @@ def arg_value(argv: list[str], name: str) -> str | None:
     return None
 
 
+def infer_calibration_output(argv: list[str]) -> str | None:
+    output_dir = arg_value(argv, "--output-dir")
+    result_suffix = arg_value(argv, "--result-suffix")
+    if not output_dir or not result_suffix:
+        return None
+    setup = arg_value(argv, "--setup") or "1"
+    optimizer = arg_value(argv, "--optimizer") or "snr_min"
+    tag = "MXFP8" if setup == "1" else f"setup{setup}"
+    optimizer_suffix = f"_{optimizer}" if optimizer else ""
+    return str(Path(output_dir) / f"calibration_{tag}{optimizer_suffix}_{result_suffix}.json")
+
+
 def parse_processes() -> list[ProcRow]:
     out = run_text(["ps", "-eo", "pid=,etime=,cmd="])
     rows: list[ProcRow] = []
@@ -232,6 +244,8 @@ def parse_processes() -> list[ProcRow]:
         except ValueError:
             argv = cmd.split()
         output = arg_value(argv, "--output")
+        if output is None and "calibrate.py" in cmd:
+            output = infer_calibration_output(argv)
         gpu = arg_value(argv, "--gpus")
         model_path = arg_value(argv, "--model-path")
         rows.append(
@@ -343,11 +357,13 @@ def command_label(proc: ProcRow) -> str:
     return "process"
 
 
-def print_report(log_root: Path, all_rows: list[StatusRow], procs: list[ProcRow]) -> None:
+def print_report(log_roots: list[Path], all_rows: list[StatusRow], procs: list[ProcRow]) -> None:
     gpus = parse_gpu_snapshot()
     now = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
     print(f"Qwen3 sweep ETA monitor at {now}")
-    print(f"log_root: {log_root}")
+    print("log_roots:")
+    for log_root in log_roots:
+        print(f"  {log_root}")
     print("")
     if not procs:
         print("No active ppltest.py/calibrate.py processes found.")
@@ -405,8 +421,14 @@ def main() -> int:
     parser.add_argument(
         "--log-root",
         type=Path,
+        action="append",
         default=None,
         help="Sweep log root. Defaults to latest ../data/.../sweep300_* root.",
+    )
+    parser.add_argument(
+        "--all-log-roots",
+        action="store_true",
+        help="Read status rows from all sweep300_* log roots under --logs-base.",
     )
     parser.add_argument(
         "--logs-base",
@@ -417,11 +439,20 @@ def main() -> int:
     parser.add_argument("--watch", type=float, default=0, help="Refresh interval in seconds.")
     args = parser.parse_args()
 
-    log_root = args.log_root or latest_log_root(args.logs_base)
+    if args.all_log_roots:
+        log_roots = sorted((p for p in args.logs_base.glob("sweep300_*") if p.is_dir()), key=lambda p: p.stat().st_mtime)
+        if not log_roots:
+            raise SystemExit(f"no sweep log roots found under {args.logs_base}")
+    elif args.log_root:
+        log_roots = args.log_root
+    else:
+        log_roots = [latest_log_root(args.logs_base)]
     while True:
-        rows = read_status_rows(log_root)
+        rows: list[StatusRow] = []
+        for log_root in log_roots:
+            rows.extend(read_status_rows(log_root))
         procs = parse_processes()
-        print_report(log_root, rows, procs)
+        print_report(log_roots, rows, procs)
         if args.watch <= 0:
             break
         sys.stdout.flush()

@@ -335,6 +335,12 @@ Default monitor for this sweep, with per-process ETA:
 ../.venv3_10/bin/python scripts/monitor_qwen3_sweep_eta.py --log-root ../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_<RUN_ID> --watch 60
 ```
 
+If companion runs are active under multiple log roots:
+
+```bash
+../.venv3_10/bin/python scripts/monitor_qwen3_sweep_eta.py --all-log-roots --watch 60
+```
+
 ## Expected Wall Times
 
 - MXFP8 PPL: about 0.67 h on four workers.
