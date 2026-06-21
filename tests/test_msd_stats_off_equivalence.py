@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import math
 import sys
+import tempfile
 from pathlib import Path
 
 import torch
@@ -88,10 +89,102 @@ def test_stats_off_msd_forward_matches_stats_on_path():
     assert stats["global"]["num_layers"] == 1
     assert stats["global"]["mean_effective_precision"] > 0
     assert stats["global"]["max_total_delay"] >= Cfg.msd_online_delay
+    ledger = stats["event_ledger"]
+    assert ledger["schema"] == "tss_event_ledger_v1"
+    assert ledger["N_pre_scan"] > 0
+    assert ledger["N_pre_scan"] == ledger["N_pre_resolve"]
+    assert sum(ledger["N_blk_total"].values()) == ledger["N_pre_scan"]
+    assert sum(ledger["N_blk_exec"].values()) + sum(ledger["N_blk_skip"].values()) == ledger["N_pre_scan"]
+    assert sum(ledger["N_leaf_exec"].values()) > 0
     assert layer.layer_name in stats["per_layer"]
     assert [event["phase"] for event in progress_events] == ["msd_chunk", "msd_chunk"]
 
 
+def test_event_ledger_includes_boundary_trace_totals():
+    with tempfile.TemporaryDirectory() as tmp:
+        trace_path = Path(tmp) / "boundary.csv"
+        stats = MSDPerfAccumulator(
+            lite=True,
+            figure5_layer_cycles=True,
+            boundary_trace_path=str(trace_path),
+            boundary_trace_shards=2,
+            boundary_trace_payload_digits_per_word=4,
+        )
+        p_eff = torch.tensor(
+            [
+                [
+                    [[1.0, 0.0], [2.0, 3.0]],
+                    [[0.0, 0.0], [0.0, 0.0]],
+                ]
+            ],
+            dtype=torch.float32,
+        )
+        b_final_c = torch.full((1, 2), 6.0)
+        channel_cycle = torch.tensor([[4.0, 2.0]], dtype=torch.float32)
+        stats.record_chunk(
+            "layers.0.mlp.gate_proj",
+            p_eff,
+            b_final_c,
+            0,
+            2,
+            1,
+            2,
+            2,
+            max_delay_chunk=torch.tensor([2.0, 0.0]),
+            max_budget_chunk=torch.tensor([6.0, 6.0]),
+            channel_cycle_chunk=channel_cycle,
+        )
+        result = stats.finalize(online_delay=Cfg.msd_online_delay)
+        ledger = result["event_ledger"]
+        assert ledger["N_payload_word"] == {"0": 2, "1": 0}
+        assert ledger["N_burst"] == {"0": 1, "1": 0}
+        assert ledger["N_hdr_word"] == {"0": 12, "1": 0}
+        assert ledger["N_boundary_word"] == {"0": 14, "1": 0}
+        assert ledger["boundary_hdr_words_per_burst"] == 12
+        assert result["boundary_trace"]["totals"]["N_payload_digit"] == {"0": 6, "1": 0}
+
+
+def test_event_ledger_can_count_boundary_totals_without_csv():
+    stats = MSDPerfAccumulator(
+        lite=True,
+        boundary_event_ledger=True,
+        boundary_trace_shards=2,
+        boundary_trace_payload_digits_per_word=4,
+    )
+    p_eff = torch.tensor(
+        [
+            [
+                [[1.0, 0.0], [2.0, 3.0]],
+                [[4.0, 4.0], [0.0, 0.0]],
+            ]
+        ],
+        dtype=torch.float32,
+    )
+    b_final_c = torch.full((1, 2), 6.0)
+    stats.record_chunk(
+        "layers.0.mlp.up_proj",
+        p_eff,
+        b_final_c,
+        0,
+        2,
+        1,
+        2,
+        2,
+        max_delay_chunk=torch.tensor([2.0, 0.0]),
+        max_budget_chunk=torch.tensor([6.0, 6.0]),
+    )
+    result = stats.finalize(online_delay=Cfg.msd_online_delay)
+    ledger = result["event_ledger"]
+    assert "boundary_trace" not in result
+    assert ledger["N_payload_word"] == {"0": 2, "1": 2}
+    assert ledger["N_burst"] == {"0": 1, "1": 1}
+    assert ledger["N_hdr_word"] == {"0": 12, "1": 12}
+    assert ledger["N_boundary_word"] == {"0": 14, "1": 14}
+    assert ledger["boundary_trace_path"] is None
+
+
 if __name__ == "__main__":
     test_stats_off_msd_forward_matches_stats_on_path()
+    test_event_ledger_includes_boundary_trace_totals()
+    test_event_ledger_can_count_boundary_totals_without_csv()
     print("ok")

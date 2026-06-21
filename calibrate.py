@@ -230,6 +230,8 @@ def main():
                         help="Optional suffix appended to result filenames for split-specific runs.")
     parser.add_argument("--mx-chunk-target-mib", type=int, default=None,
                         help="Exact MX output chunk target in MiB used during calibration capture.")
+    parser.add_argument("--mxfp8-block-size", type=int, default=None,
+                        help="Override MXFP8 block size for K sensitivity experiments.")
     parser.add_argument("--cal-chunk-target-mib", type=int, default=None,
                         help="Calibration solver 4D intermediate chunk target in MiB.")
     parser.add_argument("--weight-cache-dtype", choices=["float16", "float32", "float8", "none"], default=None,
@@ -237,6 +239,9 @@ def main():
     parser.add_argument("--compile-msd-truncate", action="store_true",
                         help="Compile the calibration MSD truncation primitive with torch.compile.")
     args = parser.parse_args()
+    if args.mxfp8_block_size is not None and args.mxfp8_block_size <= 0:
+        print("Error: --mxfp8-block-size must be a positive integer.")
+        return
     model_path = args.model_path
     base_results_dir = normalize_output_dir(args.results_dir, RESULTS_DIR)
     configure_calibration_runtime(
@@ -416,6 +421,8 @@ def main():
         reset_to_baseline(model.config)
         apply_config(model.config, overrides)
         model.config.use_cache = False
+        if args.mxfp8_block_size is not None:
+            model.config.mxfp8_block_size = args.mxfp8_block_size
         if args.mx_chunk_target_mib is not None:
             model.config.mxfp_chunk_target_mib = args.mx_chunk_target_mib
             model.config.mxfp_use_chunked_exact = True

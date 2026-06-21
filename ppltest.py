@@ -316,6 +316,8 @@ calibration workflow:
                              "--figure5-layer-cycles is explicitly requested.")
     parser.add_argument("--mx-chunk-target-mib", type=int, default=None,
                         help="Exact MX-only output chunk target in MiB.")
+    parser.add_argument("--mxfp8-block-size", type=int, default=None,
+                        help="Override MXFP8 block size for K sensitivity experiments.")
     parser.add_argument("--msd-chunk-target-mib", type=int, default=None,
                         help="MSD output chunk target in MiB.")
     parser.add_argument("--weight-cache-dtype", choices=["float16", "float32", "float8", "none"], default=None,
@@ -334,9 +336,27 @@ calibration workflow:
                         help="Enable Figure 5 layer-cycle profiling in lite stats mode. "
                              "Records per-layer cycle moments from block-serial, "
                              "channel-parallel execution estimates.")
+    parser.add_argument("--boundary-event-ledger", action="store_true",
+                        help="Accumulate aggregate Anchor3 boundary payload counts in "
+                             "msd_perf_stats.event_ledger without writing a per-burst CSV. "
+                             "Enables lite MSD stats.")
+    parser.add_argument("--boundary-trace-csv", type=str, default=None, metavar="FILE",
+                        help="Optional Anchor3-compatible burst-start CSV trace. "
+                             "Rows include shard, cycle, and payload_words plus "
+                             "layer/channel provenance. Implies --boundary-event-ledger "
+                             "and enables lite MSD stats.")
+    parser.add_argument("--boundary-trace-shards", type=int, default=4, metavar="N",
+                        help="Number of local down-projection shards used for "
+                             "--boundary-trace-csv channel-to-shard mapping. (default: 4)")
+    parser.add_argument("--boundary-trace-payload-digits-per-word", type=int, default=32, metavar="N",
+                        help="Retained MSD contribution digits packed into one "
+                             "payload word for --boundary-trace-csv. (default: 32)")
     parser.add_argument("--compile-msd-truncate", action="store_true",
                         help="Compile the MSD truncation primitive with torch.compile.")
     args = parser.parse_args()
+    if args.mxfp8_block_size is not None and args.mxfp8_block_size <= 0:
+        print("Error: --mxfp8-block-size must be a positive integer.")
+        return
     model_path = args.model_path
     results_root = normalize_output_dir(args.results_dir, RESULTS_ROOT)
     try:
@@ -358,6 +378,16 @@ calibration workflow:
     auto_enabled_lite = args.figure5_layer_cycles and args.stats != "lite"
     if args.figure5_layer_cycles:
         args.stats = "lite"
+    if args.boundary_trace_csv:
+        args.boundary_event_ledger = True
+    if args.boundary_event_ledger:
+        args.stats = "lite"
+    if args.boundary_trace_shards <= 0:
+        print("Error: --boundary-trace-shards must be a positive integer.")
+        return
+    if args.boundary_trace_payload_digits_per_word <= 0:
+        print("Error: --boundary-trace-payload-digits-per-word must be a positive integer.")
+        return
 
     # ── List mode (no GPU needed) ──
     if args.list:
@@ -463,6 +493,8 @@ calibration workflow:
         sid, tag, desc, overrides = selected_setup
         reset_to_baseline(model.config)
         apply_config(model.config, overrides)
+        if args.mxfp8_block_size is not None:
+            model.config.mxfp8_block_size = args.mxfp8_block_size
         if args.mx_chunk_target_mib is not None:
             model.config.mxfp_chunk_target_mib = args.mx_chunk_target_mib
             model.config.mxfp_use_chunked_exact = True
@@ -472,10 +504,18 @@ calibration workflow:
             model.config.mxfp_weight_cache_dtype = args.weight_cache_dtype
         if args.compile_msd_truncate:
             model.config.msd_compile_truncate = True
+        if args.boundary_event_ledger:
+            model.config.msd_boundary_event_ledger = True
+            model.config.msd_boundary_trace_shards = args.boundary_trace_shards
+            model.config.msd_boundary_trace_payload_digits_per_word = args.boundary_trace_payload_digits_per_word
+        if args.boundary_trace_csv:
+            model.config.msd_boundary_trace_path = args.boundary_trace_csv
         reconfigure_mlp_layers(model, None if uses_device_map else device)
         if is_main(rank):
             print(format_config_banner(model.config, setup_id=sid, setup_desc=desc))
     else:
+        if args.mxfp8_block_size is not None:
+            model.config.mxfp8_block_size = args.mxfp8_block_size
         if args.mx_chunk_target_mib is not None:
             model.config.mxfp_chunk_target_mib = args.mx_chunk_target_mib
             model.config.mxfp_use_chunked_exact = True
@@ -485,6 +525,12 @@ calibration workflow:
             model.config.mxfp_weight_cache_dtype = args.weight_cache_dtype
         if args.compile_msd_truncate:
             model.config.msd_compile_truncate = True
+        if args.boundary_event_ledger:
+            model.config.msd_boundary_event_ledger = True
+            model.config.msd_boundary_trace_shards = args.boundary_trace_shards
+            model.config.msd_boundary_trace_payload_digits_per_word = args.boundary_trace_payload_digits_per_word
+        if args.boundary_trace_csv:
+            model.config.msd_boundary_trace_path = args.boundary_trace_csv
         clear_mxfp_weight_cache(model)
 
     # ── 3b. Inject calibration data (if --calibration given) ─────────────────
@@ -526,6 +572,10 @@ calibration workflow:
         model.config.msd_figure5_layer_cycles = True
         if is_main(rank):
             print("Figure 5 layer-cycle profiling enabled.")
+    if args.boundary_event_ledger and is_main(rank):
+        print("Anchor3 aggregate boundary event ledger enabled.")
+    if args.boundary_trace_csv and is_main(rank):
+        print(f"Anchor3 boundary trace enabled: {args.boundary_trace_csv}")
     # Disable stats entirely on non-rank-0 processes (saves compute & memory;
     # rank 0's window sample is representative for aggregate stats).
     if not is_main(rank):
@@ -751,7 +801,11 @@ calibration workflow:
                        "stats": args.stats,
                        "msd_utilization_mode": bool(args.msd_utilization_mode),
                        "load_stagger_sec": args.load_stagger_sec,
-                       "figure5_layer_cycles": bool(args.figure5_layer_cycles)},
+                       "figure5_layer_cycles": bool(args.figure5_layer_cycles),
+                       "boundary_event_ledger": bool(args.boundary_event_ledger),
+                       "boundary_trace_csv": args.boundary_trace_csv,
+                       "boundary_trace_shards": args.boundary_trace_shards,
+                       "boundary_trace_payload_digits_per_word": args.boundary_trace_payload_digits_per_word},
             "config_snapshot": get_config_snapshot(model.config),
             "metrics": {
                 "token_perplexity": round(token_ppl, 4),
