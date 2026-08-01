@@ -1,0 +1,19 @@
+# Full Anchor 0 wrapper (core + banks) in a technology-independent form.
+# This is useful to sanity-check hierarchy and total state / memory structure.
+
+# Ensure build/ exists before running this script.
+
+read_verilog -sv -I rtl -DA0_B_BLOCKS=128 -DA0_BETA_W=8 -DA0_ERAW_W=9 -DA0_D_W=9 rtl/anchor0_prepass_core.sv rtl/anchor0_shadow_banks.sv rtl/anchor0_prepass_top.sv
+hierarchy -check -top anchor0_prepass_top
+
+proc
+opt
+fsm
+opt
+memory -nomap
+opt
+clean -purge
+
+tee -o build/anchor0_top_generic.rpt stat -width
+write_json build/anchor0_top_generic.json
+write_verilog -noattr build/anchor0_top_generic_netlist.v

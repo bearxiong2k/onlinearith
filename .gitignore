@@ -48,6 +48,20 @@ outputs/
 plots/
 figures/generated/
 
+# Hardware simulation build products
+hardware_sim/artifacts/*
+!hardware_sim/artifacts/README.md
+hardware_sim/build/
+hardware_sim/reports/generated/
+hardware_sim/waves/
+hardware_sim/**/*.vcd
+hardware_sim/**/*.fst
+hardware_sim/**/*.lxt
+hardware_sim/**/*.lxt2
+hardware_sim/**/*.vvp
+hardware_sim/**/*.blif
+hardware_sim/**/*.sdf
+
 # Local shared data/model dirs
 ../data/
 ../Qwen3-*/

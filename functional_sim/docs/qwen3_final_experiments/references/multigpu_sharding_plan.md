@@ -105,7 +105,7 @@ Use direct CUDA only.
 4. Compare scored tokens and token PPL within expected deterministic tolerance.
 5. Run a prefix smoke large enough to include a 4096-token context window.
 6. Only after correctness is established, add wall-time estimates to
-   `docs/qwen3_final_experiments/runtime_estimates.md`.
+   `functional_sim/docs/qwen3_final_experiments/runtime_estimates.md`.
 
 ## Open Questions
 

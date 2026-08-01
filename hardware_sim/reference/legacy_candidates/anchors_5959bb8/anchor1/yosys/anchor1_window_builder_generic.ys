@@ -1,0 +1,23 @@
+# Generic synthesis for the pure Anchor 1 builder logic.
+# This is the cleanest source for A_sched_logic.
+#
+# Usage:
+#   mkdir -p build
+#   yosys -s yosys/anchor1_window_builder_generic.ys
+
+read_verilog -sv rtl/tss_anchor1_window_builder.sv
+chparam -set K 32 -set D_W 6 -set LAMBDA_W 4 -set H_W 6 -set START_W 6 -set REM_W 6 tss_anchor1_window_builder
+hierarchy -check -top tss_anchor1_window_builder
+proc
+opt
+fsm
+opt
+memory
+opt
+techmap
+opt
+abc
+opt_clean -purge
+tee -o build/anchor1_window_builder_generic_stat.rpt stat
+write_json build/anchor1_window_builder_generic.json
+write_verilog -noattr build/anchor1_window_builder_generic_netlist.v

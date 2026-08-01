@@ -1,0 +1,18 @@
+# Anchor 0 core only (logic-only view).
+# This script keeps the design technology-independent and does not require a
+# liberty file. It is useful for structural sanity checks and cell-count deltas.
+
+# Ensure build/ exists before running this script.
+
+read_verilog -sv -I rtl -DA0_B_BLOCKS=128 -DA0_BETA_W=8 -DA0_ERAW_W=9 -DA0_D_W=9 rtl/anchor0_prepass_core.sv
+hierarchy -check -top anchor0_prepass_core
+
+proc
+opt
+fsm
+opt
+clean -purge
+
+tee -o build/anchor0_core_generic.rpt stat -width
+write_json build/anchor0_core_generic.json
+write_verilog -noattr build/anchor0_core_generic_netlist.v

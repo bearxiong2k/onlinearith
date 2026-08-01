@@ -1,0 +1,23 @@
+# Replace __LIBERTY__ with your .lib path before running.
+# This script gives the paper-facing logic area / timing anchor for A_pre_logic.
+
+# Ensure build/ exists before running this script.
+
+read_liberty -lib __LIBERTY__
+read_verilog -sv -I rtl -DA0_B_BLOCKS=128 -DA0_BETA_W=8 -DA0_ERAW_W=9 -DA0_D_W=9 rtl/anchor0_prepass_core.sv
+hierarchy -check -top anchor0_prepass_core
+
+proc
+opt
+fsm
+opt
+techmap
+opt
+
+dfflibmap -liberty __LIBERTY__
+abc -liberty __LIBERTY__
+opt_clean
+
+tee -o build/anchor0_core_liberty.rpt stat -liberty __LIBERTY__ -width
+write_json build/anchor0_core_liberty.json
+write_verilog -noattr build/anchor0_core_liberty_netlist.v

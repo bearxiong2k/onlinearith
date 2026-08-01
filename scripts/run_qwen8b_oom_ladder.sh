@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # Run from the onlinearith repo root.
-# These commands exercise the flags described in docs/qwen3_final_experiments/active_plan.md.
+# These commands exercise the flags described in
+# functional_sim/docs/qwen3_final_experiments/active_plan.md.
 
 export PYTHONPATH="$(pwd)/../transformers/src:${PYTHONPATH:-}"
 export PYTORCH_ALLOC_CONF="${PYTORCH_ALLOC_CONF:-expandable_segments:True}"

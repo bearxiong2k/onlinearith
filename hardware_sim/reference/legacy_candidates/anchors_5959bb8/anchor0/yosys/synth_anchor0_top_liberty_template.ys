@@ -1,0 +1,28 @@
+# Replace __LIBERTY__ with your .lib path before running.
+# This script maps the full Anchor 0 wrapper to the target liberty. As written,
+# inferred memories are flop-mapped, so use it as an upper bound unless you
+# replace the rawexp / delay banks with SRAM macros in your local flow.
+
+# Ensure build/ exists before running this script.
+
+read_liberty -lib __LIBERTY__
+read_verilog -sv -I rtl -DA0_B_BLOCKS=128 -DA0_BETA_W=8 -DA0_ERAW_W=9 -DA0_D_W=9 rtl/anchor0_prepass_core.sv rtl/anchor0_shadow_banks.sv rtl/anchor0_prepass_top.sv
+hierarchy -check -top anchor0_prepass_top
+
+proc
+opt
+fsm
+opt
+memory_dff
+memory_map
+opt
+techmap
+opt
+
+dfflibmap -liberty __LIBERTY__
+abc -liberty __LIBERTY__
+opt_clean
+
+tee -o build/anchor0_top_liberty_flopmapped.rpt stat -liberty __LIBERTY__ -width
+write_json build/anchor0_top_liberty_flopmapped.json
+write_verilog -noattr build/anchor0_top_liberty_flopmapped_netlist.v

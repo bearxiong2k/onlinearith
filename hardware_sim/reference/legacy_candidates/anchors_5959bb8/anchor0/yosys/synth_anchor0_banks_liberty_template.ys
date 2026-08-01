@@ -1,0 +1,25 @@
+# Replace __LIBERTY__ with your .lib path before running.
+# This script maps inferred memories to flops/registers, so it should be treated
+# as an upper bound if you do not substitute SRAM macros.
+
+# Ensure build/ exists before running this script.
+
+read_liberty -lib __LIBERTY__
+read_verilog -sv -I rtl -DA0_B_BLOCKS=128 -DA0_ERAW_W=9 -DA0_D_W=9 rtl/anchor0_shadow_banks.sv
+hierarchy -check -top anchor0_shadow_banks
+
+proc
+opt
+memory_dff
+memory_map
+opt
+techmap
+opt
+
+dfflibmap -liberty __LIBERTY__
+abc -liberty __LIBERTY__
+opt_clean
+
+tee -o build/anchor0_banks_liberty_flopmapped.rpt stat -liberty __LIBERTY__ -width
+write_json build/anchor0_banks_liberty_flopmapped.json
+write_verilog -noattr build/anchor0_banks_liberty_flopmapped_netlist.v

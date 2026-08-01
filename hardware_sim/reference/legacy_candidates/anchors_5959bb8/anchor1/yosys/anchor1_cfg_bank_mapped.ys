@@ -1,0 +1,24 @@
+# Liberty-mapped synthesis for the Anchor 1 cfg active/shadow storage.
+# Replace __LIBERTY_PATH__ with your local .lib path before running.
+#
+# Usage:
+#   mkdir -p build
+#   sed 's|__LIBERTY_PATH__|/path/to/tech.lib|g' yosys/anchor1_cfg_bank_mapped.ys | yosys -s -
+
+read_liberty -lib __LIBERTY_PATH__
+read_verilog -sv rtl/tss_anchor1_cfg_bank.sv
+chparam -set K 32 -set START_W 6 -set REM_W 6 tss_anchor1_cfg_bank
+hierarchy -check -top tss_anchor1_cfg_bank
+proc
+opt
+fsm
+opt
+memory
+opt
+techmap
+opt
+dfflibmap -liberty __LIBERTY_PATH__
+abc -liberty __LIBERTY_PATH__
+opt_clean -purge
+tee -o build/anchor1_cfg_bank_mapped_stat.rpt stat -liberty __LIBERTY_PATH__
+write_verilog -noattr build/anchor1_cfg_bank_mapped_netlist.v

@@ -1,5 +1,9 @@
 # Qwen3 Final Experiment Docs
 
+Status: frozen experiment record. The filenames retain their historical
+`active_plan`/handoff names so old references remain understandable; they are
+not the active hardware-development plan.
+
 This directory is the lightweight entry point for the Qwen3 final experiment
 setup. Keep always-read files short. Put evidence, command history, and
 implementation history under `references/`.
@@ -23,10 +27,11 @@ implementation history under `references/`.
   `references/multigpu_sharding_plan.md`: historical planning notes. Read only
   when debugging execution strategy.
 
-## Live Files
+## Frozen executable surface
 
-The live scripts and tests are at repo root. Do not keep duplicate executable
-copies under `docs/`.
+The established scripts and tests remain at repo root for compatibility. Do
+not keep duplicate executable copies under this documentation directory or
+edit them for hardware-simulation work.
 
 - `scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh`
 - `scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh`

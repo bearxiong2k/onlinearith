@@ -1,113 +1,53 @@
-# onlinearith
+# Temporal significance scheduling simulation workspace
 
-Experiment drivers for MXFP/MSD Qwen3 simulation and temporal significance scheduling studies.
+This repository now hosts two deliberately separate parts of the same paper:
 
-This repository contains evaluation, calibration, distributed helper, plotting, and lightweight validation scripts. The modified Qwen3 model code lives in the sibling Transformers checkout, normally at:
+1. a frozen functional-simulation harness for calibration, PPL, executed-digit
+   statistics, and baseline analysis; and
+2. an active hardware-simulation workspace for the redesigned stage-1
+   datapath, trace translation, RTL verification, synthesis, and cost
+   accounting.
 
-```text
-../transformers/src/transformers/models/qwen3/
-```
+The separation is an evidence boundary as well as a directory boundary.
+Frozen numerical results remain valid under their recorded semantics. New
+hardware results will use a standard fixed-point multiplier over a scheduled
+target activation mantissa and an offline-aligned fixed-point weight element;
+they must not reuse costs from the superseded serial digit-stream or stage-2
+interface design.
 
-## Active Source Layout
+## Repository map
 
-- `ppltest.py`: single-setup WikiText-2 PPL evaluation.
-- `ppl_batch.py`: batch PPL runner across setup IDs.
-- `calibrate.py`: MXFP/MSD budget calibration driver.
-- `calibrate_base.py`: structured n:m baseline mask calibration.
-- `experiment_config.py`: setup IDs, setup tags, baseline config fields, and config application helpers. Treat this as the source of truth for setup definitions.
-- `dist_utils.py`: shared distributed helpers.
-- `test_mxfp8linear.py`, `test_fixed_sum_optimizer.py`, `test_distributed.py`: lightweight validation scripts.
-- `tests/test_mx_exact_chunked.py`, `tests/test_mxfp_weight_cache_compact.py`: Qwen3-8B OOM iteration contract tests for exact chunked MX and compact MXFP weight caches.
-- `tools/probe_mxfp_memory.py`: per-layer MXFP/MSD forward memory probe.
-- `scripts/run_qwen8b_oom_ladder.sh`: staged Qwen3-8B OOM acceptance ladder.
-- `../transformers/src/transformers/models/qwen3/modeling_qwen3.py`: current operational Qwen3 implementation. Patch this file for current MXFP/MSD runtime work unless modular-converter work is explicitly requested.
-- `../transformers/src/transformers/models/qwen3/modular_qwen3.py`: reference/modular source only. Do not regenerate `modeling_qwen3.py` from it unless explicitly requested.
+| Path | Purpose | Status |
+|---|---|---|
+| Root `*.py`, `scripts/`, `tools/`, `tests/` | Existing functional harness and compatibility commands | Frozen |
+| [`functional_sim/`](functional_sim/README.md) | Functional-harness map, operating rules, documentation, and committed smoke evidence | Frozen |
+| [`hardware_sim/`](hardware_sim/README.md) | RTL/general-simulation harness and hardware documentation | Active |
+| [`docs/paper/`](docs/paper/README.md) | Paper-wide revision guidance | Active |
+| [`docs/archive/`](docs/archive/README.md) | Superseded paper and architecture planning | Historical |
 
-## Setup
+## Functional compatibility commands
 
-Expected local layout:
-
-```text
-coding/
-  .venv3_10/
-  onlinearith/
-  transformers/
-  Qwen3-0.6B/
-```
-
-Use the parent-directory virtualenv:
+Run the established commands from the repository root exactly as before:
 
 ```bash
-cd /path/to/onlinearith
-source ../.venv3_10/bin/activate
-export PYTHONPATH="$(pwd)/../transformers/src:${PYTHONPATH}"
+../.venv3_10/bin/python ppltest.py --list
+../.venv3_10/bin/python ppl_batch.py --list
+../.venv3_10/bin/python calibrate.py --list
 ```
 
-Commands in this README can also be run explicitly as `../.venv3_10/bin/python ...`.
+The modified Qwen3 model remains in the sibling checkout at
+`../transformers/src/transformers/models/qwen3/`. No model, calibration, PPL,
+or result-schema behavior was relocated as part of this reorganization.
 
-## Common Commands
+## Hardware starting point
 
-```bash
-python ppltest.py --list
-python ppltest.py --setup 6 --stats lite --limit-samples 2
-python ppl_batch.py --list
-python calibrate.py --list
-python test_mxfp8linear.py
-python test_fixed_sum_optimizer.py
-```
+Start with:
 
-Qwen3-8B OOM iteration checks:
+- [`hardware_sim/docs/architecture_contract.md`](hardware_sim/docs/architecture_contract.md)
+- [`hardware_sim/docs/evidence_contract.md`](hardware_sim/docs/evidence_contract.md)
+- [`hardware_sim/docs/development_plan.md`](hardware_sim/docs/development_plan.md)
 
-```bash
-python tests/test_mx_exact_chunked.py
-python tests/test_mxfp_weight_cache_compact.py
-python tools/probe_mxfp_memory.py --model-path ../Qwen3-8B --setup 2 --seq-len 4096 --stats off --mx-chunk-target-mib 256 --weight-cache-dtype float16
-```
-
-Multi-process examples:
-
-```bash
-python ppltest.py --nproc 4 --gpus 4,5,6,7 --setup 6
-python ppl_batch.py --nproc 8 --only 2 6 10
-torchrun --nproc_per_node=2 test_distributed.py
-```
-
-## PPL Methodology Invariants
-
-Full PPL uses WikiText-2 raw test, `MAX_LENGTH = 4096`, `STRIDE = 512`, masked context labels, and weighted NLL accumulation (`loss * trg_len` divided by total scored tokens). Do not average window losses directly.
-
-`--limit-samples` is only a smoke-test shortcut. Results produced with sample limits are not final PPL numbers.
-
-## Distributed Note
-
-Current `--nproc` behavior is data-parallel execution with full model replicas. Each rank loads a complete model copy. This can improve throughput for smaller runs, but it is not model sharding and does not solve Qwen3-8B per-GPU OOM by itself.
-
-## Documentation
-
-- Codex quality gates: `docs/codex/`, `tools/`, `tests/`, and `scripts/run_repo_quality_gate.sh`
-- Baseline notes: `docs/baselines/`
-- Calibration notes: `docs/calibration/`
-- Qwen3 final experiment context: `docs/qwen3_final_experiments/`
-- Qwen3 single-setup runtime estimates: `docs/qwen3_final_experiments/runtime_estimates.md`
-- Developer notes, including modular converter details: `docs/dev/`
-- Archived/obsolete material: `docs/archive/`
-
-Deep-pipeline material is archived/abandoned unless explicitly requested. Existing setup IDs are preserved for compatibility, but deep pipeline is not part of the immediate OOM-fix path.
-
-## Active Work
-
-The active Qwen3 final experiment iteration is tracked in
-`docs/qwen3_final_experiments/`. Always-read files are intentionally short; detailed
-evidence, implementation history, and sharding notes live under
-`docs/qwen3_final_experiments/references/`.
-
-Current focus:
-
-1. Validate `ppltest.py --device-map {auto,sequential,balanced}` for final
-   Qwen3 PPL experiments without combining it with `--nproc`.
-2. Keep `docs/qwen3_final_experiments/runtime_estimates.md` updated for one representative
-   setup per path: MXFP8 baseline, fixed-sum MSD 30 dB, WANDA 2:4, activation
-   2:4.
-3. Preserve PPL methodology and record sharding/timing metadata explicitly.
-
-Do not change `MAX_LENGTH`, `STRIDE`, dataset split, tokenizer behavior, calibration semantics, setup IDs, or result schemas as part of this iteration.
+The hardware directories intentionally contain documentation and harness
+boundaries before implementation. Operand formats and the schedule-to-multiply
+translation must be frozen before active RTL or circuit-reference code is
+added.

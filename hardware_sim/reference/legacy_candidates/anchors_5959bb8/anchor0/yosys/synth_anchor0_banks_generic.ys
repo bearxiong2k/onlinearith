@@ -1,0 +1,18 @@
+# Anchor 0 storage only (rawexp shadow + double-buffered delay banks).
+# This generic script keeps inferred memories intact so you can inspect bit
+# counts before deciding whether to map them to flops or SRAM macros.
+
+# Ensure build/ exists before running this script.
+
+read_verilog -sv -I rtl -DA0_B_BLOCKS=128 -DA0_ERAW_W=9 -DA0_D_W=9 rtl/anchor0_shadow_banks.sv
+hierarchy -check -top anchor0_shadow_banks
+
+proc
+opt
+memory -nomap
+opt
+clean -purge
+
+tee -o build/anchor0_banks_generic.rpt stat -width
+write_json build/anchor0_banks_generic.json
+write_verilog -noattr build/anchor0_banks_generic_netlist.v

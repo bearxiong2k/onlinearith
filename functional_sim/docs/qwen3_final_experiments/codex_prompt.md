@@ -56,7 +56,7 @@ Work in:
 
 ## File Map
 
-- Active plan: `docs/qwen3_final_experiments/active_plan.md`
-- Final commands: `docs/qwen3_final_experiments/final_run_commands.md`
-- Detailed measurements: `docs/qwen3_final_experiments/references/evidence_log.md`
-- Implementation history: `docs/qwen3_final_experiments/references/implementation_notes.md`
+- Active plan: `functional_sim/docs/qwen3_final_experiments/active_plan.md`
+- Final commands: `functional_sim/docs/qwen3_final_experiments/final_run_commands.md`
+- Detailed measurements: `functional_sim/docs/qwen3_final_experiments/references/evidence_log.md`
+- Implementation history: `functional_sim/docs/qwen3_final_experiments/references/implementation_notes.md`

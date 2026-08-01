@@ -1,0 +1,23 @@
+# Generic synthesis for the integrated Anchor 1 top.
+# Use this for full-anchor timing sanity and later per-action energy studies.
+#
+# Usage:
+#   mkdir -p build
+#   yosys -s yosys/anchor1_sched_anchor_generic.ys
+
+read_verilog -sv rtl/tss_anchor1_window_builder.sv rtl/tss_anchor1_cfg_bank.sv rtl/tss_anchor1_sched_anchor.sv
+chparam -set K 32 -set D_W 6 -set LAMBDA_W 4 -set H_W 6 -set START_W 6 -set REM_W 6 tss_anchor1_sched_anchor
+hierarchy -check -top tss_anchor1_sched_anchor
+proc
+opt
+fsm
+opt
+memory
+opt
+techmap
+opt
+abc
+opt_clean -purge
+tee -o build/anchor1_sched_anchor_generic_stat.rpt stat
+write_json build/anchor1_sched_anchor_generic.json
+write_verilog -noattr build/anchor1_sched_anchor_generic_netlist.v

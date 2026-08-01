@@ -1,15 +1,18 @@
 # Hardware Redesign Transition Audit
 
-Status: active pre-reorganization handoff  
-Audit date: 2026-08-01  
+Status: historical audit and redesign rationale
+Audit date: 2026-08-01
+Reorganization completed: 2026-08-01
 Implementation status: no numerical, RTL, trace, or cost-model implementation
 was changed in this audit.
 
 This document records what currently exists across `onlinearith`, the modified
 Transformers fork, `../anchors`, and `../rebuttal`; which parts remain useful;
-and which assumptions are superseded by the revised hardware design. It is the
-working source of truth for the repository reorganization that follows this
-audit.
+and which assumptions are superseded by the revised hardware design. It guided
+the repository reorganization and is now a detailed reference. The current
+sources of truth are `hardware_sim/docs/architecture_contract.md`,
+`hardware_sim/docs/evidence_contract.md`, and
+`hardware_sim/docs/decision_log.md`.
 
 The audit was made against these revisions:
 
@@ -20,9 +23,9 @@ The audit was made against these revisions:
 | `../anchors` | `5959bb8` | old trace-driven RTL/cost anchors A0--A4 |
 | `../rebuttal` | `e13339c` | old end-to-end cost model, trace artifacts, and rebuttal writing |
 
-The uncommitted deletion of the stage-1/stage-2 boundary and local
+The deletion at the audited revision of the stage-1/stage-2 boundary and local
 `down_proj`-consumer sections in
-`archive/paper_planning/hardware_design.md` was preserved. That archived note
+`docs/archive/paper_planning/hardware_design.md` was preserved. That archived note
 still contains other old serial-parallel assumptions and is not the new design
 contract.
 
@@ -630,8 +633,13 @@ The first revised cost model should be mechanically tied to the v2 ledger:
 
 ## 9. Reorganization extraction manifest
 
-The next turn should reorganize, not implement the redesigned kernel. The
-following extraction boundary follows from this audit.
+This manifest guided the completed repository split. The root functional
+commands remain in place as a compatibility surface; functional documentation
+now lives under `functional_sim/`; all new hardware work is rooted at
+`hardware_sim/`. Exact reviewed legacy candidates are quarantined under
+`hardware_sim/reference/`, and the cleared cell files are local under
+`hardware_sim/tech/`. The active redesigned kernel, ledger, and report package
+remain future implementation work governed by the new contracts.
 
 ### Bring into the active project
 
@@ -692,7 +700,7 @@ hold:
 ## 11. Key audited sources
 
 These are the shortest paths back to the evidence used in this audit and the
-likely extraction candidates for the next turn.
+original extraction candidates.
 
 | Topic | Primary source paths |
 |---|---|
