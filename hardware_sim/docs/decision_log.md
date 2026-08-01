@@ -9,9 +9,10 @@ the reason for an older choice
 ### HW-D001 — Separate functional and hardware workstreams
 
 Date: 2026-08-01
-Decision: keep the root functional command surface frozen and place all new
-hardware work under `hardware_sim/`. Functional and hardware evidence meet
-only through a versioned read-only translation/reporting boundary.
+Decision: keep canonical functional source under `functional_sim/`, preserve
+the old root command surface with symlinks, and place all new hardware work
+under `hardware_sim/`. Functional and hardware evidence meet only through a
+versioned read-only translation/reporting boundary.
 Reason: the numerical simulator and redesigned circuit have genuinely
 different semantics, dependencies, tests, and evidence levels.
 

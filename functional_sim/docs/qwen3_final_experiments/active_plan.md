@@ -73,7 +73,7 @@ for all models: Qwen3-0.6B alone took about 19.5 hours, with PPL `19.4307` and
 Formal all-model fixed-sum 17 dB PPL plus sampled stats run:
 
 ```bash
-BACKGROUND=1 scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh
+BACKGROUND=1 functional_sim/scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh
 ```
 
 This runs models sequentially from Qwen3-0.6B to 1.7B to 4B to 8B. For each
@@ -93,7 +93,7 @@ Qwen3-8B stats with `768`, then `512`, then `384`.
 Previous four-method all-model PPL sweep:
 
 ```bash
-BACKGROUND=1 scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh
+BACKGROUND=1 functional_sim/scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh
 ```
 
 Use this only if the quality/PPL sweep needs to be regenerated.
@@ -101,7 +101,7 @@ Use this only if the quality/PPL sweep needs to be regenerated.
 Sampled sparsity/norm work-curve sweep:
 
 ```bash
-BACKGROUND=1 scripts/run_qwen3_sparsity_norm_sweep300_4gpu.sh
+BACKGROUND=1 functional_sim/scripts/run_qwen3_sparsity_norm_sweep300_4gpu.sh
 ```
 
 By default this runs Qwen3-8B, 4B, and 1.7B. It writes fixed-sum stats, WANDA
@@ -114,7 +114,7 @@ sampled PPL, activation sampled PPL, and a combined summary under:
 Monitor future active runs with per-process ETA:
 
 ```bash
-../.venv3_10/bin/python scripts/monitor_qwen3_sweep_eta.py --log-root ../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_<RUN_ID> --watch 60
+../.venv3_10/bin/python functional_sim/scripts/monitor_qwen3_sweep_eta.py --log-root ../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_<RUN_ID> --watch 60
 ```
 
 ## Invariants
@@ -139,9 +139,9 @@ Monitor future active runs with per-process ETA:
 ## Cheap Contracts
 
 ```bash
-../.venv3_10/bin/python ppltest.py --list
-../.venv3_10/bin/python ppl_batch.py --list
-../.venv3_10/bin/python calibrate.py --list
-../.venv3_10/bin/python -m py_compile scripts/summarize_qwen3_fixed_sum17_ppl_stats.py scripts/summarize_fixed_sum_norm_sweep.py scripts/summarize_qwen3_model_sweep.py scripts/summarize_qwen3_sparsity_norm_sweep300.py
-bash -n scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh scripts/run_qwen3_fixed_sum_norm_target_sweep.sh scripts/run_qwen3_sparsity_norm_sweep300_4gpu.sh
+../.venv3_10/bin/python functional_sim/ppltest.py --list
+../.venv3_10/bin/python functional_sim/ppl_batch.py --list
+../.venv3_10/bin/python functional_sim/calibrate.py --list
+../.venv3_10/bin/python -m py_compile functional_sim/scripts/summarize_qwen3_fixed_sum17_ppl_stats.py functional_sim/scripts/summarize_fixed_sum_norm_sweep.py functional_sim/scripts/summarize_qwen3_model_sweep.py functional_sim/scripts/summarize_qwen3_sparsity_norm_sweep300.py
+bash -n functional_sim/scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh functional_sim/scripts/run_qwen3_fixed_sum_norm_target_sweep.sh functional_sim/scripts/run_qwen3_sparsity_norm_sweep300_4gpu.sh
 ```

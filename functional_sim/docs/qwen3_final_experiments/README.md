@@ -29,22 +29,22 @@ implementation history under `references/`.
 
 ## Frozen executable surface
 
-The established scripts and tests remain at repo root for compatibility. Do
-not keep duplicate executable copies under this documentation directory or
-edit them for hardware-simulation work.
+The canonical scripts and tests live under `functional_sim/`; root-level names
+remain compatibility symlinks. Do not keep duplicate executable copies or edit
+them for hardware-simulation work.
 
-- `scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh`
-- `scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh`
-- `scripts/run_qwen3_fixed_sum_norm_target_sweep.sh`
-- `scripts/summarize_qwen3_model_sweep.py`
-- `scripts/summarize_qwen3_fixed_sum17_ppl_stats.py`
-- `scripts/summarize_fixed_sum_norm_sweep.py`
-- `tools/probe_mxfp_memory.py`
-- `tools/merge_msd_calibrations.py`
-- `tests/test_mx_exact_chunked.py`
-- `tests/test_mxfp_weight_cache_compact.py`
-- `tests/test_msd_truncate_equivalence.py`
-- `tests/test_ppl_device_map_utils.py`
-- `tests/test_ppl_tail_logits_loss.py`
-- `tests/test_nm_keep_semantics.py`
-- `tests/test_merge_msd_calibrations.py`
+- `functional_sim/scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh`
+- `functional_sim/scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh`
+- `functional_sim/scripts/run_qwen3_fixed_sum_norm_target_sweep.sh`
+- `functional_sim/scripts/summarize_qwen3_model_sweep.py`
+- `functional_sim/scripts/summarize_qwen3_fixed_sum17_ppl_stats.py`
+- `functional_sim/scripts/summarize_fixed_sum_norm_sweep.py`
+- `functional_sim/tools/probe_mxfp_memory.py`
+- `functional_sim/tools/merge_msd_calibrations.py`
+- `functional_sim/tests/test_mx_exact_chunked.py`
+- `functional_sim/tests/test_mxfp_weight_cache_compact.py`
+- `functional_sim/tests/test_msd_truncate_equivalence.py`
+- `functional_sim/tests/test_ppl_device_map_utils.py`
+- `functional_sim/tests/test_ppl_tail_logits_loss.py`
+- `functional_sim/tests/test_nm_keep_semantics.py`
+- `functional_sim/tests/test_merge_msd_calibrations.py`

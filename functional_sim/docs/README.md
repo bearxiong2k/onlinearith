@@ -17,7 +17,6 @@ evidence. It is not the starting point for hardware development.
 - [Repository quality gate](codex/README.md)
 - [Modular converter guide](dev/modular_converter_guide.md)
 
-The files still use root-level command names because those commands remain the
-supported compatibility interface. New RTL, circuit traces, and hardware cost
-documents belong under `hardware_sim/`.
-
+Canonical implementation paths begin with `functional_sim/`. Historical
+root-level command names remain supported through symlinks. New RTL, circuit
+traces, and hardware cost documents belong under `hardware_sim/`.

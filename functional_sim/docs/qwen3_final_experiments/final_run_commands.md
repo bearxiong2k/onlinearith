@@ -50,7 +50,7 @@ can be run sequentially on one GPU by setting `DOWN_GPU`, or launched on
 separate idle GPUs by giving each command a different `--gpus` value.
 
 ```bash
-../.venv3_10/bin/python calibrate.py \
+../.venv3_10/bin/python functional_sim/calibrate.py \
   --model-path "$MODEL" \
   --setup 1 \
   --optimizer fixed_sum \
@@ -67,7 +67,7 @@ separate idle GPUs by giving each command a different `--gpus` value.
   --compile-msd-truncate \
   --gpus 0
 
-../.venv3_10/bin/python calibrate.py \
+../.venv3_10/bin/python functional_sim/calibrate.py \
   --model-path "$MODEL" \
   --setup 1 \
   --optimizer fixed_sum \
@@ -98,7 +98,7 @@ for spec in \
 do
   suffix=${spec%%:*}
   filter=${spec#*:}
-  ../.venv3_10/bin/python calibrate.py \
+  ../.venv3_10/bin/python functional_sim/calibrate.py \
     --model-path "$MODEL" \
     --setup 1 \
     --optimizer fixed_sum \
@@ -120,7 +120,7 @@ done
 Merge the disjoint projection outputs:
 
 ```bash
-../.venv3_10/bin/python tools/merge_msd_calibrations.py \
+../.venv3_10/bin/python functional_sim/tools/merge_msd_calibrations.py \
   "$MSD_DIR/calibration_MXFP8_fixed_sum_qwen8b_final_gate.json" \
   "$MSD_DIR/calibration_MXFP8_fixed_sum_qwen8b_final_up.json" \
   "$MSD_DIR/calibration_MXFP8_fixed_sum_qwen8b_final_down_l00.json" \
@@ -136,7 +136,7 @@ Generate a Qwen3-8B-shaped WANDA mask with a suffix, so it cannot collide with
 the existing smaller-model mask:
 
 ```bash
-../.venv3_10/bin/python wanda_base/calibrate_base.py \
+../.venv3_10/bin/python functional_sim/wanda_base/calibrate_base.py \
   --model-path "$MODEL" \
   --results-root "$WANDA_ROOT" \
   -n 2 -m 4 \
@@ -162,7 +162,7 @@ Current GPU availability limits the final run to GPUs 4-7. Prefer the
 resumable end-to-end wrapper:
 
 ```bash
-GPUS=4,5,6,7 NPROC=4 scripts/run_qwen3_final_ppl_4gpu.sh
+GPUS=4,5,6,7 NPROC=4 functional_sim/scripts/run_qwen3_final_ppl_4gpu.sh
 ```
 
 The wrapper runs MXFP8, fixed-sum MSD 30 dB, WANDA 2:4, and activation N:M
@@ -174,7 +174,7 @@ failing step. The individual commands below are the expanded form.
 ### MXFP8 Baseline
 
 ```bash
-../.venv3_10/bin/python ppltest.py \
+../.venv3_10/bin/python functional_sim/ppltest.py \
   --model-path "$MODEL" \
   --setup 2 \
   --nproc "$NPROC" \
@@ -188,7 +188,7 @@ failing step. The individual commands below are the expanded form.
 ### Fixed-Sum MSD 30 dB
 
 ```bash
-../.venv3_10/bin/python ppltest.py \
+../.venv3_10/bin/python functional_sim/ppltest.py \
   --model-path "$MODEL" \
   --setup 6 \
   --calibration "$MSD_CAL" \
@@ -208,7 +208,7 @@ Use `--window-shard`; default baseline-runner `--nproc` shards setup IDs and
 does not accelerate a single selected setup.
 
 ```bash
-../.venv3_10/bin/python wanda_base/ppl_batch_base.py \
+../.venv3_10/bin/python functional_sim/wanda_base/ppl_batch_base.py \
   --model-path "$MODEL" \
   --results-root "$WANDA_ROOT" \
   -n 2 -m 4 \
@@ -224,7 +224,7 @@ does not accelerate a single selected setup.
 ### Activation N:M 2:4
 
 ```bash
-../.venv3_10/bin/python act_base/ppl_batch_base_act.py \
+../.venv3_10/bin/python functional_sim/act_base/ppl_batch_base_act.py \
   --model-path "$MODEL" \
   --results-root "$ACT_ROOT" \
   -n 2 -m 4 \
@@ -242,7 +242,7 @@ Use the unattended wrapper for the Qwen3-0.6B, Qwen3-1.7B, Qwen3-4B, and
 Qwen3-8B quality/PPL sweep:
 
 ```bash
-BACKGROUND=1 scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh
+BACKGROUND=1 functional_sim/scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh
 ```
 
 This prepares smaller-model fixed-sum 30 dB and WANDA artifacts, runs full PPL
@@ -268,7 +268,7 @@ ranks.
 Run this for the formal 50% equivalent-work fixed-sum data:
 
 ```bash
-BACKGROUND=1 scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh
+BACKGROUND=1 functional_sim/scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh
 ```
 
 For the operator handoff, monitoring commands, and artifact layout, see
@@ -301,7 +301,7 @@ Outputs and summaries are written under:
 ```
 
 Use `UTIL_LIMIT_SAMPLES=120` only with
-`scripts/run_qwen3_fixed_sum_norm_target_sweep.sh` for smoke or work-point
+`functional_sim/scripts/run_qwen3_fixed_sum_norm_target_sweep.sh` for smoke or work-point
 selection probes.
 
 ## Sampled Sparsity/Norm Curve Sweep
@@ -312,7 +312,7 @@ because it is already covered in the paper figure, and prioritizes Qwen3-8B,
 4B, and 1.7B:
 
 ```bash
-BACKGROUND=1 scripts/run_qwen3_sparsity_norm_sweep300_4gpu.sh
+BACKGROUND=1 functional_sim/scripts/run_qwen3_sparsity_norm_sweep300_4gpu.sh
 ```
 
 The default grid is:
@@ -332,13 +332,13 @@ For launch, monitoring commands, and artifact layout, see
 Default monitor for this sweep, with per-process ETA:
 
 ```bash
-../.venv3_10/bin/python scripts/monitor_qwen3_sweep_eta.py --log-root ../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_<RUN_ID> --watch 60
+../.venv3_10/bin/python functional_sim/scripts/monitor_qwen3_sweep_eta.py --log-root ../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_<RUN_ID> --watch 60
 ```
 
 If companion runs are active under multiple log roots:
 
 ```bash
-../.venv3_10/bin/python scripts/monitor_qwen3_sweep_eta.py --all-log-roots --watch 60
+../.venv3_10/bin/python functional_sim/scripts/monitor_qwen3_sweep_eta.py --all-log-roots --watch 60
 ```
 
 ## Expected Wall Times

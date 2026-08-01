@@ -34,7 +34,7 @@ Default models: `qwen8b qwen4b qwen1_7b`.
 ## Launch
 
 ```bash
-BACKGROUND=1 scripts/run_qwen3_sparsity_norm_sweep300_4gpu.sh
+BACKGROUND=1 functional_sim/scripts/run_qwen3_sparsity_norm_sweep300_4gpu.sh
 ```
 
 Useful overrides:
@@ -43,7 +43,7 @@ Useful overrides:
 TARGET_SNRS="15 17 20" \
 NM_POINTS="1:4 2:4 3:4" \
 ARTIFACT_GPUS="4,5,6,7" \
-BACKGROUND=1 scripts/run_qwen3_sparsity_norm_sweep300_4gpu.sh
+BACKGROUND=1 functional_sim/scripts/run_qwen3_sparsity_norm_sweep300_4gpu.sh
 ```
 
 To add the former 0.6B model back into the sweep:
@@ -51,7 +51,7 @@ To add the former 0.6B model back into the sweep:
 ```bash
 MODEL_SPECS="qwen0_6b:../Qwen3-0.6B:float16 qwen1_7b:../Qwen3-1.7B:float16 qwen4b:../Qwen3-4B:float16 qwen8b:../Qwen3-8B:float8" \
 FIXED_SUM_PHASES="qwen8b@17 qwen4b@17 qwen1_7b@17 qwen0_6b@15,17,20 qwen4b@15,20 qwen1_7b@15,20" \
-BACKGROUND=1 scripts/run_qwen3_sparsity_norm_sweep300_4gpu.sh
+BACKGROUND=1 functional_sim/scripts/run_qwen3_sparsity_norm_sweep300_4gpu.sh
 ```
 
 ## Monitor
@@ -66,20 +66,20 @@ The background wrapper prints the exact timestamped log directory, for example:
 Monitor active tasks with per-process ETA:
 
 ```bash
-../.venv3_10/bin/python scripts/monitor_qwen3_sweep_eta.py --log-root ../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_YYYYMMDD_HHMMSS
+../.venv3_10/bin/python functional_sim/scripts/monitor_qwen3_sweep_eta.py --log-root ../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_YYYYMMDD_HHMMSS
 ```
 
 Refresh it automatically:
 
 ```bash
-../.venv3_10/bin/python scripts/monitor_qwen3_sweep_eta.py --log-root ../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_YYYYMMDD_HHMMSS --watch 60
+../.venv3_10/bin/python functional_sim/scripts/monitor_qwen3_sweep_eta.py --log-root ../data/qwen3_final_experiments/sparsity_norm_sweep300/logs/sweep300_YYYYMMDD_HHMMSS --watch 60
 ```
 
 When companion runs use separate log roots, monitor all active sweep processes
 with:
 
 ```bash
-../.venv3_10/bin/python scripts/monitor_qwen3_sweep_eta.py --all-log-roots --watch 60
+../.venv3_10/bin/python functional_sim/scripts/monitor_qwen3_sweep_eta.py --all-log-roots --watch 60
 ```
 
 The ETA monitor is the default monitoring method for future runs. It combines

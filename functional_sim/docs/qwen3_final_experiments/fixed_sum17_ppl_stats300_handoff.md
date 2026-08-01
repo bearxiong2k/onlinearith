@@ -11,7 +11,7 @@ Run from the repository root:
 ```bash
 cd /home/xzj/coding/onlinearith
 ../.venv3_10/bin/python -c 'import torch; print(torch.cuda.is_available(), torch.cuda.device_count())'
-BACKGROUND=1 scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh
+BACKGROUND=1 functional_sim/scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh
 ```
 
 The CUDA check should print `True 8`; the script uses GPUs 4-7 by default.
@@ -44,13 +44,13 @@ through `driver.log`, matching the previous final experiment sweep behavior.
 For a clean one-screen progress view of the active step:
 
 ```bash
-watch -n 30 scripts/monitor_qwen3_fixed_sum17_ppl_stats300.sh <RUN_ID>
+watch -n 30 functional_sim/scripts/monitor_qwen3_fixed_sum17_ppl_stats300.sh <RUN_ID>
 ```
 
 Example:
 
 ```bash
-watch -n 30 scripts/monitor_qwen3_fixed_sum17_ppl_stats300.sh 20260602_150000
+watch -n 30 functional_sim/scripts/monitor_qwen3_fixed_sum17_ppl_stats300.sh 20260602_150000
 ```
 
 For the sampled stats phase, the per-model logs are:
@@ -154,7 +154,7 @@ The wrapper now uses smaller Qwen8B stats chunks, trying `768`, then `512`,
 then `384`. To resume after the failed run, rerun the same wrapper:
 
 ```bash
-BACKGROUND=1 scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh
+BACKGROUND=1 functional_sim/scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh
 ```
 
 Existing calibration, full-PPL outputs, and completed stats outputs are skipped.
@@ -164,7 +164,7 @@ To run only the missing Qwen8B row:
 
 ```bash
 MODEL_JOBS='qwen8b:../Qwen3-8B:float8:float8:4:256:64:768,512,384' \
-BACKGROUND=1 scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh
+BACKGROUND=1 functional_sim/scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh
 ```
 
 ## Interrupted Prior Run

@@ -18,9 +18,9 @@ Deliverables:
 - local cleared technology files with source/checksum metadata;
 - ignored generated-artifact boundary.
 
-Exit condition: root functional list commands still pass; no functional or
-Transformers simulation code changed; no active hardware dependency on
-`../anchors` or `../rebuttal`.
+Exit condition: canonical and root-compatibility functional list commands still
+pass; no functional or Transformers simulation behavior changed; no active
+hardware dependency on `../anchors` or `../rebuttal`.
 
 ## Phase 1 — freeze arithmetic and transaction contracts
 

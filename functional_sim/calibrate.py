@@ -1,0 +1,665 @@
+"""
+Offline MSD budget calibration across MXFP formats.
+
+Supports **multi-GPU** — either auto-launched (recommended) or via torchrun:
+    python calibrate.py --nproc 4                          # auto-launch 4 GPUs (picks free port)
+    python calibrate.py --nproc 4 --gpus 4,5,6,7          # specific GPUs, free port
+    python calibrate.py --nproc 2 --only 1 2               # subset on 2 GPUs
+    python calibrate.py --setup 1                          # single format, single GPU
+
+    # Manual torchrun (you must pick a free port yourself if 29500 is taken):
+    torchrun --nproc_per_node=4 --master-port=29501 calibrate.py
+    torchrun --nproc_per_node=2 --master-port=29501 calibrate.py --gpus 0,3
+
+Each GPU loads its own model copy and calibrates its assigned format(s).
+Formats are partitioned round-robin across ranks; each rank writes its
+result file independently (no inter-rank communication during calibration).
+
+Output files:  calibration_{tag}.json  (e.g. calibration_MXFP8.json)
+
+Usage:
+    cd /path/to/onlinearith
+    source ../.venv3_10/bin/activate
+
+    python calibrate.py --list                                # list setups
+    python calibrate.py --setup 1                             # single format
+    python calibrate.py --nproc 4                             # all 4 formats, auto port
+    python calibrate.py --nproc 4 --gpus 4,5,6,7             # specific GPUs
+    python calibrate.py --nproc 4 --target-snr 40            # custom SNR
+    python calibrate.py --nproc 4 --force                    # re-run existing
+"""
+
+import argparse
+import json
+import os
+import sys
+import time
+from pathlib import Path
+
+
+def _apply_cuda_visible_devices_from_argv(argv: list[str]) -> None:
+    """Honor --gpus before torch is imported and CUDA device state is cached."""
+    for idx, arg in enumerate(argv):
+        if arg == "--gpus" and idx + 1 < len(argv):
+            os.environ["CUDA_VISIBLE_DEVICES"] = argv[idx + 1]
+            return
+        if arg.startswith("--gpus="):
+            os.environ["CUDA_VISIBLE_DEVICES"] = arg.split("=", 1)[1]
+            return
+
+
+_apply_cuda_visible_devices_from_argv(sys.argv[1:])
+os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
+
+import torch
+from datasets import load_dataset
+from tqdm import tqdm
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers.models.qwen3.calibration_msd import (
+    calibrate_channel_budgets,
+    collect_layer_block_cache,
+    solve_min_snr_budgets_from_cache,
+    build_error_curves_from_cache,
+    solve_fixed_sum_from_error_curves,
+    evaluate_budget_vector_from_cache,
+    configure_calibration_runtime,
+)
+
+from dist_utils import (
+    cleanup_distributed,
+    file_barrier,
+    init_distributed_lite,
+    is_main,
+    maybe_relaunch_with_torchrun,
+    restrict_gpus,
+    suppress_warnings,
+)
+from experiment_config import (
+    BASELINE_CONFIG,
+    apply_config,
+    format_config_banner,
+    get_active_flags,
+    reconfigure_mlp_layers,
+    reset_to_baseline,
+    clear_mxfp_weight_cache,
+)
+from runtime_paths import default_data_dir, default_model_path, describe_missing_model_path, normalize_output_dir
+
+# ── Constants ─────────────────────────────────────────────────────────────────
+MODEL_PATH  = default_model_path("Qwen3-0.6B")
+RESULTS_DIR = default_data_dir()
+CAL_DATASET = ("wikitext", "wikitext-2-raw-v1", "validation")
+
+# ── Calibration setups (one per MXFP format) ─────────────────────────────────
+CAL_SETUPS = [
+    (1, "MXFP8",      "MXFP8 (E4M3FN)",
+     {"use_mxfp8": True}),
+    (2, "MXFP6_E2M3", "MXFP6 E2M3",
+     {"use_mxfp6": True, "mxfp6_format": "e2m3"}),
+    (3, "MXFP6_E3M2", "MXFP6 E3M2",
+     {"use_mxfp6": True, "mxfp6_format": "e3m2"}),
+    (4, "MXFP4",      "MXFP4 (E2M1)",
+     {"use_mxfp4": True}),
+]
+
+
+def _load_text_manifest(manifest_path: Path) -> list[str]:
+    """
+    Load calibration texts from a manifest file.
+
+    Supported formats:
+      - .json   : ["text", ...] or {"texts": [...]} or [{"text": ...}, ...]
+      - .jsonl  : one JSON value/object per line (string or {"text": ...})
+      - others  : plain text split by blank lines (fallback to non-empty lines)
+    """
+    suffix = manifest_path.suffix.lower()
+
+    def _normalize(items):
+        out = []
+        for item in items:
+            if isinstance(item, str):
+                text = item.strip()
+            elif isinstance(item, dict) and isinstance(item.get("text"), str):
+                text = item["text"].strip()
+            else:
+                continue
+            if text:
+                out.append(text)
+        return out
+
+    if suffix == ".json":
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            data = data.get("texts", [])
+        if not isinstance(data, list):
+            raise ValueError(f"JSON manifest must be a list or contain 'texts': {manifest_path}")
+        texts = _normalize(data)
+    elif suffix == ".jsonl":
+        rows = []
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                rows.append(json.loads(line))
+        texts = _normalize(rows)
+    else:
+        raw = manifest_path.read_text(encoding="utf-8")
+        chunks = [c.strip() for c in raw.split("\n\n") if c.strip()]
+        if len(chunks) <= 1:
+            chunks = [c.strip() for c in raw.splitlines() if c.strip()]
+        texts = chunks
+
+    if not texts:
+        raise ValueError(f"No non-empty texts found in manifest: {manifest_path}")
+    return texts
+
+
+def _build_result_file(output_dir: Path, tag: str, optimizer: str, suffix: str) -> Path:
+    optimizer_suffix = "_fixed_sum" if optimizer == "fixed_sum" else ""
+    run_suffix = f"_{suffix}" if suffix else ""
+    return output_dir / f"calibration_{tag}{optimizer_suffix}{run_suffix}.json"
+
+
+def _snr_to_dir_name(target_snr: float) -> str:
+    # Keep whole-number SNRs compact (e.g., 30db) and preserve decimals otherwise.
+    if float(target_snr).is_integer():
+        return f"{int(target_snr)}db"
+    return f"{target_snr:g}db"
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="MSD budget calibration for MXFP formats (multi-GPU via torchrun)"
+    )
+    parser.add_argument("--list", action="store_true",
+                        help="List all calibration setups and exit")
+    parser.add_argument("--setup", type=int, default=None, metavar="ID",
+                        help="Run a single setup by ID (1-4)")
+    parser.add_argument("--only", nargs="+", type=int, metavar="ID",
+                        help="Run only these setup IDs (e.g. --only 1 2)")
+    parser.add_argument("--force", action="store_true",
+                        help="Re-run even if calibration file already exists")
+    parser.add_argument("--nproc", type=int, default=None, metavar="N",
+                        help="Number of GPU workers. Auto-launches via torchrun "
+                             "with a free port (avoids EADDRINUSE). "
+                             "Replaces manual 'torchrun --nproc_per_node=N'.")
+    parser.add_argument("--gpus", type=str, default=None,
+                        help="Comma-separated physical GPU IDs, e.g. '4,5,6,7'. "
+                             "Must match --nproc (or --nproc_per_node if using torchrun).")
+    parser.add_argument("--target-snr", type=float, default=30.0,
+                        help="Target SNR in dB (default: 30.0). Higher = more budget.")
+    parser.add_argument("--num-texts", type=int, default=20,
+                        help="Number of calibration paragraphs (default: 20)")
+    parser.add_argument("--max-length", type=int, default=512,
+                        help="Max token length per calibration sample (default: 512)")
+    parser.add_argument("--batch-size", type=int, default=4,
+                        help="Batch size for calibration forward passes (default: 4)")
+    parser.add_argument("--online-delay", type=int, default=2,
+                        help="MSD online delay δ (default: 2)")
+    parser.add_argument("--detail-layer", type=int, default=2, metavar="L",
+                        help="Transformer layer index for full per-channel "
+                             "statistics (default: 2). The 3 MLP projections "
+                             "(gate/up/down) of this layer get channel-wise "
+                             "detail; all other layers only get compact summaries.")
+    # ── Fixed-sum optimizer arguments ──
+    parser.add_argument("--optimizer", type=str, choices=["snr_min", "fixed_sum"],
+                        default="snr_min",
+                        help="Optimization mode: snr_min (existing binary search) or "
+                             "fixed_sum (redistribution from high-gain to low-loss channels)")
+    parser.add_argument("--holdout-fraction", type=float, default=0.0,
+                        help="Fraction of texts to hold out for validation (0.0 = no holdout)")
+    parser.add_argument("--projection-filter", type=str, default=None,
+                        help="Only calibrate matching projections (e.g., 'gate_proj' or 'up_proj,down_proj')")
+    parser.add_argument("--curve-window", type=int, default=3,
+                        help="Budget window for error curve computation (default: 3)")
+    parser.add_argument("--save-curve-detail", action="store_true",
+                        help="Save full error curve data to JSON (large)")
+    parser.add_argument("--text-manifest", type=str, default=None, metavar="FILE",
+                        help="Optional manifest file with calibration texts. If set, "
+                             "bypasses built-in dataset loading/slicing and uses exactly "
+                             "these texts.")
+    parser.add_argument("--output-dir", type=str, default=None, metavar="DIR",
+                        help="Override output directory for calibration JSON files.")
+    parser.add_argument("--model-path", type=str, default=MODEL_PATH, metavar="DIR",
+                        help=f"Local model directory (default: {MODEL_PATH})")
+    parser.add_argument("--results-dir", type=str, default=None, metavar="DIR",
+                        help=f"Base directory for default calibration outputs (default: {RESULTS_DIR})")
+    parser.add_argument("--result-suffix", type=str, default="", metavar="NAME",
+                        help="Optional suffix appended to result filenames for split-specific runs.")
+    parser.add_argument("--mx-chunk-target-mib", type=int, default=None,
+                        help="Exact MX output chunk target in MiB used during calibration capture.")
+    parser.add_argument("--mxfp8-block-size", type=int, default=None,
+                        help="Override MXFP8 block size for K sensitivity experiments.")
+    parser.add_argument("--cal-chunk-target-mib", type=int, default=None,
+                        help="Calibration solver 4D intermediate chunk target in MiB.")
+    parser.add_argument("--weight-cache-dtype", choices=["float16", "float32", "float8", "none"], default=None,
+                        help="Persistent MXFP quantized-weight cache storage during calibration capture.")
+    parser.add_argument("--compile-msd-truncate", action="store_true",
+                        help="Compile the calibration MSD truncation primitive with torch.compile.")
+    args = parser.parse_args()
+    if args.mxfp8_block_size is not None and args.mxfp8_block_size <= 0:
+        print("Error: --mxfp8-block-size must be a positive integer.")
+        return
+    model_path = args.model_path
+    base_results_dir = normalize_output_dir(args.results_dir, RESULTS_DIR)
+    configure_calibration_runtime(
+        chunk_target_mib=args.cal_chunk_target_mib,
+        compile_msd_truncate=args.compile_msd_truncate,
+    )
+
+    if args.output_dir:
+        output_dir = Path(args.output_dir).expanduser().resolve()
+    else:
+        output_dir = base_results_dir / "calib-data" / _snr_to_dir_name(args.target_snr)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    result_suffix = args.result_suffix.strip()
+
+    restrict_gpus(args.gpus)
+    maybe_relaunch_with_torchrun(args.nproc)
+
+    # ── Distributed init (no NCCL — ranks work independently) ──
+    rank, world_size, local_rank, device = init_distributed_lite()
+    suppress_warnings(rank)
+    dtype = torch.float16 if device.type == "cuda" else torch.float32
+
+    # ── List mode ──
+    if args.list:
+        if is_main(rank):
+            print(f"\n{'ID':>3}  {'Tag':<15}  Description")
+            print("-" * 50)
+            for sid, tag, desc, _ in CAL_SETUPS:
+                result_file = _build_result_file(output_dir, tag, args.optimizer, result_suffix)
+                exists = "  (done)" if result_file.exists() else ""
+                print(f"{sid:3d}  {tag:<15}  {desc}{exists}")
+            print(f"\nOutput dir: {output_dir}")
+            print()
+        cleanup_distributed()
+        return
+
+    # ── Select setups ──
+    if args.setup is not None:
+        # --setup overrides --only
+        selected = next((s for s in CAL_SETUPS if s[0] == args.setup), None)
+        if selected is None:
+            if is_main(rank):
+                print(f"Unknown setup ID: {args.setup}. "
+                      f"Valid IDs: {[s[0] for s in CAL_SETUPS]}. Use --list.")
+            cleanup_distributed()
+            return
+        run_setups = [selected]
+    elif args.only:
+        selected_ids = set(args.only)
+        run_setups = [s for s in CAL_SETUPS if s[0] in selected_ids]
+        if not run_setups:
+            if is_main(rank):
+                print(f"No matching setup IDs: {args.only}")
+                print(f"Valid IDs: {[s[0] for s in CAL_SETUPS]}")
+            cleanup_distributed()
+            return
+    else:
+        run_setups = list(CAL_SETUPS)
+
+    # Partition setups across ranks (round-robin)
+    my_setups = run_setups[rank::world_size]
+
+    if is_main(rank):
+        print(f"World size: {world_size}  |  Device: {device}  |  dtype: {dtype}")
+        print(f"Total setups: {len(run_setups)}  |  Setups on this rank: {len(my_setups)}")
+        print(f"Target SNR: {args.target_snr}dB  |  Calibration texts: {args.num_texts}")
+        print(f"Detail layer: {args.detail_layer}")
+        print()
+
+    if not my_setups:
+        print(f"[rank {rank}] No setups assigned (more GPUs than setups). Idle.")
+        file_barrier(rank, world_size, base_results_dir)
+        cleanup_distributed()
+        return
+
+    # ── Load model ──
+    if is_main(rank):
+        print("Loading tokenizer & model ...")
+
+    if not Path(model_path).exists():
+        if is_main(rank):
+            print(f"Error: {describe_missing_model_path(model_path)}")
+        cleanup_distributed()
+        return
+
+    tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_path, local_files_only=True, dtype=dtype
+    )
+    model.to(device)
+    model.eval()
+    model.config.use_cache = False
+
+    if is_main(rank):
+        num_params = sum(p.numel() for p in model.parameters())
+        print(f"Model: {model_path}  |  Params: {num_params/1e6:.1f}M")
+
+    # ── Load calibration data ──
+    manifest_path = None
+    if args.text_manifest:
+        manifest_path = Path(args.text_manifest).expanduser().resolve()
+        if not manifest_path.exists():
+            if is_main(rank):
+                print(f"Error: text manifest not found: {manifest_path}")
+            cleanup_distributed()
+            return
+
+        try:
+            cal_texts = _load_text_manifest(manifest_path)
+        except Exception as exc:
+            if is_main(rank):
+                print(f"Error: failed to read text manifest: {exc}")
+            cleanup_distributed()
+            return
+
+        if is_main(rank):
+            print(f"Loading calibration texts from manifest: {manifest_path}")
+    else:
+        ds_name, ds_config, ds_split = CAL_DATASET
+        if is_main(rank):
+            print(f"Loading dataset: {ds_name}/{ds_config} ({ds_split}) ...")
+
+        ds = load_dataset(ds_name, ds_config, split=ds_split)
+        cal_texts = [t for t in ds["text"] if len(t.strip()) > 100][:args.num_texts]
+
+    if not cal_texts:
+        if is_main(rank):
+            print("Error: no calibration texts available after loading input source.")
+        cleanup_distributed()
+        return
+
+    # Split into train/holdout if requested
+    if args.holdout_fraction > 0:
+        n_holdout = int(len(cal_texts) * args.holdout_fraction)
+        cal_texts_train = cal_texts[:-n_holdout] if n_holdout > 0 else cal_texts
+        cal_texts_holdout = cal_texts[-n_holdout:] if n_holdout > 0 else []
+    else:
+        cal_texts_train = cal_texts
+        cal_texts_holdout = []
+
+    if is_main(rank):
+        print(f"Calibration texts: {len(cal_texts_train)} train, {len(cal_texts_holdout)} holdout "
+              f"(max_length={args.max_length}, batch_size={args.batch_size})")
+        print()
+
+    # Parse projection filter if requested
+    projection_filter = None
+    if args.projection_filter:
+        projection_filter = {proj.strip() for proj in args.projection_filter.split(",") if proj.strip()}
+
+    # ── Run assigned setups ──
+    total_start = time.perf_counter()
+
+    setup_iter = list(my_setups)
+    setup_iter = tqdm(
+        setup_iter,
+        desc=f"[rank {rank}] calibration setups",
+        disable=not is_main(rank),
+    )
+
+    for i, (sid, tag, desc, overrides) in enumerate(setup_iter):
+        result_file = _build_result_file(output_dir, tag, args.optimizer, result_suffix)
+
+        print(f"[rank {rank}] {'='*55}")
+        print(f"[rank {rank}]   [{i+1}/{len(my_setups)}]  Setup #{sid}: {desc}")
+        print(f"[rank {rank}]   Tag: {tag}  ->  {result_file.name}")
+        print(f"[rank {rank}]   Optimizer: {args.optimizer}")
+        print(f"[rank {rank}] {'='*55}")
+
+        # Skip if exists
+        if result_file.exists() and not args.force:
+            print(f"[rank {rank}]   Already exists. Use --force to re-run.\n")
+            continue
+
+        # Reset to baseline, then apply this setup's MXFP overrides
+        reset_to_baseline(model.config)
+        apply_config(model.config, overrides)
+        model.config.use_cache = False
+        if args.mxfp8_block_size is not None:
+            model.config.mxfp8_block_size = args.mxfp8_block_size
+        if args.mx_chunk_target_mib is not None:
+            model.config.mxfp_chunk_target_mib = args.mx_chunk_target_mib
+            model.config.mxfp_use_chunked_exact = True
+        if args.weight_cache_dtype is not None:
+            model.config.mxfp_weight_cache_dtype = args.weight_cache_dtype
+        if args.compile_msd_truncate:
+            model.config.msd_compile_truncate = True
+        reconfigure_mlp_layers(model, device)
+        clear_mxfp_weight_cache(model)
+
+        # Show active config
+        banner = format_config_banner(model.config, setup_id=sid, setup_desc=desc)
+        for line in banner.splitlines():
+            print(f"[rank {rank}]   {line}")
+
+        # Run calibration using either legacy or staged API
+        t0 = time.perf_counter()
+
+        if args.optimizer == "snr_min":
+            # Legacy path: use existing calibrate_channel_budgets
+            calibration_data, layer_summaries, channel_details = calibrate_channel_budgets(
+                model, tokenizer, cal_texts_train,
+                target_snr_db=args.target_snr,
+                max_length=args.max_length,
+                batch_size=args.batch_size,
+                online_delay=args.online_delay,
+                show_progress=is_main(rank),
+                progress_prefix=f"[rank {rank}] ",
+                detail_layer=args.detail_layer,
+                projection_filter=projection_filter,
+            )
+            optimizer_stats = {}
+            holdout_eval = {}
+        else:
+            # Staged API path for fixed_sum optimizer
+            # Stage 1: Capture
+            caches = collect_layer_block_cache(
+                model, tokenizer, cal_texts_train,
+                max_length=args.max_length,
+                batch_size=args.batch_size,
+                online_delay=args.online_delay,
+                show_progress=is_main(rank),
+                progress_prefix=f"[rank {rank}] ",
+                projection_filter=projection_filter,
+            )
+
+            # Stage 2: Solve per layer
+            calibration_data = {}
+            layer_summaries = {}
+            channel_details = {}
+            optimizer_stats = {}
+            error_curves_detail = {}
+
+            detail_prefix = f"model.layers.{args.detail_layer}."
+
+            for layer_name, cache in tqdm(
+                list(caches.items()),
+                desc=f"[rank {rank}] solving layers",
+                disable=not is_main(rank),
+            ):
+                # Solve SNR-min (Stage 2a)
+                budgets_snr_min, layer_summary, channel_detail = solve_min_snr_budgets_from_cache(
+                    cache,
+                    target_snr_db=args.target_snr,
+                    collect_channel_detail=(detail_prefix in layer_name),
+                )
+
+                if args.optimizer == "fixed_sum":
+                    # Build error curves (Stage 2b part 1)
+                    curves = build_error_curves_from_cache(
+                        cache, budgets_snr_min, window=args.curve_window
+                    )
+
+                    # Solve fixed-sum (Stage 2b part 2)
+                    budgets_opt, stats = solve_fixed_sum_from_error_curves(curves)
+
+                    # Convert to tensor for potential evaluation
+                    budgets_final = torch.tensor(
+                        budgets_opt, dtype=torch.float32, device=cache.device
+                    )
+
+                    optimizer_stats[layer_name] = stats
+                    if args.save_curve_detail:
+                        # Only save first 100 channels to keep size manageable
+                        error_curves_detail[layer_name] = {
+                            "budget_values": curves.budget_values.tolist(),
+                            "budget_snr_min": curves.budget_snr_min.tolist(),
+                            "errors": curves.errors[:100].tolist(),
+                        }
+                else:
+                    budgets_final = budgets_snr_min
+
+                calibration_data[layer_name] = budgets_final.cpu().tolist()
+                layer_summaries[layer_name] = layer_summary
+                if channel_detail:
+                    channel_details[layer_name] = channel_detail
+
+            # Stage 3: Evaluate on holdout if provided
+            holdout_eval = {}
+            if cal_texts_holdout and args.holdout_fraction > 0:
+                holdout_caches = collect_layer_block_cache(
+                    model, tokenizer, cal_texts_holdout,
+                    max_length=args.max_length,
+                    batch_size=args.batch_size,
+                    online_delay=args.online_delay,
+                    show_progress=False,
+                    projection_filter=projection_filter,
+                )
+                for layer_name, cache in holdout_caches.items():
+                    if layer_name in calibration_data:
+                        budgets = torch.tensor(
+                            calibration_data[layer_name],
+                            dtype=torch.float32,
+                            device=cache.device,
+                        )
+                        holdout_eval[layer_name] = evaluate_budget_vector_from_cache(
+                            cache, budgets
+                        )
+
+        elapsed = time.perf_counter() - t0
+
+        if not calibration_data:
+            print(f"[rank {rank}]   WARNING: No MXFP layers found. Skipping.\n")
+            continue
+
+        # Compute global summary from per-layer summaries
+        all_budgets = []
+        for layer_budgets in calibration_data.values():
+            all_budgets.extend(layer_budgets)
+
+        all_snr_means = [s["snr_mean"] for s in layer_summaries.values()
+                         if s.get("snr_mean") is not None]
+        all_snr_mins = [s["snr_min"] for s in layer_summaries.values()
+                        if s.get("snr_min") is not None]
+        all_e_combined = [s["e_combined_mean"] for s in layer_summaries.values()]
+        all_eff_prec = [s["eff_precision_mean"] for s in layer_summaries.values()]
+        all_sig_power = [s["signal_power_db_mean"] for s in layer_summaries.values()
+                         if s.get("signal_power_db_mean") is not None]
+
+        result = {
+            "format": tag,
+            "description": desc,
+            "optimizer": args.optimizer,
+            "config_overrides": overrides,
+            "calibration_params": {
+                "target_snr_db": args.target_snr,
+                "num_texts": len(cal_texts_train),
+                "holdout_texts": len(cal_texts_holdout),
+                "holdout_fraction": args.holdout_fraction,
+                "max_length": args.max_length,
+                "batch_size": args.batch_size,
+                "online_delay": args.online_delay,
+                "detail_layer": args.detail_layer,
+                "curve_window": args.curve_window,
+                "text_manifest": str(manifest_path) if manifest_path else None,
+                "result_suffix": result_suffix or None,
+                "mx_chunk_target_mib": args.mx_chunk_target_mib,
+                "cal_chunk_target_mib": args.cal_chunk_target_mib,
+                "weight_cache_dtype": args.weight_cache_dtype,
+                "compile_msd_truncate": bool(args.compile_msd_truncate),
+            },
+            "global_summary": {
+                "num_layers": len(calibration_data),
+                "total_channels": len(all_budgets),
+                "budget_min": min(all_budgets),
+                "budget_max": max(all_budgets),
+                "budget_mean": round(sum(all_budgets) / len(all_budgets), 2),
+                "mean_snr": round(sum(all_snr_means) / len(all_snr_means), 2) if all_snr_means else None,
+                "min_snr": round(min(all_snr_mins), 2) if all_snr_mins else None,
+                "e_combined_mean": round(sum(all_e_combined) / len(all_e_combined), 2) if all_e_combined else None,
+                "eff_precision_mean": round(sum(all_eff_prec) / len(all_eff_prec), 2) if all_eff_prec else None,
+                "signal_power_db_mean": round(sum(all_sig_power) / len(all_sig_power), 2) if all_sig_power else None,
+                "wall_time_sec": round(elapsed, 2),
+            },
+            "optimizer_stats": optimizer_stats if args.optimizer == "fixed_sum" else None,
+            "holdout_evaluation": holdout_eval if holdout_eval else None,
+            "layer_stats": layer_summaries,
+            "channel_detail": {
+                "detail_layer": args.detail_layer,
+                **channel_details,
+            },
+            "msd_calibration_data": calibration_data,
+        }
+
+        if args.save_curve_detail and error_curves_detail:
+            result["error_curves_detail"] = error_curves_detail
+
+        with open(result_file, "w") as f:
+            json.dump(result, f, indent=2)
+
+        print(f"[rank {rank}]   Layers: {len(calibration_data)}  |  "
+              f"Budget: [{min(all_budgets):.0f}, {max(all_budgets):.0f}]  |  "
+              f"Mean: {sum(all_budgets)/len(all_budgets):.1f}")
+        print(f"[rank {rank}]   {elapsed:.1f}s  |  saved -> {result_file.name}\n")
+        clear_mxfp_weight_cache(model)
+
+    total_elapsed = time.perf_counter() - total_start
+
+    # ── Wait for all ranks ──
+    file_barrier(rank, world_size, base_results_dir)
+
+    # ── Summary (rank 0) ──
+    if is_main(rank):
+        print()
+        print(f"{'='*60}")
+        print(f"  CALIBRATION COMPLETE  ({total_elapsed/60:.1f} min, {world_size} GPUs)")
+        print(f"{'='*60}")
+        print(f"{'ID':>3}  {'Tag':<15}  {'Layers':>7}  {'Budget Range':>14}  {'Mean':>6}  {'Time':>6}")
+        print("-" * 60)
+
+        for sid, tag, desc, _ in run_setups:
+            result_file = _build_result_file(output_dir, tag, args.optimizer, result_suffix)
+            if result_file.exists():
+                with open(result_file) as f:
+                    res = json.load(f)
+                s = res.get("global_summary", res.get("summary", {}))
+                bmin = s.get("budget_min", "?")
+                bmax = s.get("budget_max", "?")
+                bmean = s.get("budget_mean", "?")
+                nlayers = s.get("num_layers", "?")
+                wall = s.get("wall_time_sec", "?")
+                bmin_s = f"{bmin:.0f}" if isinstance(bmin, (int, float)) else str(bmin)
+                bmax_s = f"{bmax:.0f}" if isinstance(bmax, (int, float)) else str(bmax)
+                bmean_s = f"{bmean:.1f}" if isinstance(bmean, (int, float)) else str(bmean)
+                wall_s = f"{wall:.0f}s" if isinstance(wall, (int, float)) else str(wall)
+                print(f"{sid:3d}  {tag:<15}  {nlayers:>7}  [{bmin_s:>5}, {bmax_s:<5}]  {bmean_s:>6}  {wall_s:>6}")
+            else:
+                print(f"{sid:3d}  {tag:<15}  {'MISSING':>7}")
+
+        print("-" * 60)
+        print(f"\nCalibration files saved in: {output_dir}")
+        print(f"To use with PPL tests, copy msd_calibration_data from")
+        print(f"calibration_<tag>.json into the target model config.json, or")
+        print(f"load programmatically with apply_calibration_to_config().")
+
+    cleanup_distributed()
+
+
+if __name__ == "__main__":
+    main()

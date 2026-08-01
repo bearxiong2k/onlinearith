@@ -4,18 +4,19 @@ Reusable repo checks live in normal repo paths:
 
 ```text
 onlinearith/
-  tools/repo_quality_gate.py
-  tools/compare_ppl_math.py
-  tests/test_config_contract.py
-  tests/test_ppl_window_contract.py
-  tests/test_qwen3_public_api_contract.py
-  scripts/run_repo_quality_gate.sh
+  functional_sim/tools/repo_quality_gate.py
+  functional_sim/tools/compare_ppl_math.py
+  functional_sim/tests/test_config_contract.py
+  functional_sim/tests/test_ppl_window_contract.py
+  functional_sim/tests/test_qwen3_public_api_contract.py
+  functional_sim/tests/test_repository_layout.py
+  functional_sim/scripts/run_repo_quality_gate.sh
 ```
 
 Verification:
 
 ```bash
-bash scripts/run_repo_quality_gate.sh
+bash functional_sim/scripts/run_repo_quality_gate.sh
 ```
 
 The contract tests intentionally avoid loading a real Qwen3 model. They are

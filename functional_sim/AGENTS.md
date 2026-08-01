@@ -1,9 +1,9 @@
 # Functional-simulation working rules
 
-These instructions govern the frozen root-level Python harness, `scripts/`,
-`tools/`, `tests/`, `wanda_base/`, `act_base/`, and the modified sibling
-Transformers implementation. They are detailed here so the repository-wide
-`AGENTS.md` can remain a short workstream router.
+These instructions govern the frozen canonical harness under `functional_sim/`
+and the modified sibling Transformers implementation. Root-level functional
+names are compatibility symlinks, not separate source. These details live here
+so the repository-wide `AGENTS.md` can remain a short workstream router.
 
 ## Status and scope
 
@@ -37,16 +37,16 @@ generic sparsity, quantization, pruning, or masking.
 
 ## Authoritative files
 
-Root-level compatibility entry points:
+Canonical entry points (with equivalent root symlinks):
 
-- `ppltest.py`: single-setup WikiText-2 PPL evaluation; `--nproc` shards
+- `functional_sim/ppltest.py`: single-setup WikiText-2 PPL evaluation; `--nproc` shards
   sliding windows across full model replicas.
-- `ppl_batch.py`: batch runner; `--nproc` shards setup IDs.
-- `calibrate.py`: MXFP/MSD calibration, including `snr_min` and `fixed_sum`.
-- `calibrate_base.py`: structured N:M baseline-mask calibration.
-- `experiment_config.py`: setup IDs, baseline fields, snapshots, and MLP
+- `functional_sim/ppl_batch.py`: batch runner; `--nproc` shards setup IDs.
+- `functional_sim/calibrate.py`: MXFP/MSD calibration, including `snr_min` and `fixed_sum`.
+- `functional_sim/calibrate_base.py`: structured N:M baseline-mask calibration.
+- `functional_sim/experiment_config.py`: setup IDs, baseline fields, snapshots, and MLP
   reconfiguration source of truth.
-- `dist_utils.py`: torchrun/NCCL and lite distributed helpers.
+- `functional_sim/dist_utils.py`: torchrun/NCCL and lite distributed helpers.
 
 Modified Transformers files:
 
@@ -70,6 +70,9 @@ or invoke it explicitly:
 ```bash
 ../.venv3_10/bin/python <script>.py
 ```
+
+Invoke canonical files as `functional_sim/<script>.py` from the repository
+root. Historical root paths remain valid through symlinks.
 
 Prefer the sibling source through:
 
@@ -127,10 +130,13 @@ full calibration by default.
 
 ## Verification
 
-After documentation-only reorganization, use the cheapest compatibility
-checks:
+After layout or documentation changes, check both the canonical and
+compatibility surfaces:
 
 ```bash
+../.venv3_10/bin/python functional_sim/ppltest.py --list
+../.venv3_10/bin/python functional_sim/ppl_batch.py --list
+../.venv3_10/bin/python functional_sim/calibrate.py --list
 ../.venv3_10/bin/python ppltest.py --list
 ../.venv3_10/bin/python ppl_batch.py --list
 ../.venv3_10/bin/python calibrate.py --list
@@ -145,4 +151,3 @@ Only when explicitly relevant, add:
 
 Do not run full PPL, calibration, or GPU probes merely to verify a repository
 layout change.
-

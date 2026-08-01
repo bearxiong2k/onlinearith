@@ -13,8 +13,8 @@ Use these defaults unless a model/path row below overrides them.
 - MSD PPL runs: `--compile-msd-truncate`.
 - Full-replica acceleration: `ppltest.py --nproc`, which shards PPL windows and
   loads one complete model replica per worker.
-- Baseline-runner single-setup acceleration: `wanda_base/ppl_batch_base.py` and
-  `act_base/ppl_batch_base_act.py` require `--window-shard` with `--nproc`;
+- Baseline-runner single-setup acceleration: `functional_sim/wanda_base/ppl_batch_base.py` and
+  `functional_sim/act_base/ppl_batch_base_act.py` require `--window-shard` with `--nproc`;
   their default `--nproc` behavior shards setup IDs, not PPL windows.
 - Model sharding: `ppltest.py --device-map ...`, single process only, memory
   relief only unless direct-CUDA timing proves speedup.
@@ -72,12 +72,12 @@ Before committing to a final full PPL command for any model/path combination:
   `--load-stagger-sec 8 --weight-cache-dtype float8` is validated; use
   `--nproc 4 --gpus 4,5,6,7` for current final fixed-sum MSD PPL.
 - Qwen3-8B WANDA 2:4: full replicas are validated through
-  `wanda_base/ppl_batch_base.py --window-shard --load-stagger-sec 8`; use a
+  `functional_sim/wanda_base/ppl_batch_base.py --window-shard --load-stagger-sec 8`; use a
   Qwen3-8B-shaped mask,
   `../data/wanda_base/2-4/calibration_base_MXFP8_qwen8b_final.pt`, not the
   older 0.6B masks under `../data/wanda_base/2-4`.
 - Full all-model unattended wrapper: use
-  `BACKGROUND=1 scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh`. It
+  `BACKGROUND=1 functional_sim/scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh`. It
   prepares smaller-model artifacts in parallel with the profiles above, then
   writes full outputs under
   `../data/qwen3_final_experiments/model_sweep_4gpu/<model_key>/full/` and
@@ -85,7 +85,7 @@ Before committing to a final full PPL command for any model/path combination:
 - Qwen3-8B fixed-sum calibration metadata: use the merged final file
   `../data/qwen3_final_experiments/qwen3_8b/calib_fixed_sum_30db/calibration_MXFP8_fixed_sum_qwen8b_final_merged.json`.
 - Qwen3-8B activation N:M 2:4: full replicas are validated through
-  `act_base/ppl_batch_base_act.py --window-shard --load-stagger-sec 8`.
+  `functional_sim/act_base/ppl_batch_base_act.py --window-shard --load-stagger-sec 8`.
 - Qwen3-8B model sharding: sequential `--device-map` is correctness-validated
   but slower for the tested prefix; keep it as memory relief, not final speed.
 - Smaller models should not inherit Qwen3-8B-only tricks blindly. Use default

@@ -1,41 +1,62 @@
 # Functional harness map
 
-Status: frozen compatibility surface
-Working directory: repository root
+Status: frozen canonical subtree with root compatibility links
+Working directory for established workflows: repository root
 
-The functional harness is logically owned by `functional_sim/` but remains
-physically flat at the root to preserve established commands and imports. New
-hardware code must not be added to any path listed below.
+`functional_sim/` owns every functional-simulation implementation file. The
+repository root contains symlinks for the former flat paths so existing
+commands, imports, and orchestration continue to work without maintaining a
+second copy.
 
-## Entry points
+## Canonical entry points
 
-| Root path | Role |
+| Canonical path | Role |
 |---|---|
-| `ppltest.py` | Single-setup WikiText-2 PPL runner |
-| `ppl_batch.py` | Batch PPL runner across setup IDs |
-| `calibrate.py` | MXFP/MSD calibration driver |
-| `calibrate_base.py` | Structured N:M baseline calibration |
-| `benchmarktest.py`, `qwen3test.py` | Historical/diagnostic runners |
+| `functional_sim/ppltest.py` | Single-setup WikiText-2 PPL runner |
+| `functional_sim/ppl_batch.py` | Batch PPL runner across setup IDs |
+| `functional_sim/calibrate.py` | MXFP/MSD calibration driver |
+| `functional_sim/calibrate_base.py` | Structured N:M baseline calibration |
+| `functional_sim/benchmarktest.py`, `functional_sim/qwen3test.py` | Historical/diagnostic runners |
 
 ## Shared implementation
 
-| Root path | Role |
+| Canonical path | Role |
 |---|---|
-| `experiment_config.py` | Setup IDs and configuration source of truth |
-| `dist_utils.py` | Distributed launch and reduction helpers |
-| `ppl_utils.py` | Sliding-window PPL helpers |
-| `runtime_paths.py` | Local source/model path bootstrap |
-| `ppl_batch_base.py` | Common baseline runner support |
-| `wanda_base/`, `act_base/` | Frozen WANDA and activation N:M baselines |
+| `functional_sim/experiment_config.py` | Setup IDs and configuration source of truth |
+| `functional_sim/dist_utils.py` | Distributed launch and reduction helpers |
+| `functional_sim/ppl_utils.py` | Sliding-window PPL helpers |
+| `functional_sim/runtime_paths.py` | Functional/repository/workspace path boundary |
+| `functional_sim/ppl_batch_base.py` | Common baseline runner support |
+| `functional_sim/wanda_base/`, `functional_sim/act_base/` | Frozen WANDA and activation N:M baselines |
 
 ## Analysis, orchestration, and validation
 
-| Root path | Role |
+| Canonical path | Role |
 |---|---|
-| `perf_viz.py`, `calibration_viz.py`, `visualization.py` | Functional-result plotting and diagnostics |
-| `scripts/` | Existing experiment orchestration and summaries |
-| `tools/` | Functional probes, artifact utilities, and quality gate |
-| `tests/` and root `test_*.py` | Functional contracts and lightweight validation |
+| `functional_sim/perf_viz.py`, `functional_sim/calibration_viz.py`, `functional_sim/visualization.py` | Result plotting and diagnostics |
+| `functional_sim/scripts/` | Experiment orchestration and summaries |
+| `functional_sim/tools/` | Functional probes, artifact utilities, and quality gate |
+| `functional_sim/tests/` and `functional_sim/test_*.py` | Contracts and lightweight validation |
+
+## Root compatibility surface
+
+Every former root Python filename is a relative symlink to its canonical file.
+The former `act_base`, `wanda_base`, `scripts`, `tools`, and `tests`
+directories are relative symlinks to their canonical directories. Therefore:
+
+```text
+python ppltest.py --list
+python functional_sim/ppltest.py --list
+```
+
+execute the same source. New documentation and internal orchestration should
+prefer canonical `functional_sim/...` paths; old external commands may keep
+using the root links.
+
+`pytest.ini` points default discovery at `functional_sim/tests/` (and future
+hardware tests), so root symlinks do not cause duplicate collection. The
+historical `functional_sim/test_*.py` programs remain explicit standalone
+checks rather than default pytest inputs.
 
 ## External implementation boundary
 
@@ -51,10 +72,11 @@ Neither file is part of the hardware-simulation implementation surface.
 
 ## Compatibility policy
 
-- Keep all root command names, setup IDs, default outputs, JSON schemas, and
-  import names stable.
-- Run the root commands from the root; do not invent a second copy beneath
-  `functional_sim/`.
+- Keep root symlink names, setup IDs, default output locations, JSON schemas,
+  import names, and repository-root working-directory behavior stable.
+- Do not replace a root symlink with a second implementation file.
+- Canonical scripts must resolve `functional_sim/`, the repository root, and
+  the parent workspace explicitly; they must not rely on symlink traversal.
 - Read-only exports may translate frozen results into a documented hardware
   input artifact. They must not change the functional simulator or call the
   translation a new numerical oracle.

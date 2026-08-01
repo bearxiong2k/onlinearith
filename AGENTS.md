@@ -6,11 +6,10 @@ separate.
 
 ## Workstream routing
 
-- **Frozen functional simulation:** the root-level Python entry points,
-  `scripts/`, `tools/`, `tests/`, `wanda_base/`, and `act_base/` invoke the
-  sibling Transformers fork and analyze numerical results. Before touching
-  any of those paths, read `functional_sim/AGENTS.md` and
-  `functional_sim/HARNESS.md`.
+- **Frozen functional simulation:** all canonical source, runners, scripts,
+  tools, tests, and baselines live under `functional_sim/`. Root-level Python
+  and directory names are compatibility symlinks only. Before touching this
+  workstream, read `functional_sim/AGENTS.md` and `functional_sim/HARNESS.md`.
 - **Active hardware simulation:** all new RTL, circuit-reference simulation,
   trace adapters, event ledgers, synthesis flows, and hardware reports belong
   under `hardware_sim/`. Read `hardware_sim/AGENTS.md` and
@@ -18,8 +17,9 @@ separate.
 - **Paper-wide material:** shared writing guidance lives under `docs/paper/`;
   superseded planning material lives under `docs/archive/`.
 
-The root-level functional commands are a compatibility surface and must keep
-working from the repository root. Do not make the hardware simulator import
+The root-level functional symlinks are a compatibility surface and must keep
+working from the repository root. Do not add real functional implementation
+files beside them. Do not make the hardware simulator import
 from `../anchors` or `../rebuttal`; those repositories are provenance sources,
 not runtime dependencies. Do not edit the sibling Transformers simulation or
 the frozen functional harness unless the user explicitly reopens that scope.

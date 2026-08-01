@@ -633,9 +633,9 @@ The first revised cost model should be mechanically tied to the v2 ledger:
 
 ## 9. Reorganization extraction manifest
 
-This manifest guided the completed repository split. The root functional
-commands remain in place as a compatibility surface; functional documentation
-now lives under `functional_sim/`; all new hardware work is rooted at
+This manifest guided the completed repository split. Canonical functional code
+and documentation now live under `functional_sim/`, with the old root paths
+retained as compatibility symlinks; all new hardware work is rooted at
 `hardware_sim/`. Exact reviewed legacy candidates are quarantined under
 `hardware_sim/reference/`, and the cleared cell files are local under
 `hardware_sim/tech/`. The active redesigned kernel, ledger, and report package
