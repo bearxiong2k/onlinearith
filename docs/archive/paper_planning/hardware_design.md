@@ -1,84 +1,89 @@
 # Hardware design
 
-## Two-plane micro-tile with double-buffered scale prepass for channel-parallel, block-serial temporal significance scheduling
+Status: revised paper-planning description of the target architecture
+Scope: custom stage-1 `gate_proj` and `up_proj` hardware only
 
-The wording should stay consistent with the paper-level story:
+This note gives the paper-facing hardware organization. The binding simulator
+contract remains the
+[active hardware architecture contract](../../../hardware_sim/docs/architecture_contract.md),
+which owns exact encodings, widths, rounding, saturation, and transaction
+semantics.
 
-- **paper-level principle:** temporal significance scheduling
-- **algorithmic object:** local windows plus hierarchical arrival offsets
-- **hardware realization:** a metadata-first control plane plus a block-serial online-arithmetic data plane
+The vocabulary is:
 
-A key clarification is that the runtime control path does **not** perform floating-point scale multiplication or online weight-element exponent resolution. For MXFP, the block scale is already stored as an **E8M0 power-of-two code**, and the element exponent is already present in the **FP4**, **FP6**, or **FP8** element format. Runtime scheduling therefore reduces to **field readout, narrow integer add and subtract, max-reduction, and compare**, which is exactly why a small control plane is sufficient.
+- **paper-level principle:** temporal significance scheduling;
+- **algorithmic object:** local execution windows on aligned contribution
+  streams;
+- **hardware realization:** a metadata-first control plane feeding a
+  channel-parallel, block-serial fixed-point data plane.
 
-## 1. Top-level macro
+The central dataplane decision is:
 
-Describe the macro as a parameterized tile with:
+> At runtime, the schedule forms a target activation mantissa. A standard
+> fixed-point multiplier multiplies that target by one offline-aligned,
+> fixed-point weight element.
 
-- block size `K = 32`
-- `H` owner-lane pairs, each pair owning one FFN output channel `c`
-- `S` local `down_proj` shards
+This is not a runtime activation-digit × weight-digit engine. There is no
+recoded weight-digit stream, serial-parallel multiplier leaf, online-adder
+tree, custom stage-2 `down_proj` engine, or stage-1/stage-2 packet interface.
 
-The execution rule is:
+## 1. Architecture boundary
 
-- channels run **in parallel** across the `H` owner-lane pairs
-- blocks within each channel run **serially in time** on a reused projection block engine
-- `gate_proj` and `up_proj` are the two stage-1 producer paths, indexed by `p in {g, u}`
-- channel outputs are **not assumed to stay cycle-aligned** after block-serial accumulation
-- alignment is restored only through explicit elastic buffers and headers at stage boundaries
+The custom tile covers the scheduled stage-1 projection work for
+`p in {gate_proj, up_proj}`:
 
-A good paper-facing block diagram is:
+1. metadata prepass and local-window control;
+2. runtime target-activation formation;
+3. reads of offline-aligned fixed-point weights;
+4. standard fixed-point multiplication;
+5. block reduction and per-channel accumulation.
+
+SiLU, gate/up fusion, `down_proj`, and the rest of the model may be included as
+explicit common terms in an end-to-end evaluation, but they are outside this
+custom datapath. The design therefore makes no payload-compression,
+packetization, boundary-buffer, shard-routing, or queueing claim.
+
+The planning default retains block size `K = 32`. A tile has `N_lane` channel
+lanes; channels execute in parallel across lanes, while input blocks for one
+channel execute serially on reused arithmetic resources. Whether the two
+projection paths duplicate or time-share physical multiplier lanes is an
+implementation parameter to freeze before RTL.
 
 ```text
-ACT_BUF[2]
-  -> ACT metadata extract + BSD recode
-  -> CONTROL PLANE
-       -> SCALE_PREPASS[2]
-            -> read E8M0 block-scale codes
-            -> per-path raw-exp adders
-            -> per-path max trackers
-            -> raw-exp shadow RAM
-            -> delay-bank shadow RAM
-       -> shared lambda_x decode
-       -> H x owner-lane pair
-            -> UW_SCHED_g (cfg_active/cfg_shadow)
-            -> UW_SCHED_u (cfg_active/cfg_shadow)
-  -> shared activation load bus
-  -> DATA PLANE
-       -> H x owner-lane pair
-            -> GATE32: 32x SP multiplier leaves + block-local OLA tree
-            -> UP32:   32x SP multiplier leaves + block-local OLA tree
-            -> gate channel accumulator
-            -> up channel accumulator
-            -> local OTFC / fixed-point finalize
-            -> SiLU
-            -> serial-parallel gate multiplier
-  -> lightweight buffered handoff
-  -> S x local down_proj shard
-       -> SP multiplier bank + block-local OLA tree
-       -> row accumulators
-       -> full OTFC at egress
-       -> output block buffer
+                         METADATA / CONTROL PLANE
+ACT metadata ----------> scale prepass (active/shadow banks)
+WEIGHT metadata ------->        |
+                                 v
+                         one-block-ahead window builder
+                                 |
+                                 v
+                         target-formation configuration
+
+                           STAGE-1 DATA PLANE
+quantized activation --> target activation mantissa former ----+
+                                                               |
+offline-aligned weight store ----------------------------------+--> standard
+                                                                    fixed-point
+                                                                    multiplier
+                                                                         |
+                                                                         v
+                                                               block reduction
+                                                                         |
+                                                                         v
+                                                               channel accumulator
 ```
 
-The control plane is intentionally split into two nested time scales:
+## 2. Hardware-visible schedule
 
-1. a **double-buffered scale prepass** that prepares coarse block delays for the next token or channel assignment
-2. a **one-block-ahead window scheduler** in each owner lane that merges those coarse delays with activation fine-delay codes
+For token `n`, projection path `p`, output channel `c`, input block `b`, and
+element `k`, the existing scheduling abstraction provides:
 
-This separation keeps the data plane bubble-free while preserving the paper's local window abstraction.
+- `beta_x[n,b]`: activation-block E8M0 exponent metadata;
+- `beta_w[p,c,b]`: weight-block E8M0 exponent metadata used by scheduling;
+- `lambda_x[n,b,k]`: activation-side fine-delay code;
+- `H[p,c]`: calibrated path- and channel-specific horizon.
 
-## 2. Hardware-visible metadata and storage
-
-This document uses the same notation as `paper-plan.md`. Only the hardware-visible subset is repeated here.
-
-For token `n`, stage-1 path `p in {g, u}`, owner channel `c`, block `b`, and element `k`, the control plane consumes:
-
-- `beta_x[n,b]`: activation block-scale exponent read directly from activation E8M0 metadata
-- `beta_w[p,c,b]`: weight block-scale exponent read directly from weight E8M0 metadata
-- `lambda_x[n,b,k]`: activation-side fine-delay code derived from the activation element exponent field
-- `H[p,c]`: calibrated per-path, per-channel horizon
-
-From these, the hardware forms the control quantities
+The metadata plane may retain the symbolic relations:
 
 ```text
 E_raw[p,b,c] = beta_x[n,b] + beta_w[p,c,b]
@@ -89,326 +94,258 @@ L[p,b,k,c]   = max(0, H[p,c] - tau[p,b,k,c])
 W[p,b,k,c]   = [tau[p,b,k,c], H[p,c])
 ```
 
-This is the only math the hardware needs to see. The full formulation lives in `paper-plan.md`.
+These relations identify the local window and its useful length. They do not
+mean that the new multiplier runs for `L` digit cycles. The separate arithmetic
+contract must define exactly how `L` and the activation format determine the
+target activation mantissa.
 
-The weight-element exponent is **not** resolved online. It is absorbed offline into the stored recoded weight digits, so the runtime control path never performs online weight exponent extraction or alignment.
+Weight exponent metadata may still participate in schedule construction. That
+control-only use does not imply runtime shifting, recoding, or digit streaming
+of the stored weight operand.
 
-Store:
+## 3. Metadata prepass and block configuration
 
-- in **horizon SRAM**: `H[p,c]` for each owner channel and each stage-1 path
-- in **weight metadata SRAM**: the E8M0 block-scale exponents `beta_w[p,c,b]`
-- in **weight SRAM**: offline-recoded BSD weights whose element exponents have already been absorbed
-- in **scale-prepass raw-exp shadow RAM**: temporary `E_raw[p,b,c]` values until `E_max[p,c]` is known
-- in **scale-prepass delay banks**: `D[p,b,c]` with active and shadow double buffering
-- in each owner lane: one current and one shadow `win_cfg_p`
-- in each owner lane: one current activation latch file for the active block plus exponent-field or delay-code storage
-- in each owner lane: per-channel completion metadata for egress packetization
+The control plane retains the useful part of the two-timescale organization.
 
-## 3. Double-buffered scale prepass
+### 3.1 Double-buffered scale prepass
 
-This is the main control-path improvement.
-
-Because `D[p,b,c]` depends on `E_max[p,c] = max_b E_raw[p,b,c]`, the coarse delays for a token or channel assignment cannot be finalized until all block scales have been seen. Rather than stalling the data plane, the tile performs a **metadata-only prepass** and double-buffers its result.
-
-### 3.1 Bank organization
-
-Use two coarse-delay banks per owner lane and path:
+For the next token or channel assignment, the prepass scans block metadata,
+forms `E_raw`, tracks `E_max`, and resolves `D` into a shadow bank while the
+data plane consumes the active bank:
 
 ```text
-delay_bank_active[p][b]   // consumed by the current token or channel execution
-delay_bank_shadow[p][b]   // filled by the scale prepass for the next token or channel
+delay_bank_active[p][b]   // current execution
+delay_bank_shadow[p][b]   // next execution
+rawexp_shadow[p][b]       // optional transient prepass state
 ```
 
-Optionally keep a transient raw-exp bank during prepass:
+At a safe context boundary, the shadow and active roles swap. The prepass reads
+only metadata and uses narrow addition, max-reduction, and subtraction. It does
+not read activation or weight payload operands.
+
+Whether runtime `D` continues to include `beta_w` depends on the final offline
+weight-alignment contract. If that relation changes, the prepass equation must
+change explicitly rather than being inherited from the old datapath.
+
+### 3.2 One-block-ahead configuration
+
+For block `b+1`, the window builder combines `D`, `lambda_x`, and `H` and
+prepares a shadow configuration while block `b` executes. At minimum, the
+configuration contains:
 
 ```text
-rawexp_shadow[p][b]
-```
-
-At the token or channel-assignment boundary:
-
-```text
-delay_bank_shadow -> delay_bank_active
-```
-
-in one swap, exactly like a ping-pong metadata buffer.
-
-### 3.2 Prepass algorithm
-
-For each owner channel `c` and each block `b`, while the data plane is consuming the current active bank:
-
-1. read the activation block-scale exponent `beta_x[n+1,b]` from activation metadata
-2. read the weight block-scale exponents `beta_w[g,c,b]` and `beta_w[u,c,b]` from weight metadata SRAM
-3. form
-
-   ```text
-   E_raw[g,b,c] = beta_x[n+1,b] + beta_w[g,c,b]
-   E_raw[u,b,c] = beta_x[n+1,b] + beta_w[u,c,b]
-   ```
-
-   using two narrow integer adders
-4. update the running maxima `E_max[g,c]` and `E_max[u,c]`
-5. write `E_raw[p,b,c]` into `rawexp_shadow[p][b]`
-
-After the last block has been scanned, run a cheap resolve pass:
-
-```text
-D[p,b,c] = E_max[p,c] - E_raw[p,b,c]
-```
-
-and write the result into `delay_bank_shadow[p][b]`.
-
-The prepass touches **only metadata**:
-
-- activation block-scale bytes
-- weight block-scale bytes
-- narrow raw-exp and delay banks
-
-It does **not** read BSD activation digits or BSD weight digits, so its cost is small and easy to overlap.
-
-### 3.3 Why this matters architecturally
-
-The prepass makes the paper's `max_b` operation physically believable.
-
-- `max_b` is no longer an abstract equation hidden inside the scheduler
-- the data plane never waits for a full-token scale scan
-- coarse delay generation is separated cleanly from per-element window formation
-- the control path stays low-cost because it is only metadata arithmetic
-
-## 4. One-block-ahead window scheduler inside each owner lane
-
-Each owner-lane pair gets two local **window schedulers**, one for `gate_proj` and one for `up_proj`. They prepare block `b+1` while block `b` executes.
-
-The scheduler reads:
-
-- `D[p,b+1,c]` from `delay_bank_active[p][b+1]`
-- `H[p,c]` from horizon SRAM
-- `xi_x[n,b+1,k]` or predecoded `lambda_x[n,b+1,k]` from the activation metadata path
-
-A useful implementation split is:
-
-- decode the shared activation-side vector `lambda_x[n,b+1,0:31]` **once**
-- fan it out to both path schedulers
-- add the path-specific coarse delay `D[p,b+1,c]` and compare with the path-specific horizon `H[p,c]`
-
-A clean per-path window config is:
-
-```text
-win_cfg_p = {
-  block_kill,
-  active[31:0],
-  start_ctr[31:0],
-  rem_ctr[31:0],
-  subtree_init[30:0]
+block_cfg[p,b,c] = {
+    block_kill,
+    active[K],
+    target_desc[K]
 }
 ```
 
-with **active and shadow double buffering**:
+`target_desc[k]` carries the reviewed information needed to form
+`A_target[p,b,k,c]`; it may contain `L`, a retained-prefix length, or another
+equivalent descriptor after the arithmetic contract is frozen.
 
-- `cfg_active_p` drives the current block
-- `cfg_shadow_p` is computed for the next block
-- when the current block drains, `cfg_shadow_p -> cfg_active_p` in one cycle
+The retired `start_ctr`, `rem_ctr`, product-digit pointers, subtree-live state,
+and residual-drain state are not required by this architecture. Active/shadow
+configuration buffering is retained only as an overlap mechanism.
 
-The scheduler directly implements the three levels of work suppression.
+## 4. Operand preparation
+
+The runtime/offline split must be visible in both the data format and the
+verification fixtures.
+
+### 4.1 Runtime target activation mantissa
+
+For an active element, the runtime target former computes symbolically:
+
+```text
+A_target[p,b,k,c] = FormTarget(
+    A_quantized[n,b,k],
+    L[p,b,k,c],
+    activation_format,
+    target_format
+)
+```
+
+The target is the activation operand actually presented to the multiplier. A
+zero-length window produces no active element and therefore no multiplier
+issue. For `L > 0`, the target former emits one reviewed fixed-point operand.
+
+The exact retained bits or digits, sign handling, zero encoding, width, binary
+point, and rounding rule are intentionally not invented here. They must match
+the active architecture contract and a bit-exact reference model.
+
+### 4.2 Offline-aligned fixed-point weight
+
+Before runtime, each quantized weight element is transformed and packed as:
+
+```text
+W_aligned[p,c,b,k] = OfflineAlignAndEncode(
+    W_quantized[p,c,b,k],
+    weight_scale_metadata[p,c,b],
+    weight_format,
+    aligned_weight_format
+)
+```
+
+`W_aligned` is a signed fixed-point element stored in the weight array. Runtime
+execution performs one element read and presents the stored word directly to
+the multiplier. It does not extract an element exponent, shift or recode the
+weight, walk a weight-digit pointer, or generate a weight-digit stream.
+
+The offline alignment equation, stored width, binary point, packing, and
+overflow behavior must be frozen before generating model-scale weights or RTL
+fixtures.
+
+## 5. Standard-multiplier data plane
+
+For every active element, the arithmetic leaf is:
+
+```text
+P_element[p,b,k,c] = FixedPointMultiply(
+    A_target[p,b,k,c],
+    W_aligned[p,c,b,k]
+)
+```
+
+This is one conventional combinational or pipelined fixed-point multiplier
+issue. The selected implementation may have multiple multiplier lanes, a
+pipeline depth, and an initiation interval, but it is not an online or
+digit-serial multiply.
+
+A block engine contains:
+
+- target-activation formation logic and local activation state;
+- an aligned-weight read port or bank;
+- `N_mul` standard fixed-point multiplier lanes;
+- a conventional fixed-point block-reduction network;
+- a per-path, per-channel accumulator;
+- valid/ready and clock-enable control needed by this local transaction.
+
+Block execution is:
+
+1. accept the reviewed `block_cfg`;
+2. skip immediately if `block_kill` is set;
+3. form `A_target` for each active element;
+4. read one `W_aligned` word for that element;
+5. issue one standard multiply;
+6. reduce valid products in the specified finite-width order;
+7. update the channel accumulator once for the block if any product is valid.
+
+The block service time is determined by the number of active elements,
+`N_mul`, multiplier initiation interval and latency, reduction pipeline, and
+accumulator handshake. It is not `H + t_drain`, and no old online-adder drain
+model may be reused.
+
+## 6. Work suppression under the new datapath
+
+The schedule still exposes three algorithmic cases, but their circuit effects
+must be stated for a standard multiplier.
 
 ### Whole-block skip
 
-If all elements have `L[p,b,k,c] = 0`, set
-
-```text
-block_kill = 1
-```
-
-Hardware effect:
-
-- suppress all 32 leaves for path `p`
-- suppress the block-local tree
-- suppress weight reads
-- bypass the channel accumulator update for that block
-- reclaim the entire block slot for the next block
+If `L[p,b,k,c] = 0` for every `k`, the block performs no target formation,
+aligned-weight reads, multiplier issues, reduction, or accumulator update. The
+dispatcher may advance to the next block; any latency reduction must be
+measured under the selected lane schedule.
 
 ### Element skip
 
-If a specific element has `L[p,b,k,c] = 0`, set
+If one element has `L[p,b,k,c] = 0`, that element performs no target formation,
+weight read, or multiplier issue. The reduction network receives no valid
+product from it.
+
+### Partial window
+
+If `0 < L[p,b,k,c] < H[p,c]`, the window changes the target activation
+mantissa and the work needed to form it. Once the target exists, the element
+still causes one aligned-weight read and one standard multiplication.
+
+Partial windows therefore do not automatically reduce the multiplier-issue
+count. They may reduce activation-target formation reads or activity, and they
+may select a cheaper multiplier width class only if a width-classed design is
+explicitly implemented and characterized.
+
+The frozen **executed-digit ratio** remains the algorithmic work metric. It is
+not renamed into a standard-multiplier utilization or issue ratio.
+
+## 7. Reduction and accumulation
+
+Multiplier outputs feed a conventional fixed-point block reduction followed
+by a channel accumulator across serial blocks:
 
 ```text
-active[k] = 0
+block_sum[p,b,c] = Reduce_k(P_element[p,b,k,c] for valid k)
+acc[p,b+1,c]     = Accumulate(acc[p,b,c], block_sum[p,b,c])
 ```
 
-Hardware effect:
+The reduction topology, finite-width order, product width, accumulator width,
+pipeline placement, rounding, saturation, and overflow behavior remain part of
+the bit-level contract. A Python reference and RTL must agree on each element
+product, block sum, accumulated result, and accepted transaction order.
 
-- leaf `k` never reads activation or weight digits
-- its multiplier never toggles
-- dead subtrees are initialized as inactive
+The accumulated `gate_proj` and `up_proj` results leave the custom stage-1
+scope as ordinary fixed-point values. This design does not define a compressed
+BSD payload, timing header, elastic stage boundary, or local `down_proj`
+consumer.
 
-### Partial-window execution
+## 8. Storage and accounting boundary
 
-If `0 < L[p,b,k,c] < H[p,c]`, set
+The custom storage inventory includes only state required by this stage-1
+path:
+
+- activation operand and metadata buffers;
+- `H` and retained schedule metadata;
+- active/shadow prepass and block-configuration banks, if selected;
+- offline-aligned fixed-point weight storage;
+- target-formation state;
+- multiplier pipeline, reduction, and channel-accumulator state.
+
+Completion payload stores, packet headers, boundary FIFOs, shard queues, and
+stage-2 output buffers are excluded.
+
+Hardware accounting keeps non-overlapping events:
 
 ```text
-start_ctr[k] = tau[p,b,k,c]
-rem_ctr[k]   = L[p,b,k,c]
+N_target_form
+N_activation_read
+N_aligned_weight_read
+N_standard_multiply_issue
+N_reduction_input
+N_accumulator_update
+N_block_skip
+N_cycle
 ```
 
-Runtime behavior:
+Counts must preserve projection identity and, if multiplier widths vary, the
+operand-width class. Area, timing, energy, and event evidence must retain their
+source labels; old serial-leaf or interface coefficients are not reusable.
 
-- while `start_ctr[k] > 0`, the leaf is off
-- when `start_ctr[k] == 0` and `rem_ctr[k] > 0`, the leaf runs
-- when `rem_ctr[k] == 0`, the leaf shuts off again
+## 9. Decisions required before implementation
 
-This is the precise hardware meaning of the local window.
+This planning description intentionally leaves the following to the active
+contract and decision log:
 
-For a non-killed block, the nominal block service span is approximately
+- exact mapping from `L` or `W` to `A_target`;
+- signed activation and weight encodings, widths, and binary points;
+- offline weight-alignment equation and packing;
+- product, reduction, and accumulation precision rules;
+- number and sharing of multiplier lanes;
+- multiplier pipeline depth and initiation interval;
+- reduction topology and transaction handshake;
+- whether the existing runtime `D` equation remains unchanged.
 
-```text
-T_blk[p,c] approx H[p,c] + t_drain
-```
+No RTL datapath or model-scale ledger should silently choose these values.
 
-where `t_drain` is a short residual-drain margin for the local OLA tree and channel accumulator. In this baseline block-serial design, **whole-block kill** shortens service time, while **element skip** and **partial-window execution** primarily reduce switching, reads, and emitted payload rather than compressing the block slot itself.
+## 10. Paper-facing hardware claim
 
-## 5. Stage-1 projection engines: local MSD-aware execution
-
-Each owner-lane pair contains two symmetric reused block engines:
-
-- one for `gate_proj`
-- one for `up_proj`
-
-Each engine has:
-
-- 32 serial-parallel multiplier leaves
-- a 32-leaf block-local OLA tree
-- one per-path channel accumulator
-
-Across the tile, channels run in parallel. Inside a lane, blocks are reused over time.
-
-### 5.1 Leaf engine
-
-Per leaf `k`, keep:
-
-- `act_ptr[k]`
-- `wt_ptr[k]`
-- `start_ctr[k]`
-- `rem_ctr[k]`
-- `leaf_en[k]`
-
-Execution rule:
-
-```text
-if start_ctr[k] > 0:
-    start_ctr[k]--
-    leaf_en[k] = 0
-elif rem_ctr[k] > 0:
-    read activation digit
-    read recoded weight digit
-    SP multiply
-    rem_ctr[k]--
-    leaf_en[k] = 1
-else:
-    leaf_en[k] = 0
-```
-
-Because activation digits are loaded into a local latch file and weights are stationary, the leaf does **no digit reads and no switching outside its local window**.
-
-A key clarification for the paper text is that the leaf consumes **recoded weight digits whose element-exponent effect was folded offline**. The runtime leaf therefore does not perform any online weight exponent extraction or alignment.
-
-### 5.2 Block-local tree
-
-The 32 leaves feed a 5-level OLA tree. This tree is where the strongest **local MSD-aware** statement still applies.
-
-Each internal node tracks:
-
-- `child_live_left`
-- `child_live_right`
-- `residual_nonzero`
-
-Its clock enable is:
-
-```text
-node_ce = child_live_left | child_live_right | residual_nonzero
-```
-
-A node shuts off only after both children are done and its local residual state drains.
-
-This is how partial-window savings propagate upward.
-
-## 6. Channel accumulator
-
-The root of each block-local tree produces a **block stream** `s_blk[p,b,c]`.
-
-A separate channel accumulator merges these block streams over serial block time:
-
-```text
-acc[p,b+1,c] = OLA(acc[p,b,c], s_blk[p,b,c])
-```
-
-This accumulator exists once per projection path per owner lane:
-
-- `gate_channel_acc[c]`
-- `up_channel_acc[c]`
-
-This gives the correct architectural split:
-
-- block-local tree = **intra-block reduction**
-- channel accumulator = **inter-block reduction over serial time**
-
-## 7. FFN middle pipeline after per-channel completion
-
-After `gate_proj` and `up_proj` accumulation complete for a channel, the lane performs the FFN middle section locally.
-
-### 7.1 Gate path finalize and SiLU
-
-After block-serial channel accumulation, each gate-path result is finalized locally from BSD to fixed-point. SiLU is implemented by a clipped lookup-based approximator in conventional fixed-point arithmetic. This block is not a contribution of the paper; it is a low-cost local support function chosen to keep the nonlinear stage orthogonal to temporal significance scheduling.
-
-### 7.2 Up path buffer
-
-The accumulated `up_proj` result is buffered until the gate path is ready for gating.
-
-### 7.3 Serial-parallel gate multiplier
-
-Then a reused serial-parallel multiplier computes
-
-```text
-gated_c = SiLU(gate_c) * up_c
-```
-
-This produces the stage-1 output for channel `c`.
-
-## 8. What is actually turned off
-
-This should be stated very explicitly.
-
-### Level 1: whole-block skip
-
-Turn off:
-
-- 32 leaf multipliers
-- block-local tree registers
-- activation and weight reads for that block
-- channel-accumulator update for that block
-- the corresponding block service slot in the reused engine
-
-### Level 2: element skip
-
-Turn off:
-
-- the leaf multiplier
-- its local reads
-- all ancestors whose sibling subtree is also dead and whose residual is zero
-
-### Level 3: partial-window execution
-
-Turn off:
-
-- the leaf before `start_ctr[k]`
-- the leaf after `rem_ctr[k]`
-- ancestors that become inactive after their contributing children finish and residual drains
-
-In the baseline block-serial schedule, this third level primarily saves **switching activity, SRAM reads, and emitted payload**.
-
-This is the clean hardware story: **whole-block skip, element skip, and partial-window execution**.
-
-## 9. What the hardware claim should say
-
-The hardware section can now say:
-
-> We realize temporal significance scheduling with a metadata-first two-plane micro-tile. A double-buffered scale prepass converts MX E8M0 block-scale codes into coarse per-block delays using only exponent-field addition, max-reduction, and subtraction. A one-block-ahead local scheduler then merges those delays with activation fine-delay codes `lambda_x[n,b,k]` to produce per-path local local windows `W[p,b,k,c]`. The block-serial online-CIM engines execute only those windows, suppressing whole blocks, individual elements, and inactive time regions while preserving a compact BSD intermediate representation and reduced stage-1 payload.
+> We realize temporal significance scheduling with a metadata-first stage-1
+> micro-tile. A lightweight control plane translates MX metadata and calibrated
+> horizons into per-element target-formation descriptors. At runtime, each
+> active lane forms a target activation mantissa and multiplies it by an
+> offline-aligned fixed-point weight element using a standard fixed-point
+> multiplier, followed by conventional reduction and channel accumulation.
+> Empty blocks and elements issue no arithmetic work; partial windows alter
+> target formation rather than creating a runtime weight-digit stream. The
+> custom design covers `gate_proj` and `up_proj` only and requires no stage-2
+> packet interface.

@@ -27,11 +27,10 @@ The audit was made against these revisions:
 | `../anchors` | `5959bb8` | old trace-driven RTL/cost anchors A0--A4 |
 | `../rebuttal` | `e13339c` | old end-to-end cost model, trace artifacts, and rebuttal writing |
 
-The deletion at the audited revision of the stage-1/stage-2 boundary and local
-`down_proj`-consumer sections in
-`docs/archive/paper_planning/hardware_design.md` was preserved. That archived note
-still contains other old serial-parallel assumptions and is not the new design
-contract.
+The paper-facing planning note at
+`docs/archive/paper_planning/hardware_design.md` has since been refreshed to
+describe the stage-1 standard-multiplier datapath. It is a readable design
+bridge, while `hardware_sim/docs/architecture_contract.md` remains binding.
 
 ## 1. Executive conclusion
 

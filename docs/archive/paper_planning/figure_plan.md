@@ -1,5 +1,9 @@
 # Figure list
 
+> Historical figure-planning record. Hardware descriptions involving serial
+> arithmetic, reduced stage-boundary payloads, or synthesis anchors are
+> superseded by `hardware_design.md` and must not define the target RTL.
+
 Below is the main-paper figure order I would use. Each figure has one job. If a figure cannot clearly prove that job, it should be merged, moved to the appendix, or cut.
 
 The vocabulary should stay consistent across the whole paper:

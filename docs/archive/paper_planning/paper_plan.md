@@ -1,5 +1,9 @@
 # paper plan
 
+> Historical paper-planning record. Hardware statements about serial
+> arithmetic, stage 2, payload reduction, or synthesis anchors are superseded
+> by `hardware_design.md` and must not define the target RTL.
+
 Title: **Temporal Significance Scheduling for MX-Quantized LLM FFN Inference on CIM**
 
 ## 1. One-sentence thesis

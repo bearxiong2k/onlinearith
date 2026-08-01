@@ -6,10 +6,12 @@ simulation work.
 
 ## Contents
 
-- `paper_planning/`: older paper outlines, anchor plan, figure plan, and
-  hardware-design notes retained for historical reference. These files may
-  describe the retired serial digit-stream datapath, custom stage 2, or packet
-  interface; they are not active specifications.
+- `paper_planning/hardware_design.md`: revised paper-facing description of the
+  target stage-1 architecture. It agrees with the standard-multiplier boundary
+  but remains subordinate to the active hardware contract.
+- `paper_planning/figure_plan.md`, `paper_outline.md`, and `paper_plan.md`:
+  historical writing plans. Their serial-arithmetic, stage-2, payload, or
+  anchor statements are superseded and are not hardware specifications.
 
 Current hardware contracts live under `hardware_sim/docs/`. Current paper-wide
 revision guidance lives under `docs/paper/`.
