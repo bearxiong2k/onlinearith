@@ -373,24 +373,7 @@ gated_c = SiLU(gate_c) * up_c
 
 This produces the stage-1 output for channel `c`.
 
-## 8. Stage-1 / stage-2 boundary
-
-The data transfer network is not a contribution of the paper; the architectural claim is a **reduced payload** rather than a specific NoC or interconnect design.
-
-A lightweight buffered handoff is enough here. The important point is that the emitted stage-1 stream remains compact because only digits inside the local windows are produced, together with narrow sideband completion metadata.
-
-## 9. Local down_proj consumer
-
-Each local shard contains:
-
-- a similar serial-parallel multiplier bank
-- local row accumulators
-- a full OTFC at egress
-- an output block buffer
-
-`down_proj` therefore consumes the reduced intermediate payload without requiring a wide `fp32`-style stage interface.
-
-## 10. What is actually turned off
+## 8. What is actually turned off
 
 This should be stated very explicitly.
 
@@ -424,7 +407,7 @@ In the baseline block-serial schedule, this third level primarily saves **switch
 
 This is the clean hardware story: **whole-block skip, element skip, and partial-window execution**.
 
-## 11. What the hardware claim should say
+## 9. What the hardware claim should say
 
 The hardware section can now say:
 

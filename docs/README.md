@@ -8,6 +8,12 @@ is intentionally separated from reference material and archive material.
 - `qwen3_final_experiments/`: current Qwen3 final experiment plan, handoff
   prompt, runtime estimates, and detailed references.
 
+## Active Hardware Transition
+
+- `hardware_redesign_transition.md`: pre-reorganization audit, redesign
+  decisions, legacy-reuse matrix, and contracts required before implementing
+  the activation-mantissa/standard-multiplier datapath.
+
 ## Method Notes
 
 - `baselines/structured_sparsity_baselines.md`: WANDA-style and activation
