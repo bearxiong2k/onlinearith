@@ -28,13 +28,16 @@ contract.
 
 ## 1. Executive conclusion
 
-The previous work is valuable as infrastructure and provenance, but it is not
-a valid implementation or evidence base for the revised datapath.
+The existing `onlinearith` and modified-Transformers simulations are frozen
+algorithmic/quality facts. They will not be edited to make their tensor program
+look like the revised circuit, and their calibration, PPL, and executed-digit
+results will not be invalidated or recomputed under altered numerical
+semantics as part of the hardware redesign.
 
-The central incompatibility is numerical, not merely an RTL refactor:
+The current software implementation order is:
 
 ```text
-old simulation:
+frozen software simulation:
     product     = activation_mantissa * weight_mantissa
     contribution = truncate_product(product, scheduled_product_digits)
 
@@ -46,15 +49,22 @@ revised design:
                             weight_aligned)
 ```
 
-In general, truncating a product and multiplying a truncated activation are not
-equivalent. Consequently, the current TSS PPL results, fixed-sum calibration
-files, product-digit traces, Anchor 2 characterization, boundary traces, and
-end-to-end TSS cost rows cannot be relabeled as results for the revised design.
+The first sequence defines the frozen software evidence. The second defines the
+new hardware realization. Their relationship must be captured by an explicit
+downstream interpretation/translation contract; it will not be resolved by
+changing the model simulator.
+
+The redesign therefore invalidates downstream circuit events and costs, not the
+recorded software facts. Old Anchor-2 characterization, boundary traces,
+payload/queue results, and end-to-end hardware cost rows cannot be relabeled as
+results for the revised design. Existing calibration tables, PPL values, and
+executed-digit measurements remain the authoritative algorithmic evidence with
+their original semantics and provenance.
 
 The parts worth extracting are:
 
-- the PPL, calibration-driver, distributed-runner, chunking, and provenance
-  infrastructure in `onlinearith` and `../transformers`;
+- the frozen PPL, calibration, executed-digit, and model-scale evidence in
+  `onlinearith` and `../transformers`;
 - the metadata/window-control ideas and selected source RTL from Anchors 0, 1,
   and 4, subject to a new arithmetic contract;
 - the Icarus/Yosys/ABC test and synthesis scaffolding in `../anchors`;
@@ -81,16 +91,14 @@ The custom stage-2 `down_proj` consumer, stage-1/stage-2 packet interface,
 packetizer, boundary headers, elastic FIFO, shard queue, and reduced-payload
 claim are removed from the active design.
 
-This does not mean deleting `down_proj` from the neural network. Functional PPL
-evaluation must still execute the original model graph. The implementation
-change implied by this decision is:
+This does not mean deleting `down_proj` from the neural network or changing how
+the frozen functional simulation treated it. Existing PPL/calibration runs keep
+the original full model graph and original projection semantics.
 
-- apply the revised TSS numerical path and hardware statistics only to
-  `gate_proj` and `up_proj`;
-- execute `down_proj` as a common, unmodified model operation;
-- exclude `down_proj` from TSS window/event counts;
-- if a later report is end-to-end rather than stage-1-only, account for
-  `down_proj` as a common baseline term, not as a special stage 2.
+The new hardware/general simulator instead has a stage-1-only custom scope. It
+must consume projection-resolved frozen facts where available, exclude old
+stage-2/interface events from new circuit accounting, and treat `down_proj` as
+a common baseline term if a later table uses an end-to-end FFN denominator.
 
 ### D3. The leaf arithmetic primitive changes
 
@@ -111,29 +119,33 @@ must count reads of the stored aligned weight representation and standard
 multiplier issues; they must not infer a runtime weight-digit stream from the
 old implementation.
 
-### D5. The old TSS evidence is frozen legacy evidence
+### D5. Software evidence is frozen; old hardware evidence is legacy
 
-Old TSS calibration, PPL, latency, executed-product-digit, area, energy,
-payload, and queue values describe the superseded kernel/hardware contract.
-They remain useful for historical comparison and for testing old readers, but
-not as claims about the revised design.
+The existing TSS calibration, PPL, and executed-digit results are frozen facts
+and remain reusable exactly as recorded. The same applies to FP16, dense MXFP8,
+WANDA 2:4, and activation N:M 2:4 results under their recorded protocols. No
+model/calibration code or semantics will change for this redesign. Any later
+read-only reproduction/export must use the frozen setup unchanged and does not
+define a new method.
 
-Independent reference results such as FP16, dense MXFP8, WANDA 2:4, and
-activation N:M 2:4 may remain reusable if their evaluation methodology is
-unchanged. They must not be paired with newly generated TSS hardware statistics
-without explicit provenance.
+Old latency, area, energy, payload, queue, and circuit-event values describe
+the superseded hardware contract. They remain historical evidence and reader
+fixtures, but not claims about the revised standard-multiplier design.
+
+When a paper table combines frozen quality/work facts with new downstream
+hardware estimates, it must show the two provenances separately.
 
 ### D6. Executed-digit ratio remains the primary work metric
 
-The numerator must now mean executed/consumed **activation digits used to form
-the target activation mantissa**, not digits of an already-formed product and
-not the number of standard multiplies. Read ratios, standard-multiplier count,
-and latency/energy counters are separate hardware-accounting metrics.
+The recorded executed-digit ratio and its existing plotting convention
+`mean_effective_precision / 3.0` remain frozen algorithmic/work facts. Their
+definition will not be rewritten to match a new circuit counter.
 
-The existing plotting convention
-`mean_effective_precision / 3.0` can survive only if the new activation-digit
-basis retains the same three-digit dense reference. Old stored values cannot
-be reused merely because the formula has the same shape.
+The downstream simulator must separately count activation-target formation,
+aligned-weight reads, standard-multiplier issues, tree work, and accumulation.
+It may map the frozen digit metric into those events only through a documented
+formula or trace adapter. Standard-multiplier count and hardware read/latency/
+energy ratios are not aliases for executed-digit ratio.
 
 ### D7. Later code must be self-contained with respect to legacy repos
 
@@ -154,6 +166,21 @@ Every reported hardware quantity must continue to distinguish at least:
 
 No formula-backed or proxy value should become a "measured" value through
 report aggregation.
+
+### D9. Nangate use is already cleared for this project
+
+The prior license check for the local Nangate cell files is complete. This is
+the same personal-research project, so reuse or relocation of those files
+inside the reorganized project is not a blocker and requires no new license
+review. Preserve their headers and provenance as normal research hygiene.
+
+### D10. Reorganization does not move the frozen simulator boundary
+
+The next repository reorganization may add or rearrange active documentation,
+RTL, downstream general-simulation, trace-adapter, and cost-model material. It
+must not move, rename, or modify the existing `onlinearith` experiment entry
+points or the authoritative Qwen/LLM simulation files in the Transformers
+fork. Stable commands and result schemas remain intact.
 
 ## 3. Current `onlinearith` and Transformers implementation
 
@@ -186,7 +213,7 @@ not this repository. Its useful engineering includes:
 - per-layer statistics hooks and progress reporting;
 - a staged calibration cache and optimizer interface.
 
-### 3.2 Current numerical semantics that must change
+### 3.2 Frozen numerical semantics and downstream boundary
 
 In
 `../transformers/src/transformers/models/qwen3/modeling_qwen3.py`,
@@ -205,23 +232,24 @@ The calibration oracle in
 same product-first operation in `_compute_truncated_result`. The fixed-sum
 solver then optimizes error curves generated by that oracle.
 
-The revised kernel must instead form the activation target representation and
-then multiply by the offline-aligned weight. Therefore:
+These operations and the calibration results derived from them are frozen. The
+project will not change `_forward_msd_truncated`,
+`_compute_truncated_result`, their cache/chunking behavior, or their calibrated
+budgets.
 
-- `_forward_msd_truncated` needs a new numerical kernel;
-- `_compute_truncated_result` and all calibration error curves need the same
-  new kernel;
-- existing calibrated budgets and target-SNR-to-quality results must be
-  regenerated;
-- exact-MX reference calculation, cache/chunk plumbing, the SNR search shell,
-  and the fixed-sum redistribution algorithm remain reusable.
+The new offline-aligned weight format and standard-multiplier model belong in
+the downstream hardware/general-simulation area. That area must document which
+frozen quantities it consumes (for example, horizons, effective-precision
+statistics, or projection-resolved work summaries), how they determine a
+target activation mantissa, and which new circuit events are derived. This
+adapter is not a replacement numerical PPL oracle.
 
-### 3.3 Projection-scope mismatch
+### 3.3 Projection-scope caveat for downstream consumption
 
 `experiment_config.reconfigure_mlp_layers` currently replaces
 `gate_proj`, `up_proj`, and `down_proj`. The performance accumulator therefore
-profiles all three projections. That was consistent with the old full-FFN
-simulation, but not with the revised hardware scope.
+profiles all three projections. This is a frozen property of the software
+evidence, not a request to change `reconfigure_mlp_layers`.
 
 The v1 event ledger compounds this mismatch: it aggregates all profiled
 projection counters and then splits each aggregate evenly into only `g` and
@@ -230,9 +258,11 @@ projection counters and then splits each aggregate evenly into only `g` and
 modules rather than the number of gate/up prepass instances. This ledger is a
 rebuttal compatibility artifact, not a clean stage-1 ground truth.
 
-The later implementation must filter by explicit projection identity while
-events are recorded. It must not recover gate/up counts by dividing a global
-aggregate.
+The downstream stage-1 hardware model should consume per-layer/per-projection
+facts and select `gate_proj`/`up_proj` where those facts exist. It must not
+recover gate/up counts by dividing a global aggregate. If an old artifact has
+only the invalid aggregate split, label it unusable for the new circuit ledger
+rather than modifying the frozen simulation semantics.
 
 ### 3.4 Statistics and trace code
 
@@ -246,11 +276,12 @@ hardware outputs are tied to the old design:
 - every output channel produces a burst assigned to a stage-2 shard;
 - headers, boundary words, and queue replay are Anchor-3-specific.
 
-The per-layer accumulator/chunking pattern is reusable. The event definitions,
-cycle equations, aggregate splitting, boundary CSV mode, and v1 ledger are not.
-New fields should be additive/versioned so existing result readers can fail
-clearly or use an explicit legacy adapter; `N_leaf_exec` must never silently be
-reinterpreted as a standard-multiplier count.
+The statistics and their files remain frozen. The event definitions, cycle
+equations, aggregate splitting, boundary CSV mode, and v1 circuit ledger are
+not inputs to the revised circuit cost model unless an explicit adapter marks
+the exact fields it uses. The new downstream ledger should be separately
+versioned; `N_leaf_exec` must never silently be reinterpreted as a
+standard-multiplier count.
 
 ## 4. What was built in `../anchors`
 
@@ -339,16 +370,15 @@ stores are removed.
 
 ### 4.6 RTL toolchain and what it actually proves
 
-The installed open-source simulation/synthesis tools and the local reference
-cell models are worth keeping as a reproducible flow, subject to the cell-file
-license check below:
+The installed open-source simulation/synthesis tools and the already-cleared
+local reference cell models are worth keeping as a reproducible flow:
 
 | Component | Audited version/use | Evidence boundary |
 |---|---|---|
 | Icarus Verilog | 11.0, SystemVerilog smoke/characterization testbenches and VCD generation | Functional RTL simulation, not timing or power signoff |
 | Yosys | 0.63+184, git `240439bdb` | elaboration, generic synthesis, Liberty mapping, and reports |
 | ABC | invoked by Yosys scripts | mapped critical-path/Fmax proxy, not placed-and-routed closure |
-| Liberty/cell models | local Nangate Open Cell Library copy, typical corner, 1.1 V, 25 C | old mapping reference; its header says it was provided under a restricted license, so redistribution rights must not be assumed |
+| Liberty/cell models | local Nangate Open Cell Library copy, typical corner, 1.1 V, 25 C | cleared mapping reference for this personal-research project; preserve headers/provenance |
 | Python helpers | counter parsing, characterization fits, JSON/CSV/Markdown reports | reproducible orchestration and reporting |
 
 Although old characterization testbenches emit VCD files, the Anchor-2 and
@@ -429,19 +459,19 @@ variables.
 
 ## 6. Reuse matrix
 
-| Source | Reuse directly or with small adaptation | Redesign/recompute | Retire from active path |
+| Source | Frozen/reuse boundary | New downstream work | Do not carry as revised hardware evidence |
 |---|---|---|---|
-| PPL runners | dataset/window/label/loss semantics, distributed and device-map plumbing, snapshots | projection selection and new stats options | boundary-trace CLI as an active feature |
-| Experiment config | setup validation and backward-compatible snapshots | arithmetic-version fields; gate/up-only TSS reconfiguration | none of the stable setup IDs |
-| Qwen numerical code | MX block quantization, caches, output chunking, progress hooks | activation-first approximate kernel | product-first TSS kernel as current behavior |
-| Calibration | capture/cache shell, exact reference plumbing, SNR search, fixed-sum optimizer | approximate result/error-curve oracle and all TSS budgets | old calibration values as revised evidence |
-| Performance stats | per-layer accumulator and lite/full serialization pattern | stage-1-only, activation-digit and multiplier event schema | payload/burst/header/shard accounting |
+| PPL runners | preserve code, protocols, result JSONs, and PPL values verbatim | none in `onlinearith`; consume artifacts read-only | old boundary-trace events |
+| Experiment config | preserve setup IDs, snapshots, and original projection behavior | external artifact-selection/translation config | none of the stable setup facts |
+| Qwen numerical code | preserve MX/TSS numerical implementation as the authoritative software fact | no model-kernel edits; build hardware interpretation outside Transformers | literal reuse as revised RTL structure |
+| Calibration | preserve cache/oracle semantics, budgets, SNR points, and fixed-sum results | no recalibration; consume recorded horizons/results with provenance | treating old hardware costs as calibration facts |
+| Performance stats | preserve files and per-layer statistics as recorded | a separate stage-1 circuit-ledger adapter using only well-defined fields | payload/burst/header/shard events and the aggregate g/u split |
 | Anchor 0 | source/test/synthesis pattern; possibly arithmetic | verify against offline weight representation, then re-synthesize | old numbers if the contract changes |
 | Anchor 1 | source/test/bank pattern; possibly `tau`/`L` arithmetic | new config semantics and widths | old product-digit interpretation |
 | Anchor 2 | scaffolding and report parsers | full datapath RTL, timing, area, and activity | old leaf/tree characterization |
 | Anchor 3 | generic queue-replay idea only | none for the current design | all active interface RTL and results |
 | Anchor 4 | generic RAM and selected metadata stores | inventory/config width and new synthesis | completion/payload stores and old total |
-| RTL toolchain | Icarus/Yosys/ABC flow; local cell-library use only after a license check | new multiplier characterization scripts | claims of signoff power/timing |
+| RTL toolchain | Icarus/Yosys/ABC flow and the already-cleared local cell library | new multiplier characterization scripts | claims of signoff power/timing |
 | Rebuttal cost model | loaders, schema normalization, source labels, writers, tests | event fields, cost equations, latency, area composition | generated old TSS tables/config formulas |
 | Rebuttal artifacts | checksums/manifests/provenance pattern | new trace package after implementation | old boundary trace as simulator input |
 
@@ -487,37 +517,45 @@ Choose and label whether hardware tables report:
 This choice affects denominators, but it does not restore a custom stage 2 or
 an interface claim.
 
-### 7.4 Numerical reference and calibration
+### 7.4 Frozen numerical-evidence contract
 
-Freeze whether calibration noise is measured against dense MXFP8 output or
-another reference, and whether offline-aligned weight formatting contributes
-to the approximate path only or to both reference and approximate paths.
+The numerical reference and calibration semantics are already frozen by the
+existing simulator. Record rather than redesign:
 
-One canonical kernel should be shared, or tested for exact equivalence, across:
+- the exact setup/configuration and calibration artifact used by each result;
+- whether a value is full WikiText-2 or `--limit-samples` evidence;
+- the recorded executed-digit definition and denominator;
+- model/Transformers/onlinearith revisions and artifact checksums;
+- the available per-layer/per-projection fields used by downstream accounting.
 
-- forward/PPL evaluation;
-- calibration error curves;
-- trace generation;
-- tiny-vector RTL reference generation.
+The new fixed-point/RTL reference may test its own circuit behavior, but it is
+not a replacement forward/PPL or calibration kernel. Any mapping from a frozen
+software horizon/effective-precision value to a target activation mantissa must
+be explicit and tested in the downstream simulator.
 
 ## 8. Required new simulation/accounting shape
 
-### 8.1 Functional order
+### 8.1 Downstream implementation order
 
-Implementation should proceed in dependency order:
+Implementation should proceed without editing the frozen model simulator:
 
-1. pure tensor/reference functions for weight offline alignment, target
-   activation formation, fixed-point multiply, and accumulation;
-2. equivalence tests between reference and chunked model paths;
-3. calibration oracle using the same functions;
-4. gate/up-only model integration and PPL smoke validation;
-5. trace/event generation;
-6. RTL blocks and vector co-simulation;
-7. mapped characterization and the cost model;
-8. final calibration/PPL/statistics runs.
+1. inventory the frozen result/calibration/statistics artifacts, revisions,
+   schemas, and checksums;
+2. freeze the translation from recorded horizons/effective-precision facts to
+   target activation-mantissa behavior;
+3. implement pure reference functions for offline weight alignment, target
+   activation formation, fixed-point multiply, and accumulation outside the
+   frozen model code;
+4. construct a separate stage-1 circuit ledger from projection-resolved frozen
+   facts, with formula-backed fields labeled where direct counts do not exist;
+5. implement RTL blocks and deterministic reference-vector co-simulation;
+6. characterize the mapped multiplier/control/storage and rebuild the cost
+   model;
+7. combine frozen quality/work evidence and new hardware results only at the
+   reporting layer, with both provenances visible.
 
-This prevents a cost model from hardening an unverified numerical
-interpretation.
+This prevents downstream hardware work from mutating established algorithmic
+facts or hardening an undocumented interpretation.
 
 ### 8.2 Event ledger v2
 
@@ -598,12 +636,13 @@ following extraction boundary follows from this audit.
 ### Bring into the active project
 
 - a concise active design-contract location and an archive/legacy index;
+- new downstream hardware/general-simulation packages placed alongside, not
+  inside, the frozen PPL/calibration/model code paths;
 - reusable RTL source/tests for metadata control and generic storage after
   reviewing their dependencies;
 - generic Icarus/Yosys/ABC orchestration and report parsers;
-- a configurable reference to the local cell library; copy the cell files only
-  after confirming the applicable license permits it, and always preserve their
-  copyright/license header and provenance;
+- the already-cleared local cell-library files with their existing headers and
+  provenance;
 - a clean, versioned event-ledger/report package derived from the rebuttal code;
 - small synthetic fixtures and unit tests;
 - artifact-manifest/checksum tooling, if still useful.
@@ -629,22 +668,26 @@ their existing repositories and manifests already do that.
 
 ## 10. Acceptance criteria for the later redesign
 
-The redesign is not ready for new paper results until all of these hold:
+The redesign is not ready for new hardware/paper results until all of these
+hold:
 
-- one frozen operand/schedule contract exists;
-- forward and calibration paths use the same activation-first arithmetic;
-- TSS is applied only to gate/up in the model integration;
-- exact and chunked implementations agree on deterministic fixtures;
-- a stage-1-only v2 ledger reports activation digits and standard multiplier
-  issues separately;
-- Python and RTL agree on result and event counts for tiny transactions;
+- `onlinearith` and modified-Transformers simulation code/results remain
+  unchanged and their revisions/provenance are recorded;
+- one frozen downstream operand/schedule/translation contract exists;
+- a stage-1-only v2 ledger reports target-activation work and standard
+  multiplier issues separately;
+- Python circuit reference and RTL agree on result and event counts for tiny
+  transactions;
 - multiplier, tree, and retained control/storage RTL are re-synthesized;
 - energy source status is explicit and no old proxy coefficient is carried
   forward unnoticed;
 - no active cost equation contains stage-2 payload/interface terms;
-- TSS calibration, PPL, and statistics are regenerated under the new kernel;
-- executed-digit ratio remains the primary work metric and is defined from
-  activation execution, not product digits.
+- frozen calibration/PPL/executed-digit results are used without semantic
+  rewriting or regeneration;
+- any table combining frozen software evidence with new hardware accounting
+  exposes both sources and does not imply they came from one new model run;
+- executed-digit ratio remains the primary algorithmic work metric, while new
+  circuit reads/multiplies/latency remain separate accounting metrics.
 
 ## 11. Key audited sources
 

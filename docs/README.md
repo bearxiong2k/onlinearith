@@ -14,6 +14,12 @@ is intentionally separated from reference material and archive material.
   decisions, legacy-reuse matrix, and contracts required before implementing
   the activation-mantissa/standard-multiplier datapath.
 
+## Active Paper Revision
+
+- `paper_revision_lessons_from_rebuttal.md`: reusable reviewer insights,
+  frozen evidence to promote, revised claim boundaries, figure/table changes,
+  and paper structure after the hardware redesign.
+
 ## Method Notes
 
 - `baselines/structured_sparsity_baselines.md`: WANDA-style and activation
