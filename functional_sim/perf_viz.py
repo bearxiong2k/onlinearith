@@ -11,9 +11,9 @@ produces diagnostic charts showing:
 No model loading required — operates purely on the saved result JSON.
 
 Usage:
-    python perf_viz.py ppl_results_MXFP8_MSD_B16.json
-    python perf_viz.py ppl_results_MXFP8_MSD_B16_calib.json --output-dir perf_charts/
-    python perf_viz.py ppl_results_MXFP8_MSD_B16.json --no-show
+    python functional_sim/perf_viz.py ppl_results_MXFP8_MSD_B16.json
+    python functional_sim/perf_viz.py ppl_results_MXFP8_MSD_B16_calib.json --output-dir perf_charts/
+    python functional_sim/perf_viz.py ppl_results_MXFP8_MSD_B16.json --no-show
 """
 
 import argparse

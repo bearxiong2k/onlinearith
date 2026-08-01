@@ -11,7 +11,7 @@ TRANSFORMERS_SRC = WORKSPACE_ROOT / "transformers" / "src"
 
 
 def default_model_path(model_dir_name: str) -> str:
-    """Return the historical relative model path used by root scripts."""
+    """Return the model path for invocation from the repository root."""
     return f"../{model_dir_name}"
 
 

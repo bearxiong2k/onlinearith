@@ -2,14 +2,14 @@
 Offline MSD budget calibration across MXFP formats.
 
 Supports **multi-GPU** — either auto-launched (recommended) or via torchrun:
-    python calibrate.py --nproc 4                          # auto-launch 4 GPUs (picks free port)
-    python calibrate.py --nproc 4 --gpus 4,5,6,7          # specific GPUs, free port
-    python calibrate.py --nproc 2 --only 1 2               # subset on 2 GPUs
-    python calibrate.py --setup 1                          # single format, single GPU
+    python functional_sim/calibrate.py --nproc 4                          # auto-launch 4 GPUs (picks free port)
+    python functional_sim/calibrate.py --nproc 4 --gpus 4,5,6,7          # specific GPUs, free port
+    python functional_sim/calibrate.py --nproc 2 --only 1 2               # subset on 2 GPUs
+    python functional_sim/calibrate.py --setup 1                          # single format, single GPU
 
     # Manual torchrun (you must pick a free port yourself if 29500 is taken):
-    torchrun --nproc_per_node=4 --master-port=29501 calibrate.py
-    torchrun --nproc_per_node=2 --master-port=29501 calibrate.py --gpus 0,3
+    torchrun --nproc_per_node=4 --master-port=29501 functional_sim/calibrate.py
+    torchrun --nproc_per_node=2 --master-port=29501 functional_sim/calibrate.py --gpus 0,3
 
 Each GPU loads its own model copy and calibrates its assigned format(s).
 Formats are partitioned round-robin across ranks; each rank writes its
@@ -21,12 +21,12 @@ Usage:
     cd /path/to/onlinearith
     source ../.venv3_10/bin/activate
 
-    python calibrate.py --list                                # list setups
-    python calibrate.py --setup 1                             # single format
-    python calibrate.py --nproc 4                             # all 4 formats, auto port
-    python calibrate.py --nproc 4 --gpus 4,5,6,7             # specific GPUs
-    python calibrate.py --nproc 4 --target-snr 40            # custom SNR
-    python calibrate.py --nproc 4 --force                    # re-run existing
+    python functional_sim/calibrate.py --list                                # list setups
+    python functional_sim/calibrate.py --setup 1                             # single format
+    python functional_sim/calibrate.py --nproc 4                             # all 4 formats, auto port
+    python functional_sim/calibrate.py --nproc 4 --gpus 4,5,6,7             # specific GPUs
+    python functional_sim/calibrate.py --nproc 4 --target-snr 40            # custom SNR
+    python functional_sim/calibrate.py --nproc 4 --force                    # re-run existing
 """
 
 import argparse

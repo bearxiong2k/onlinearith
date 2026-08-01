@@ -72,28 +72,28 @@ Evaluates optimized budgets on held-out texts to verify generalization.
 ### Basic Usage
 ```bash
 # Standard SNR-min calibration (baseline)
-python calibrate.py --setup 1
+python functional_sim/calibrate.py --setup 1
 
 # Fixed-sum redistribution
-python calibrate.py --setup 1 --optimizer fixed_sum
+python functional_sim/calibrate.py --setup 1 --optimizer fixed_sum
 
 # Multi-GPU batch mode (all 4 formats)
-python calibrate.py --nproc 4 --optimizer fixed_sum
+python functional_sim/calibrate.py --nproc 4 --optimizer fixed_sum
 ```
 
 ### Advanced Options
 ```bash
 # With holdout validation (20% held out)
-python calibrate.py --setup 1 --optimizer fixed_sum --holdout-fraction 0.2
+python functional_sim/calibrate.py --setup 1 --optimizer fixed_sum --holdout-fraction 0.2
 
 # Only calibrate gate_proj layers
-python calibrate.py --setup 1 --optimizer fixed_sum --projection-filter gate_proj
+python functional_sim/calibrate.py --setup 1 --optimizer fixed_sum --projection-filter gate_proj
 
 # Wider error curve window (default: 3)
-python calibrate.py --setup 1 --optimizer fixed_sum --curve-window 5
+python functional_sim/calibrate.py --setup 1 --optimizer fixed_sum --curve-window 5
 
 # Save full error curves for debugging (large files)
-python calibrate.py --setup 1 --optimizer fixed_sum --save-curve-detail
+python functional_sim/calibrate.py --setup 1 --optimizer fixed_sum --save-curve-detail
 ```
 
 ## Output Files
@@ -147,7 +147,7 @@ Split texts into train/holdout (e.g., 80/20). Optimize on train split, evaluate 
 
 ### Gate B: Short PPL + Runtime Metrics
 ```bash
-python ppltest.py --setup 6 --calibration calibration_MXFP8_fixed_sum.json --limit-samples 100
+python functional_sim/ppltest.py --setup 6 --calibration calibration_MXFP8_fixed_sum.json --limit-samples 100
 ```
 Compare against `calibration_MXFP8.json`. Accept if:
 - PPL is non-inferior

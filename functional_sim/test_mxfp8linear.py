@@ -15,7 +15,7 @@ Format-specific extras:
 
 Run from repo root:
     cd /path/to/onlinearith
-    ../.venv3_10/bin/python test_mxfp8linear.py
+    ../.venv3_10/bin/python functional_sim/test_mxfp8linear.py
 """
 
 import sys

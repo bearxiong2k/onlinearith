@@ -1,9 +1,8 @@
-# Functional-simulation working rules
+# Functional-simulation rules
 
-These instructions govern the frozen canonical harness under `functional_sim/`
-and the modified sibling Transformers implementation. Root-level functional
-names are compatibility symlinks, not separate source. These details live here
-so the repository-wide `AGENTS.md` can remain a short workstream router.
+These instructions govern the frozen harness under `functional_sim/` and the
+modified sibling Transformers implementation. The repository-wide `AGENTS.md`
+only routes between workstreams.
 
 ## Status and scope
 
@@ -13,14 +12,6 @@ schemas for the hardware redesign. Read-only inspection, documented artifact
 export, and the established list/smoke checks are allowed. Reopen this scope
 only when the user explicitly asks.
 
-The harness contains experiment drivers, calibration scripts, visualization
-helpers, and lightweight tests for temporal significance scheduling in
-MX-quantized LLM inference. The authoritative model implementation lives at:
-
-```text
-../transformers/src/transformers/models/qwen3/
-```
-
 Use the paper-level term **temporal significance scheduling**, the algorithmic
 object **local execution windows on aligned contribution streams**, and the
 primary work metric **executed-digit ratio**. Do not recast the method as
@@ -28,27 +19,17 @@ generic sparsity, quantization, pruning, or masking.
 
 ## Read order
 
-1. `functional_sim/HARNESS.md`
-2. `functional_sim/docs/README.md`
-3. The shortest relevant document under
+1. `functional_sim/README.md` for ownership and commands
+2. `functional_sim/docs/README.md` for the evidence/documentation index
+3. The shortest relevant record under
    `functional_sim/docs/qwen3_final_experiments/`
 4. Detailed `references/` material only when evidence or implementation
    history is necessary
 
-## Authoritative files
+## Authoritative external implementation
 
-Canonical entry points (with equivalent root symlinks):
-
-- `functional_sim/ppltest.py`: single-setup WikiText-2 PPL evaluation; `--nproc` shards
-  sliding windows across full model replicas.
-- `functional_sim/ppl_batch.py`: batch runner; `--nproc` shards setup IDs.
-- `functional_sim/calibrate.py`: MXFP/MSD calibration, including `snr_min` and `fixed_sum`.
-- `functional_sim/calibrate_base.py`: structured N:M baseline-mask calibration.
-- `functional_sim/experiment_config.py`: setup IDs, baseline fields, snapshots, and MLP
-  reconfiguration source of truth.
-- `functional_sim/dist_utils.py`: torchrun/NCCL and lite distributed helpers.
-
-Modified Transformers files:
+The numerical model lives under
+`../transformers/src/transformers/models/qwen3/`:
 
 - `modeling_qwen3.py`: current operational Qwen3 implementation.
 - `configuration_qwen3.py`: custom MXFP/MSD fields.
@@ -56,32 +37,6 @@ Modified Transformers files:
 - `msd_perf_stats.py`: frozen performance-statistics accumulator.
 - `modular_qwen3.py`: reference/modular source only. Do not edit or regenerate
   the operational model from it unless explicitly requested.
-
-## Environment
-
-Use the parent virtual environment:
-
-```bash
-source ../.venv3_10/bin/activate
-```
-
-or invoke it explicitly:
-
-```bash
-../.venv3_10/bin/python <script>.py
-```
-
-Invoke canonical files as `functional_sim/<script>.py` from the repository
-root. Historical root paths remain valid through symlinks.
-
-Prefer the sibling source through:
-
-```bash
-PYTHONPATH="$(pwd)/../transformers/src:${PYTHONPATH}"
-```
-
-Avoid absolute, machine-specific source paths. Keep `local_files_only=True`
-unless download behavior is explicitly requested.
 
 ## PPL and calibration invariants
 
@@ -96,13 +51,18 @@ unless download behavior is explicitly requested.
   loss, or PPL.
 - Do not alter MX quantization, MSD truncation, calibration, tokenizer, setup
   IDs, default filenames, or PPL-window semantics.
-- `ppltest.py --nproc` is data-parallel window sharding with a full model per
+- `functional_sim/ppltest.py --nproc` is data-parallel window sharding with a full model per
   rank. Explicit model sharding uses single-process `--device-map` and cannot
   be combined with `--nproc`.
 - For MSD equivalent-work comparisons, retain
   `plot_norm_digit_read = mean_effective_precision / 3.0`; runtime global
   utilization is not the paper's executed-digit metric.
 - N:M uses keep-count notation: keep N values per group of M.
+
+Keep script entry points, setup IDs, result/calibration schemas, default output
+locations, and import names stable. Avoid absolute machine paths; resolve the
+sibling source relative to the repository. Keep `local_files_only=True` unless
+download behavior is explicitly requested.
 
 ## GPU evidence hygiene
 
@@ -130,23 +90,20 @@ full calibration by default.
 
 ## Verification
 
-After layout or documentation changes, check both the canonical and
-compatibility surfaces:
+Run commands from the repository root. After layout or documentation changes,
+check the canonical entry points:
 
 ```bash
 ../.venv3_10/bin/python functional_sim/ppltest.py --list
 ../.venv3_10/bin/python functional_sim/ppl_batch.py --list
 ../.venv3_10/bin/python functional_sim/calibrate.py --list
-../.venv3_10/bin/python ppltest.py --list
-../.venv3_10/bin/python ppl_batch.py --list
-../.venv3_10/bin/python calibrate.py --list
 ```
 
 Only when explicitly relevant, add:
 
 ```bash
-../.venv3_10/bin/python test_mxfp8linear.py
-../.venv3_10/bin/python test_fixed_sum_optimizer.py
+../.venv3_10/bin/python functional_sim/test_mxfp8linear.py
+../.venv3_10/bin/python functional_sim/test_fixed_sum_optimizer.py
 ```
 
 Do not run full PPL, calibration, or GPU probes merely to verify a repository

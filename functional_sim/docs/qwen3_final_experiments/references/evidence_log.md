@@ -4,6 +4,11 @@ This file keeps measurement details out of the always-read session context.
 Only direct-CUDA runs with valid CUDA memory fields count as performance/OOM
 evidence.
 
+Command lines in this log are preserved exactly as they were executed before
+the repository relocation. For a new run from the repository root, prefix
+functional entry points with `functional_sim/` as documented in
+`functional_sim/README.md`.
+
 ## Validated Qwen3-8B OOM Evidence
 
 - Setup 2 probe, seq_len 4096: status ok; peak_alloc 27.6147 GiB;

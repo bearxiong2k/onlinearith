@@ -29,9 +29,9 @@ implementation history under `references/`.
 
 ## Frozen executable surface
 
-The canonical scripts and tests live under `functional_sim/`; root-level names
-remain compatibility symlinks. Do not keep duplicate executable copies or edit
-them for hardware-simulation work.
+The scripts and tests live only under `functional_sim/`. Invoke them from the
+repository root with that prefix; do not add duplicate root entry points or
+edit them for hardware-simulation work.
 
 - `functional_sim/scripts/run_qwen3_full_model_sweep_unattended_4gpu.sh`
 - `functional_sim/scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh`

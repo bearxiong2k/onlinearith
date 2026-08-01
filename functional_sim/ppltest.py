@@ -2,20 +2,20 @@
 Perplexity (PPL) evaluation script with richer metrics and reliable computation.
 
 Supports **multi-GPU** — either auto-launched (recommended) or via torchrun:
-    python ppltest.py --nproc 8                            # auto-launch 8 GPUs (picks free port)
-    python ppltest.py --nproc 3 --gpus 4,5,6              # specific GPUs, free port
-    python ppltest.py                                      # single-GPU fallback
-    python ppltest.py --gpus 3                             # single specific GPU
+    python functional_sim/ppltest.py --nproc 8                            # auto-launch 8 GPUs (picks free port)
+    python functional_sim/ppltest.py --nproc 3 --gpus 4,5,6              # specific GPUs, free port
+    python functional_sim/ppltest.py                                      # single-GPU fallback
+    python functional_sim/ppltest.py --gpus 3                             # single specific GPU
 
     # Manual torchrun (you must pick a free port yourself if 29500 is taken):
-    torchrun --nproc_per_node=8 --master-port=29501 ppltest.py
-    torchrun --nproc_per_node=3 --master-port=29501 ppltest.py --gpus 0,2,5
+    torchrun --nproc_per_node=8 --master-port=29501 functional_sim/ppltest.py
+    torchrun --nproc_per_node=3 --master-port=29501 functional_sim/ppltest.py --gpus 0,2,5
 
 Predefined setups (same numbering as ppl_batch.py):
-    python ppltest.py --list                               # list all setups
-    python ppltest.py --setup 6                            # MXFP8 + MSD B=16
-    python ppltest.py --nproc 3 --gpus 4,5,6 --setup 2
-    python ppltest.py --setup 6 --limit-samples 100        # light mode: fast run for testing
+    python functional_sim/ppltest.py --list                               # list all setups
+    python functional_sim/ppltest.py --setup 6                            # MXFP8 + MSD B=16
+    python functional_sim/ppltest.py --nproc 3 --gpus 4,5,6 --setup 2
+    python functional_sim/ppltest.py --setup 6 --limit-samples 100        # light mode: fast run for testing
 
 Each GPU loads a full model copy and processes a shard of the 578 sliding
 windows.  Partial NLL sums are aggregated via NCCL all_reduce.
@@ -244,17 +244,17 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 examples:
-  python ppltest.py --list                                # list all setups
-  python ppltest.py --nproc 8 --setup 6                   # MXFP8 + MSD B=16
-  python ppltest.py --nproc 4 --gpus 4,5,6,7 --setup 6    # specific GPUs
-  python ppltest.py --setup 6 --limit-samples 20          # light mode: fast run
-  python ppltest.py --setup 6 --calibration calibration_MXFP8.json
-  python ppltest.py --setup 6 --calibration calibration_MXFP8.json --msd-utilization-mode
+  python functional_sim/ppltest.py --list                                # list all setups
+  python functional_sim/ppltest.py --nproc 8 --setup 6                   # MXFP8 + MSD B=16
+  python functional_sim/ppltest.py --nproc 4 --gpus 4,5,6,7 --setup 6    # specific GPUs
+  python functional_sim/ppltest.py --setup 6 --limit-samples 20          # light mode: fast run
+  python functional_sim/ppltest.py --setup 6 --calibration calibration_MXFP8.json
+  python functional_sim/ppltest.py --setup 6 --calibration calibration_MXFP8.json --msd-utilization-mode
                                                                     # standard util probe
 
 calibration workflow:
-  1. python calibrate.py --setup 1          # produce calibration_MXFP8.json
-  2. python ppltest.py --setup 6 --calibration calibration_MXFP8.json
+  1. python functional_sim/calibrate.py --setup 1          # produce calibration_MXFP8.json
+  2. python functional_sim/ppltest.py --setup 6 --calibration calibration_MXFP8.json
 """,
     )
     parser.add_argument("--nproc", type=int, default=None, metavar="N",

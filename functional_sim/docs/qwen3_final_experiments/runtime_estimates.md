@@ -14,13 +14,13 @@ Local model directories currently present under `../`:
 | `../Qwen3-4B` | 36 | 2560 | 9728 | 10.18x |
 | `../Qwen3-8B` | 36 | 4096 | 12288 | 20.57x |
 
-`ppltest.py --nproc` is not model sharding; it replicates the full model and
+`functional_sim/ppltest.py --nproc` is not model sharding; it replicates the full model and
 shards PPL windows. That makes it a valid final wall-time accelerator when each
-selected GPU can fit a full replica. `ppltest.py --device-map` is the separate
+selected GPU can fit a full replica. `functional_sim/ppltest.py --device-map` is the separate
 single-process model-sharding path and should be treated as memory relief unless
 fresh direct-CUDA evidence shows throughput improvement.
 
-Current `ppltest.py --nproc` runs disable MSD stats on nonzero ranks. Use
+Current `functional_sim/ppltest.py --nproc` runs disable MSD stats on nonzero ranks. Use
 multi-rank output for PPL quality and wall time, but do not report its
 `msd_perf_stats` as a full-dataset aggregate unless rank-level stats aggregation
 is added. Until then, collect work/accounting metrics in a separate
@@ -30,7 +30,7 @@ single-process utilization run or another explicitly documented probe.
 
 | Path | Representative setup | Why this point |
 |---|---|---|
-| MX baseline | `ppltest.py --setup 2` | Dense MXFP8 reference. |
+| MX baseline | `functional_sim/ppltest.py --setup 2` | Dense MXFP8 reference. |
 | Calibrated MSD | fixed-sum calibrated MXFP8 MSD at target-SNR 30 dB | Figure 4 plots fixed-sum 30 dB at `plot_norm_digit_read = 0.87`, close to dense digit-read work. |
 | WANDA | common `2:4` N:M | 50% kept weights, 50% structured sparsity. |
 | Activation N:M | common `2:4` N:M | 50% kept activations, 50% runtime activation sparsity. |
@@ -87,7 +87,7 @@ Former 0.6B calibrated fixed-sum PPL artifacts under
 with commands shaped like:
 
 ```bash
-python ppltest.py --nproc 1 --setup 6 \
+python functional_sim/ppltest.py --nproc 1 --setup 6 \
   --calibration ../data/calib-data/27db/calibration_MXFP8_fixed_sum.json \
   --lite \
   --output ../data/calib-data/27db/ppl_results_MXFP8_fix_time.json \
@@ -123,7 +123,7 @@ The standard maintained command for new fixed-sum MSD timing/utilization probes
 is:
 
 ```bash
-python ppltest.py --nproc 1 --setup 6 \
+python functional_sim/ppltest.py --nproc 1 --setup 6 \
   --calibration ../data/calib-data/27db/calibration_MXFP8_fixed_sum.json \
   --msd-utilization-mode \
   --output ../data/calib-data/27db/ppl_results_MXFP8_fix_time.json \
@@ -150,9 +150,9 @@ axis used in Figure 4 and should not drive the representative MSD setup choice.
 
 Output convention for new compatibility checks:
 
-- Calibration metadata: use `calibrate.py --optimizer fixed_sum --target-snr 30`.
+- Calibration metadata: use `functional_sim/calibrate.py --optimizer fixed_sum --target-snr 30`.
 - PPL timing/utilization: use explicit
-  `ppltest.py --msd-utilization-mode --output ..._fix_time.json`.
+  `functional_sim/ppltest.py --msd-utilization-mode --output ..._fix_time.json`.
 - If a cap-vs-time comparison is needed, write the paired output explicitly as
   `..._fix_cap.json` and `..._fix_time.json`; do not rely on implicit `_calib`
   output names.
@@ -182,10 +182,10 @@ Basis:
   CUDA devices. This prefix has two long forward windows, so the single-GPU
   full-PPL estimate is about 2.6 h by window count; the sharded benefit in this
   probe is per-GPU memory, not throughput.
-- Qwen3-8B MXFP8 setup 2 with `ppltest.py --nproc 2 --gpus 4,5 --stats off`
+- Qwen3-8B MXFP8 setup 2 with `functional_sim/ppltest.py --nproc 2 --gpus 4,5 --stats off`
   on the same prefix80 slice matched single-GPU PPL exactly at recorded
   precision and reduced wall time from 31.97s to 17.02s.
-- Qwen3-8B MXFP8 setup 2 with `ppltest.py --nproc 4 --gpus 0,1,2,3
+- Qwen3-8B MXFP8 setup 2 with `functional_sim/ppltest.py --nproc 4 --gpus 0,1,2,3
   --limit-samples 120 --stats off` completed a prefix120 slice with eight PPL
   windows in 33.2s. That is about 16.6s per assigned window, or about 0.67 h
   for the full 578-window run on four workers.
@@ -193,7 +193,7 @@ Basis:
   estimates above and run with `--nproc 4 --gpus 4,5,6,7 --load-stagger-sec 8`.
 - An initial eight-worker launch on GPUs 0-7 failed with rank-0 `SIGKILL`
   during model loading/materialization before evaluation. Adding
-  `ppltest.py --load-stagger-sec 8` resolved this for MXFP8 setup 2:
+  `functional_sim/ppltest.py --load-stagger-sec 8` resolved this for MXFP8 setup 2:
   `--nproc 8 --limit-samples 120 --stats off --load-stagger-sec 8` completed
   the same eight-window prefix in 17.03s with identical recorded PPL. Scaling
   one assigned window per rank to `ceil(578 / 8) = 73` windows gives about
@@ -201,17 +201,17 @@ Basis:
 - Qwen3-8B calibrated/uniform MSD prefix80 measured 4144 tokens in about 1999s,
   or about 1000s per long forward window. The full-PPL estimate is therefore
   about 160 h on one GPU.
-- Qwen3-8B fixed-sum target-SNR 30 dB with `ppltest.py --nproc 2 --gpus 4,5
+- Qwen3-8B fixed-sum target-SNR 30 dB with `functional_sim/ppltest.py --nproc 2 --gpus 4,5
   --stats off --compile-msd-truncate --weight-cache-dtype float8` matched the
   prior prefix PPL exactly at recorded precision and completed in 1120.41s. A
   default float16-cache `--nproc 2` run OOMed on rank 1, so the current
   multi-GPU MSD recipe should include `--weight-cache-dtype float8`.
-- Qwen3-8B fixed-sum target-SNR 30 dB with `ppltest.py --nproc 4 --gpus
+- Qwen3-8B fixed-sum target-SNR 30 dB with `functional_sim/ppltest.py --nproc 4 --gpus
   0,1,2,3 --limit-samples 120 --stats off --compile-msd-truncate
   --weight-cache-dtype float8` completed eight PPL windows in 2239.0s, again
   about 1120s per assigned window. Scaling to 145 assigned windows per worker
   for the full 578-window run gives about 45.1 h on four workers.
-- Qwen3-8B fixed-sum target-SNR 30 dB with `ppltest.py --nproc 8 --gpus
+- Qwen3-8B fixed-sum target-SNR 30 dB with `functional_sim/ppltest.py --nproc 8 --gpus
   0,1,2,3,4,5,6,7 --limit-samples 120 --stats off --compile-msd-truncate
   --weight-cache-dtype float8 --load-stagger-sec 8` completed the same
   eight-window prefix in 1120.87s with identical recorded PPL. Scaling to 73
@@ -247,7 +247,7 @@ Basis:
 Model-sharded MXFP8 and MSD have prefix-level correctness and timing evidence,
 but current sequential model sharding is memory relief rather than a speedup.
 The final PPL acceleration path should be full-replica data parallel window
-sharding with `ppltest.py --nproc` when full replicas fit. Qwen3-8B MXFP8 and
+sharding with `functional_sim/ppltest.py --nproc` when full replicas fit. Qwen3-8B MXFP8 and
 fixed-sum MSD are validated on eight workers when using staggered loading.
 
 | Model | Path | Execution mode | GPUs | Evidence | Wall-time estimate |

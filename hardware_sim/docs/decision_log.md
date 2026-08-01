@@ -9,6 +9,8 @@ the reason for an older choice
 ### HW-D001 — Separate functional and hardware workstreams
 
 Date: 2026-08-01
+Status: superseded in command-surface detail by HW-D009; the workstream split
+remains in force
 Decision: keep canonical functional source under `functional_sim/`, preserve
 the old root command surface with symlinks, and place all new hardware work
 under `hardware_sim/`. Functional and hardware evidence meet only through a
@@ -73,6 +75,15 @@ Decision: reuse the existing local Nangate cell files within this same
 personal-research project, preserving file headers and provenance. No new
 license review is required for the reorganization.
 Reason: the license check was completed in the prior project edit.
+
+### HW-D009 — Use canonical nested functional commands only
+
+Date: 2026-08-01
+Decision: remove the temporary root compatibility symlinks. Functional code,
+tests, tools, scripts, and baselines live only under `functional_sim/`, and all
+current commands use that prefix from the repository root.
+Reason: one explicit command surface keeps the repository root and future
+hardware-development context clean without maintaining layout aliases.
 
 ## Open decisions
 

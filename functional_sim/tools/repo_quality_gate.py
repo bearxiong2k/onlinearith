@@ -127,7 +127,7 @@ def check_ppl_constants(gate: Gate, root: Path) -> None:
     for rel in ("ppltest.py", "ppl_batch.py"):
         path = root / rel
         if not path.exists():
-            gate.warn_or_fail(f"Missing {rel}; expected top-level PPL runner to remain present")
+            gate.warn_or_fail(f"Missing {rel}; expected functional PPL runner to remain present")
             continue
         values = parse_assign_constants(path)
         for name, expected in EXPECTED_PPL_CONSTANTS.items():

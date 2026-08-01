@@ -18,5 +18,6 @@ evidence. It is not the starting point for hardware development.
 - [Modular converter guide](dev/modular_converter_guide.md)
 
 Canonical implementation paths begin with `functional_sim/`. Historical
-root-level command names remain supported through symlinks. New RTL, circuit
-traces, and hardware cost documents belong under `hardware_sim/`.
+records may retain pre-relocation command spellings as provenance, but current
+commands must use the `functional_sim/` prefix. New RTL, circuit traces, and
+hardware cost documents belong under `hardware_sim/`.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# May be invoked through the root compatibility link or canonical path.
+# Resolve the canonical functional_sim path independently of the caller's CWD.
 # These commands exercise the flags described in
 # functional_sim/docs/qwen3_final_experiments/active_plan.md.
 

@@ -12,15 +12,15 @@ not part of hardware verification.
 Deliverables:
 
 - separate `functional_sim/` and `hardware_sim/` portals;
-- frozen root command surface documented;
+- canonical nested functional command surface documented;
 - hardware-specific AGENT and documentation system;
 - audited transition report and legacy source map;
 - local cleared technology files with source/checksum metadata;
 - ignored generated-artifact boundary.
 
-Exit condition: canonical and root-compatibility functional list commands still
-pass; no functional or Transformers simulation behavior changed; no active
-hardware dependency on `../anchors` or `../rebuttal`.
+Exit condition: canonical functional list commands pass; former root aliases
+are absent; no functional or Transformers simulation behavior changed; no
+active hardware dependency on `../anchors` or `../rebuttal`.
 
 ## Phase 1 — freeze arithmetic and transaction contracts
 

@@ -11,9 +11,9 @@ Usage:
     cd /path/to/onlinearith
     source ../.venv3_10/bin/activate
 
-    python calibration_viz.py calibration_MXFP8.json
-    python calibration_viz.py calibration_MXFP8.json --output-dir calib_charts/
-    python calibration_viz.py calibration_MXFP8.json --no-show
+    python functional_sim/calibration_viz.py calibration_MXFP8.json
+    python functional_sim/calibration_viz.py calibration_MXFP8.json --output-dir calib_charts/
+    python functional_sim/calibration_viz.py calibration_MXFP8.json --no-show
 """
 
 import argparse

@@ -2,14 +2,14 @@
 Batch PPL evaluation for activation-only common N:M sparsity across MXFP setups.
 
 Supports **multi-GPU** — either auto-launched (recommended) or via torchrun:
-    python act_base/ppl_batch_base_act.py --nproc 8                        # auto-launch 8 GPUs (picks free port)
-    python act_base/ppl_batch_base_act.py --nproc 4 --only 1 2             # subset on 4 GPUs
-    python act_base/ppl_batch_base_act.py --nproc 4 --gpus 4,5,6,7         # specific GPUs, free port
-    python act_base/ppl_batch_base_act.py                                   # single-GPU fallback
+    python functional_sim/act_base/ppl_batch_base_act.py --nproc 8                        # auto-launch 8 GPUs (picks free port)
+    python functional_sim/act_base/ppl_batch_base_act.py --nproc 4 --only 1 2             # subset on 4 GPUs
+    python functional_sim/act_base/ppl_batch_base_act.py --nproc 4 --gpus 4,5,6,7         # specific GPUs, free port
+    python functional_sim/act_base/ppl_batch_base_act.py                                   # single-GPU fallback
 
     # Manual torchrun (you must pick a free port yourself if 29500 is taken):
-    torchrun --nproc_per_node=8 --master-port=29501 act_base/ppl_batch_base_act.py
-    torchrun --nproc_per_node=3 --master-port=29501 act_base/ppl_batch_base_act.py --gpus 0,2,5
+    torchrun --nproc_per_node=8 --master-port=29501 functional_sim/act_base/ppl_batch_base_act.py
+    torchrun --nproc_per_node=3 --master-port=29501 functional_sim/act_base/ppl_batch_base_act.py --gpus 0,2,5
 
 Each GPU loads its own model copy and processes a shard of the setups.
 Setups are partitioned round-robin across ranks; each rank writes its
@@ -33,14 +33,14 @@ assign more setups to them.  For now, just assign round-robin and let the user m
 
 Usage:
     cd /path/to/onlinearith
-    python act_base/ppl_batch_base_act.py --nproc 8                             # run all setups
-    python act_base/ppl_batch_base_act.py --nproc 8 --list                      # list setups (rank 0)
-    python act_base/ppl_batch_base_act.py --nproc 8 --only 1 6 10               # run only selected
-    python act_base/ppl_batch_base_act.py --nproc 8 --only 1 --window-shard     # shard one setup's PPL windows
-    python act_base/ppl_batch_base_act.py --nproc 4 --gpus 4,5,6,7              # specific GPUs
-    python act_base/ppl_batch_base_act.py --nproc 8 --force                     # re-run even if done
-    python act_base/ppl_batch_base_act.py                                       # single-GPU fallback
-    python act_base/ppl_batch_base_act.py --gpus 3                              # single specific GPU
+    python functional_sim/act_base/ppl_batch_base_act.py --nproc 8                             # run all setups
+    python functional_sim/act_base/ppl_batch_base_act.py --nproc 8 --list                      # list setups (rank 0)
+    python functional_sim/act_base/ppl_batch_base_act.py --nproc 8 --only 1 6 10               # run only selected
+    python functional_sim/act_base/ppl_batch_base_act.py --nproc 8 --only 1 --window-shard     # shard one setup's PPL windows
+    python functional_sim/act_base/ppl_batch_base_act.py --nproc 4 --gpus 4,5,6,7              # specific GPUs
+    python functional_sim/act_base/ppl_batch_base_act.py --nproc 8 --force                     # re-run even if done
+    python functional_sim/act_base/ppl_batch_base_act.py                                       # single-GPU fallback
+    python functional_sim/act_base/ppl_batch_base_act.py --gpus 3                              # single specific GPU
 """
 
 
@@ -304,7 +304,7 @@ def run_complete_mode(args):
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
     if world_size > 1:
         print("ERROR: --complete must be launched as a single process (not inside torchrun).")
-        print("Run: python act_base/ppl_batch_base_act.py --complete [--nproc N] [--gpus ...]")
+        print("Run: python functional_sim/act_base/ppl_batch_base_act.py --complete [--nproc N] [--gpus ...]")
         return 2
 
     cases = discover_nm_cases(RESULTS_ROOT)

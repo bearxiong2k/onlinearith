@@ -11,13 +11,13 @@ Tests cover:
 
 Run modes:
   # Single-process tests only (no GPU needed for most tests):
-  python test_distributed.py
+  python functional_sim/test_distributed.py
 
   # Full tests including NCCL (needs 2+ GPUs):
-  torchrun --nproc_per_node=2 test_distributed.py
+  torchrun --nproc_per_node=2 functional_sim/test_distributed.py
 
   # All 8 GPUs:
-  torchrun --nproc_per_node=8 test_distributed.py
+  torchrun --nproc_per_node=8 functional_sim/test_distributed.py
 """
 
 import math

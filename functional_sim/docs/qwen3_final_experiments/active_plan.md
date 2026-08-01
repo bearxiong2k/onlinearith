@@ -7,9 +7,9 @@ measurements and historical implementation notes live under `references/`.
 
 Quality/PPL sweep, already run with four-rank window sharding where applicable:
 
-- MXFP8 baseline: `ppltest.py --setup 2`
+- MXFP8 baseline: `functional_sim/ppltest.py --setup 2`
 - Fixed-sum calibrated MSD at target-SNR 30 dB:
-  `ppltest.py --setup 6 --calibration <fixed_sum_30db.json>`
+  `functional_sim/ppltest.py --setup 6 --calibration <fixed_sum_30db.json>`
 - WANDA structured baseline: common keep-count `2:4`
 - Runtime activation N:M baseline: common keep-count `2:4`
 
@@ -125,7 +125,7 @@ Monitor future active runs with per-process ETA:
   behavior, and calibration semantics.
 - `--limit-samples` is only for work-point selection, smoke testing, or the
   explicit sampled accounting pass. Formal PPL scripts leave it unset.
-- `ppltest.py --nproc` is data-parallel window sharding with one full model
+- `functional_sim/ppltest.py --nproc` is data-parallel window sharding with one full model
   replica per process. It is valid for final PPL wall-time acceleration, but it
   is not a stats aggregation path.
 - Use `--stats off` for formal full PPL at 17 dB. Use

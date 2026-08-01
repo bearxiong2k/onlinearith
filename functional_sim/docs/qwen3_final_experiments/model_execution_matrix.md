@@ -11,12 +11,12 @@ Use these defaults unless a model/path row below overrides them.
 
 - PPL numerical runs: `--stats off`.
 - MSD PPL runs: `--compile-msd-truncate`.
-- Full-replica acceleration: `ppltest.py --nproc`, which shards PPL windows and
+- Full-replica acceleration: `functional_sim/ppltest.py --nproc`, which shards PPL windows and
   loads one complete model replica per worker.
 - Baseline-runner single-setup acceleration: `functional_sim/wanda_base/ppl_batch_base.py` and
   `functional_sim/act_base/ppl_batch_base_act.py` require `--window-shard` with `--nproc`;
   their default `--nproc` behavior shards setup IDs, not PPL windows.
-- Model sharding: `ppltest.py --device-map ...`, single process only, memory
+- Model sharding: `functional_sim/ppltest.py --device-map ...`, single process only, memory
   relief only unless direct-CUDA timing proves speedup.
 - Fixed-sum calibration: projection-filtered task-parallel full-model jobs,
   then merge metadata; do not use model sharding as the default calibration

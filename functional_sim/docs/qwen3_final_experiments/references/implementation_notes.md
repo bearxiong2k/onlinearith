@@ -21,7 +21,7 @@ standard session handoff.
   - `--compile-msd-truncate`
   - `--msd-utilization-mode` for standard fixed-sum MSD timing/utilization
     probes.
-- `ppltest.py` has an explicit single-process model-sharding entry point:
+- `functional_sim/ppltest.py` has an explicit single-process model-sharding entry point:
   - `--device-map {none,auto,sequential,balanced}`
   - `--max-memory 0:30GiB,1:30GiB,...`
   - sharded modes are rejected with `--nproc > 1` or torchrun world size > 1;
@@ -53,13 +53,16 @@ standard session handoff.
 - `_forward_mx_exact_chunked` and `_forward_msd_truncated` cache the optional
   progress hook before entering the chunk loop and only build progress payloads
   when the hook is installed.
-- Shared MXFP/MSD progress reporting is wired into probe, `ppltest.py`,
-  `ppl_batch.py`, and the ladder script.
-- `--gpus` is applied before torch import in probe, `ppltest.py`, `ppl_batch.py`,
+- Shared MXFP/MSD progress reporting is wired into probe,
+  `functional_sim/ppltest.py`, `functional_sim/ppl_batch.py`, and the ladder
+  script.
+- `--gpus` is applied before torch import in probe, `functional_sim/ppltest.py`,
+  `functional_sim/ppl_batch.py`,
   and parity baseline runners so physical GPU selection is honored before CUDA
   state is cached.
 - `PYTORCH_ALLOC_CONF=expandable_segments:True` is set by default before torch
-  import in probe, `ppltest.py`, `ppl_batch.py`, and parity baseline runners.
+  import in probe, `functional_sim/ppltest.py`, `functional_sim/ppl_batch.py`,
+  and parity baseline runners.
 - PPL always forces `use_cache=False`.
 
 ## Sibling Transformers Notes
@@ -82,13 +85,13 @@ Important implementation details:
   internally prune `(M - N)`.
 - `float8` weight cache is only valid for `MXFP8Linear`; non-MXFP8 paths should
   use `float16`, `float32`, or `none`.
-- With explicit `ppltest.py --device-map`, Accelerate can place `lm_head` and
+- With explicit `functional_sim/ppltest.py --device-map`, Accelerate can place `lm_head` and
   final layers on different visible CUDA devices. Keep tensor index movement
   and loss-device handling local to `Qwen3ForCausalLM.forward()` rather than
   depending on caller-side tensor placement.
-- `ppltest.py` records `config.limit_samples` in result JSONs so prefix probes
+- `functional_sim/ppltest.py` records `config.limit_samples` in result JSONs so prefix probes
   can be separated from full runs after the fact.
-- `scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh` is the current
+- `functional_sim/scripts/run_qwen3_fixed_sum17_ppl_then_stats300_4gpu.sh` is the current
   all-model fixed-sum 17 dB driver. It runs models sequentially from
   Qwen3-0.6B to 1.7B to 4B to 8B. For each model it prepares/reuses
   calibration, runs full PPL with `--nproc 4 --stats off`, then runs a
@@ -96,16 +99,16 @@ Important implementation details:
   pass with `--device-map sequential`. Qwen3-8B stats uses smaller chunk retry
   candidates, currently `768`, `512`, and `384` MiB, because the original
   1536 MiB stats chunk OOMed during lite stats accumulation.
-- `scripts/run_qwen3_fixed_sum_norm_target_sweep.sh` is the work-point probe
+- `functional_sim/scripts/run_qwen3_fixed_sum_norm_target_sweep.sh` is the work-point probe
   worker. It defaults to the separate `fixed_sum_norm_sweep` output root. Set
   `UTIL_LIMIT_SAMPLES=120` only for smoke or SNR selection probes.
 - Do not use `--msd-utilization-mode` for final result scripts because it
   defaults `--limit-samples` to 100 when no explicit limit is passed.
-- `scripts/summarize_fixed_sum_norm_sweep.py` summarizes fixed-sum stats runs
+- `functional_sim/scripts/summarize_fixed_sum_norm_sweep.py` summarizes fixed-sum stats runs
   into TSV/JSON. It reads PPL fields from `metrics`, work fields from
   `msd_perf_stats.global`, and Figure 5 cycle inputs from
   `msd_perf_stats.per_layer`.
-- `scripts/summarize_qwen3_model_sweep.py` includes explicit stats columns
+- `functional_sim/scripts/summarize_qwen3_model_sweep.py` includes explicit stats columns
   when present; blank stats columns in a summary mean the underlying PPL output
   did not collect MSD utilization/Figure 5 accounting.
 
@@ -113,18 +116,19 @@ Important implementation details:
 
 The following paths have comparable runner hygiene:
 
-- MX-only and uniform MSD in `ppltest.py` / `ppl_batch.py`.
+- MX-only and uniform MSD in `functional_sim/ppltest.py` /
+  `functional_sim/ppl_batch.py`.
 - Fixed-sum calibrated MSD:
   - calibration generation has chunk/cache/GPU/compile/projection-filter
     controls;
-  - `tools/merge_msd_calibrations.py` merges disjoint projection-filtered
+  - `functional_sim/tools/merge_msd_calibrations.py` merges disjoint projection-filtered
     calibration JSONs into one PPL-ready `msd_calibration_data` map;
-  - `ppltest.py --calibration` injects metadata into the optimized MSD runtime.
+  - `functional_sim/ppltest.py --calibration` injects metadata into the optimized MSD runtime.
 - WANDA:
-  - `wanda_base/calibrate_base.py`
-  - `wanda_base/ppl_batch_base.py`
+  - `functional_sim/wanda_base/calibrate_base.py`
+  - `functional_sim/wanda_base/ppl_batch_base.py`
 - Runtime activation N:M:
-  - `act_base/ppl_batch_base_act.py`
+  - `functional_sim/act_base/ppl_batch_base_act.py`
 
 Parity controls include early `--gpus`, allocator default, `use_cache=False`,
 shared PPL utilities, tail-logits loss, MX chunk/cache controls, progress hooks,
@@ -150,16 +154,16 @@ runner parity.
 Run the cheapest relevant checks after repo or runner edits:
 
 ```bash
-../.venv3_10/bin/python tests/test_msd_truncate_equivalence.py
-../.venv3_10/bin/python tests/test_msd_stats_off_equivalence.py
-../.venv3_10/bin/python tests/test_ppl_device_map_utils.py
-../.venv3_10/bin/python tests/test_mx_exact_chunked.py
-../.venv3_10/bin/python tests/test_mxfp_weight_cache_compact.py
-../.venv3_10/bin/python tests/test_ppl_tail_logits_loss.py
-../.venv3_10/bin/python tests/test_nm_keep_semantics.py
-../.venv3_10/bin/python test_mxfp8linear.py
-../.venv3_10/bin/python test_fixed_sum_optimizer.py
-../.venv3_10/bin/python ppltest.py --list
-../.venv3_10/bin/python ppl_batch.py --list
-../.venv3_10/bin/python calibrate.py --list
+../.venv3_10/bin/python functional_sim/tests/test_msd_truncate_equivalence.py
+../.venv3_10/bin/python functional_sim/tests/test_msd_stats_off_equivalence.py
+../.venv3_10/bin/python functional_sim/tests/test_ppl_device_map_utils.py
+../.venv3_10/bin/python functional_sim/tests/test_mx_exact_chunked.py
+../.venv3_10/bin/python functional_sim/tests/test_mxfp_weight_cache_compact.py
+../.venv3_10/bin/python functional_sim/tests/test_ppl_tail_logits_loss.py
+../.venv3_10/bin/python functional_sim/tests/test_nm_keep_semantics.py
+../.venv3_10/bin/python functional_sim/test_mxfp8linear.py
+../.venv3_10/bin/python functional_sim/test_fixed_sum_optimizer.py
+../.venv3_10/bin/python functional_sim/ppltest.py --list
+../.venv3_10/bin/python functional_sim/ppl_batch.py --list
+../.venv3_10/bin/python functional_sim/calibrate.py --list
 ```

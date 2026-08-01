@@ -19,30 +19,26 @@ interface design.
 
 | Path | Purpose | Status |
 |---|---|---|
-| Root functional names | Compatibility symlinks preserving the original commands and imports | Frozen |
 | [`functional_sim/`](functional_sim/README.md) | Canonical functional source, runners, scripts, tools, tests, docs, and evidence | Frozen |
 | [`hardware_sim/`](hardware_sim/README.md) | RTL/general-simulation harness and hardware documentation | Active |
 | [`docs/paper/`](docs/paper/README.md) | Paper-wide revision guidance | Active |
 | [`docs/archive/`](docs/archive/README.md) | Superseded paper and architecture planning | Historical |
 
-## Functional compatibility commands
+## Functional commands
 
-Run the established commands from the repository root exactly as before:
+Run functional commands from the repository root through their owning
+subdirectory:
 
 ```bash
-../.venv3_10/bin/python ppltest.py --list
-../.venv3_10/bin/python ppl_batch.py --list
-../.venv3_10/bin/python calibrate.py --list
+../.venv3_10/bin/python functional_sim/ppltest.py --list
+../.venv3_10/bin/python functional_sim/ppl_batch.py --list
+../.venv3_10/bin/python functional_sim/calibrate.py --list
 ```
 
-The equivalent canonical commands use `functional_sim/ppltest.py`,
-`functional_sim/ppl_batch.py`, and `functional_sim/calibrate.py`. The root
-names are symlinks so there is only one maintained implementation.
-
 Root `pytest` discovery is constrained by `pytest.ini` to
-`functional_sim/tests` and future `hardware_sim/tests`, avoiding duplicate
-collection through compatibility symlinks. The three historical root
-`test_*.py` programs remain explicit standalone checks.
+`functional_sim/tests` and `hardware_sim/tests`. The standalone
+`functional_sim/test_*.py` programs remain explicit checks rather than default
+pytest inputs. Root-level aliases are intentionally not maintained.
 
 The modified Qwen3 model remains in the sibling checkout at
 `../transformers/src/transformers/models/qwen3/`. No model, calibration, PPL,

@@ -7,9 +7,9 @@ separate.
 ## Workstream routing
 
 - **Frozen functional simulation:** all canonical source, runners, scripts,
-  tools, tests, and baselines live under `functional_sim/`. Root-level Python
-  and directory names are compatibility symlinks only. Before touching this
-  workstream, read `functional_sim/AGENTS.md` and `functional_sim/HARNESS.md`.
+  tools, tests, baselines, documentation, and evidence live under
+  `functional_sim/`. Before touching this workstream, read
+  `functional_sim/AGENTS.md`; use `functional_sim/README.md` as its map.
 - **Active hardware simulation:** all new RTL, circuit-reference simulation,
   trace adapters, event ledgers, synthesis flows, and hardware reports belong
   under `hardware_sim/`. Read `hardware_sim/AGENTS.md` and
@@ -17,12 +17,12 @@ separate.
 - **Paper-wide material:** shared writing guidance lives under `docs/paper/`;
   superseded planning material lives under `docs/archive/`.
 
-The root-level functional symlinks are a compatibility surface and must keep
-working from the repository root. Do not add real functional implementation
-files beside them. Do not make the hardware simulator import
-from `../anchors` or `../rebuttal`; those repositories are provenance sources,
-not runtime dependencies. Do not edit the sibling Transformers simulation or
-the frozen functional harness unless the user explicitly reopens that scope.
+The repository root is a project router, not a functional command surface.
+Invoke functional files through `functional_sim/...`; do not add root wrappers,
+aliases, or links. Do not make the hardware simulator import from `../anchors`
+or `../rebuttal`; those repositories are provenance sources, not runtime
+dependencies. Do not edit the sibling Transformers simulation or the frozen
+functional harness unless the user explicitly reopens that scope.
 
 Use the paper-level term **temporal significance scheduling**, the algorithmic
 term **local execution windows on aligned contribution streams**, and the

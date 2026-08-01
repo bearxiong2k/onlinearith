@@ -8,9 +8,9 @@ handoff concise; update this file with implementation details as they emerge.
 Add and validate explicit multi-GPU execution modes for final Qwen3 experiments.
 There are two separate modes:
 
-- full-replica data parallel PPL window sharding with `ppltest.py --nproc`,
+- full-replica data parallel PPL window sharding with `functional_sim/ppltest.py --nproc`,
   which accelerates wall time when each GPU can fit a complete model;
-- single-process model sharding with `ppltest.py --device-map`, which reduces
+- single-process model sharding with `functional_sim/ppltest.py --device-map`, which reduces
   per-GPU memory but has not shown throughput improvement in current evidence.
 
 The first target is PPL. Calibration sharding should be considered after PPL
@@ -21,7 +21,7 @@ projection-filter behavior.
 
 - Do not change PPL math, dataset, tokenizer, window constants, labels, or loss
   weighting.
-- Do not use `ppltest.py --nproc` as model sharding. It launches multiple full
+- Do not use `functional_sim/ppltest.py --nproc` as model sharding. It launches multiple full
   model replicas and shards windows. It is acceptable as the final PPL
   acceleration method when full replicas fit.
 - For Qwen3-8B MSD full-replica multi-GPU PPL, use `--weight-cache-dtype
@@ -33,12 +33,12 @@ projection-filter behavior.
   unstaggered eight-worker MXFP8 launch on GPUs 0-7 SIGKILLed during model
   loading/materialization before evaluation; use staggered loading for
   eight-replica Qwen3-8B launches.
-- `ppltest.py --load-stagger-sec S` is available to reduce transient host
+- `functional_sim/ppltest.py --load-stagger-sec S` is available to reduce transient host
   memory and disk I/O spikes during multi-rank full-replica checkpoint loading.
   It sleeps `local_rank * S` seconds before tokenizer/model loading and records
   the value in output metadata. This is a launch/load trick only and does not
   change PPL math.
-- For `wanda_base/ppl_batch_base.py` and `act_base/ppl_batch_base_act.py`,
+- For `functional_sim/wanda_base/ppl_batch_base.py` and `functional_sim/act_base/ppl_batch_base_act.py`,
   default `--nproc` shards setup IDs. Use the explicit `--window-shard` mode
   when accelerating one representative setup across PPL windows. Qwen3-8B
   WANDA 2:4 and activation N:M 2:4 are prefix-validated on eight full replicas
@@ -56,7 +56,7 @@ projection-filter behavior.
 
 ## Proposed CLI Shape
 
-`ppltest.py` now has opt-in model placement controls:
+`functional_sim/ppltest.py` now has opt-in model placement controls:
 
 ```text
 --device-map {none,auto,sequential,balanced}
@@ -66,7 +66,8 @@ projection-filter behavior.
 Defaults:
 
 - `--device-map none`: current behavior.
-- If a sharded mode is selected, `ppltest.py` does not call `model.to(device)`.
+- If a sharded mode is selected, `functional_sim/ppltest.py` does not call
+  `model.to(device)`.
 - `--device-map` is rejected with `--nproc > 1` or torchrun world size > 1.
 - `--max-memory` uses visible CUDA ordinals after `--gpus` filtering. For
   physical GPUs 4,5,6,7, use `--gpus 4,5,6,7 --max-memory

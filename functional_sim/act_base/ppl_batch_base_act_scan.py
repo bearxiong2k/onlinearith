@@ -3,9 +3,9 @@ Run activation-only common N:M PPL batches over multiple (n, m) pairs.
 
 Usage:
     cd /path/to/onlinearith
-    python act_base/ppl_batch_base_act_scan.py -nm 2:4 1:4 --only 1
-    python act_base/ppl_batch_base_act_scan.py -nm 2:4 1:4 --only 1 --gpu 0
-    python act_base/ppl_batch_base_act_scan.py --nm "(2,4)" "(1,4)" --force
+    python functional_sim/act_base/ppl_batch_base_act_scan.py -nm 2:4 1:4 --only 1
+    python functional_sim/act_base/ppl_batch_base_act_scan.py -nm 2:4 1:4 --only 1 --gpu 0
+    python functional_sim/act_base/ppl_batch_base_act_scan.py --nm "(2,4)" "(1,4)" --force
 """
 
 import argparse

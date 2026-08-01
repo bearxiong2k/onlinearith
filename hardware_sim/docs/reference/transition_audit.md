@@ -6,6 +6,10 @@ Reorganization completed: 2026-08-01
 Implementation status: no numerical, RTL, trace, or cost-model implementation
 was changed in this audit.
 
+The initial split described below briefly retained root compatibility links.
+Follow-up decision HW-D009 removed those links; current functional paths begin
+with `functional_sim/`. Historical commands remain quoted as provenance.
+
 This document records what currently exists across `onlinearith`, the modified
 Transformers fork, `../anchors`, and `../rebuttal`; which parts remain useful;
 and which assumptions are superseded by the revised hardware design. It guided
@@ -179,11 +183,12 @@ review. Preserve their headers and provenance as normal research hygiene.
 
 ### D10. Reorganization does not move the frozen simulator boundary
 
-The next repository reorganization may add or rearrange active documentation,
-RTL, downstream general-simulation, trace-adapter, and cost-model material. It
-must not move, rename, or modify the existing `onlinearith` experiment entry
-points or the authoritative Qwen/LLM simulation files in the Transformers
-fork. Stable commands and result schemas remain intact.
+The completed repository reorganization moved the experiment harness under
+`functional_sim/` and added separate hardware documentation, RTL,
+general-simulation, trace-adapter, and cost-model boundaries. It did not modify
+the numerical behavior or the authoritative Qwen/LLM simulation files in the
+Transformers fork. Stable setup IDs and result schemas remain intact; current
+commands use the `functional_sim/` prefix.
 
 ## 3. Current `onlinearith` and Transformers implementation
 
@@ -191,17 +196,17 @@ fork. Stable commands and result schemas remain intact.
 
 The current project has a mature experiment shell:
 
-- `ppltest.py` implements the WikiText-2 sliding-window PPL methodology,
+- `functional_sim/ppltest.py` implements the WikiText-2 sliding-window PPL methodology,
   explicit model sharding, data-parallel window sharding, lite/full statistics,
   progress/provenance output, and result JSON emission.
-- `ppl_batch.py`, `dist_utils.py`, and the documented run scripts provide batch
+- `functional_sim/ppl_batch.py`, `functional_sim/dist_utils.py`, and the documented run scripts provide batch
   and distributed execution.
-- `experiment_config.py` centralizes setup IDs, configuration validation,
+- `functional_sim/experiment_config.py` centralizes setup IDs, configuration validation,
   snapshots, and runtime replacement of MLP projection modules.
-- `calibrate.py` drives SNR-min and fixed-sum calibration and emits structured
+- `functional_sim/calibrate.py` drives SNR-min and fixed-sum calibration and emits structured
   calibration artifacts.
-- `tests/test_mx_exact_chunked.py`,
-  `tests/test_mxfp_weight_cache_compact.py`, the Qwen3-8B memory probe, and the
+- `functional_sim/tests/test_mx_exact_chunked.py`,
+  `functional_sim/tests/test_mxfp_weight_cache_compact.py`, the Qwen3-8B memory probe, and the
   OOM ladder capture useful memory/chunking contracts.
 - plotting helpers and active experiment documents encode the current baseline
   families and executed-digit plotting conventions.
@@ -633,10 +638,10 @@ The first revised cost model should be mechanically tied to the v2 ledger:
 
 ## 9. Reorganization extraction manifest
 
-This manifest guided the completed repository split. Canonical functional code
-and documentation now live under `functional_sim/`, with the old root paths
-retained as compatibility symlinks; all new hardware work is rooted at
-`hardware_sim/`. Exact reviewed legacy candidates are quarantined under
+This manifest guided the completed repository split. Functional code,
+documentation, and commands now live under `functional_sim/` with no root
+aliases; all new hardware work is rooted at `hardware_sim/`. Exact reviewed
+legacy candidates are quarantined under
 `hardware_sim/reference/`, and the cleared cell files are local under
 `hardware_sim/tech/`. The active redesigned kernel, ledger, and report package
 remain future implementation work governed by the new contracts.
@@ -704,7 +709,7 @@ original extraction candidates.
 
 | Topic | Primary source paths |
 |---|---|
-| PPL/config/calibration entry points | `ppltest.py`, `ppl_batch.py`, `experiment_config.py`, `calibrate.py` |
+| PPL/config/calibration entry points | `functional_sim/ppltest.py`, `functional_sim/ppl_batch.py`, `functional_sim/experiment_config.py`, `functional_sim/calibrate.py` |
 | Current Qwen arithmetic | `../transformers/src/transformers/models/qwen3/modeling_qwen3.py` |
 | Current calibration oracle | `../transformers/src/transformers/models/qwen3/calibration_msd.py` |
 | Current trace/statistics code | `../transformers/src/transformers/models/qwen3/msd_perf_stats.py` |

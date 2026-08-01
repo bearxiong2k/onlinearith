@@ -35,9 +35,8 @@ provenance or extraction work. Never infer the active design from legacy RTL.
 
 ## Frozen functional boundary
 
-- Canonical functional source under `functional_sim/`, its root compatibility
-  symlinks, and the sibling Transformers model are read-only inputs. Do not
-  modify them from a hardware task.
+- Functional source under `functional_sim/` and the sibling Transformers model
+  are read-only inputs. Do not modify them from a hardware task.
 - Existing calibration, PPL, baseline, and executed-digit results retain their
   original meanings and provenance.
 - A read-only trace adapter may consume explicit frozen fields. It is not a new
