@@ -11,8 +11,10 @@ primary frozen algorithmic work metric is **executed-digit ratio**.
 The active hardware realization is a stage-1-only design with:
 
 - runtime formation of a scheduled target activation mantissa;
-- an offline-aligned, fixed-point representation for each weight element;
+- one offline-aligned signed 8-bit Q6 representation for each weight element;
 - a standard fixed-point multiplier;
+- activation scale/element-exponent alignment represented in the time domain,
+  not as a wide spatial activation operand;
 - reduction/accumulation and only the metadata/control/storage needed by that
   stage-1 path.
 
@@ -101,17 +103,26 @@ calibration, or dataset downloads from the hardware harness.
 
 ## Contract-first implementation
 
-Do not add the active multiplier/reference kernel until all `OPEN-*` items in
-`docs/architecture_contract.md` that affect arithmetic are resolved. Do not
-emit a v2 ledger until its schema and projection boundary are frozen. Record
-new decisions in `docs/decision_log.md`; update the contract rather than
-leaving architectural truth only in code comments.
+Do not add the active multiplier/reference kernel until arithmetic-blocking
+`OPEN-ARCH-*` items in `docs/architecture_contract.md` are resolved. M1 is now
+frozen by `configs/operand_format_m1_v3.json`; do not silently parameterize or
+reinterpret it. The current gate is M2; do not begin the M3 reference or M4
+RTL before the transaction and microarchitecture contract closes. Do not emit
+a v2 ledger until its schema and projection boundary are frozen. Record new decisions in
+`docs/decision_log.md`; update the contract rather than leaving architectural
+truth only in code comments.
+
+Do not begin layout-generation work until `docs/development_plan.md` reaches
+the design-mature release gate. After that gate, any functional or
+cycle-visible change requires a new design ID and renewed verification and
+synthesis closure.
 
 ## Verification expectations
 
 Each implementation phase should add the cheapest relevant checks:
 
-- Python unit tests for encodings, saturation, rounding, and event counts;
+- Python unit tests for encodings, exact temporal placement, saturation, and
+  event counts;
 - Icarus smoke tests for reset, handshake, corner operands, and back-to-back
   transactions;
 - exact Python/RTL result and event parity on tiny fixtures;

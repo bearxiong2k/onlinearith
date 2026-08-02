@@ -8,3 +8,6 @@ generated outputs under `hardware_sim/artifacts/`.
 Do not reuse a legacy script unchanged when it names old modules or event
 semantics. The quarantined Yosys files are templates only.
 
+Physical-design scripts are a post-M7 concern. They must consume the canonical
+design-freeze manifest and may not select new RTL parameters or alter the
+functional/cycle-visible contract.

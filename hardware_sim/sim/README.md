@@ -9,6 +9,7 @@ read versioned frozen artifacts, but it must not import the sibling
 Transformers numerical kernel as its arithmetic oracle or modify functional
 results.
 
-No implementation should be added until the arithmetic-blocking items in
-`hardware_sim/docs/architecture_contract.md` are resolved.
-
+M1 arithmetic is frozen in
+`hardware_sim/configs/operand_format_m1_v3.json`. Active reference code begins
+at M3, after M2 freezes the transaction and cycle-visible microarchitecture;
+it must consume that operand configuration without inventing parameters.

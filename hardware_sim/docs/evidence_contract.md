@@ -76,6 +76,25 @@ formula. The adapter may select and normalize fields; it may not modify the
 source, run a changed numerical kernel, or imply numerical equivalence that
 has not been validated.
 
+For operand configuration
+`tss-m1-mxfp8-m3a4w8-p12-acc52-v3`, the only schedule bridge is:
+
+```text
+p_eff_frozen = max(0, H - D - lambda_x - 2)
+R_hardware   = min(3, p_eff_frozen)
+```
+
+`R_hardware` selects a binary prefix over the three normalized activation
+fraction positions. The implicit leading one and activation sign are circuit
+encoding details, not additional executed-digit positions. This is a
+`formula`-status target descriptor. Frozen
+`mean_effective_precision` and executed-digit ratio remain based on uncapped
+`p_eff_frozen`; they are not replaced by `R_hardware`, target formations, or
+multiplier issues. The activation-prefix multiply is also not asserted to be
+numerically identical to the frozen product-first truncation. In addition,
+the frozen quality evidence used the original MXFP8 weights; it does not
+measure the new offline rounding to signed 8-bit Q6 aligned weights.
+
 ## 4. Event ledger v2
 
 The first active ledger must use a new schema name/version rather than extend
@@ -83,8 +102,9 @@ the old v1 circuit ledger in place. Each event term has one owner and one unit.
 
 Required identity/provenance fields:
 
+- design ID and freeze status (`pre_freeze` or a design-freeze manifest ID);
 - architecture-contract revision;
-- operand-format/config revision;
+- operand-format and microarchitecture-config revisions;
 - transaction/fixture ID;
 - model/layer/projection/sample scope when derived from a model artifact;
 - input artifact checksum;
@@ -144,6 +164,12 @@ Reports must capture the actual tool versions at execution time. Icarus proves
 functional behavior only. Yosys/ABC cell area and delay are mapped estimates,
 not post-layout signoff. Old Anchor-2/3 energy scripts used analytic proxies
 even when a VCD was generated; their coefficients are retired.
+
+Mapped reports used by the design-mature release must also identify the exact
+RTL filelist/top parameters, timing constraints, operand and microarchitecture
+configs, library checksum, and design-freeze status. A report from an
+exploratory parameter point cannot be substituted for the canonical layout
+candidate.
 
 ## 7. Combining numerical and hardware evidence
 

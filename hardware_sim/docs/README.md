@@ -6,12 +6,13 @@ working context.
 
 ## Always read
 
-1. [Architecture contract](architecture_contract.md): active scope, symbolic
-   datapath, binding decisions, and unresolved arithmetic parameters.
+1. [Architecture contract](architecture_contract.md): active scope, corrected
+   frozen M1 arithmetic, binding decisions, and unresolved M2
+   microarchitecture.
 2. [Evidence contract](evidence_contract.md): frozen inputs, provenance labels,
    trace translation, and event-ledger v2 boundary.
-3. [Development plan](development_plan.md): implementation phases and exit
-   gates.
+3. [Development plan](development_plan.md): architecture freeze, RTL maturity,
+   synthesis closure, design-freeze release, and layout-handoff gates.
 4. [Decision log](decision_log.md): durable locked decisions and open items.
 
 ## Read only when needed
@@ -34,4 +35,3 @@ working context.
   `retired`.
 - Link every hardware claim to a configuration, tool version, source status,
   and artifact checksum where applicable.
-

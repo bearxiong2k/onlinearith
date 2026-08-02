@@ -1,13 +1,12 @@
 # Hardware design
 
-Status: revised paper-planning description of the target architecture
+Status: revised paper-planning description of the corrected target architecture
 Scope: custom stage-1 `gate_proj` and `up_proj` hardware only
 
 This note gives the paper-facing hardware organization. The binding simulator
 contract remains the
 [active hardware architecture contract](../../../hardware_sim/docs/architecture_contract.md),
-which owns exact encodings, widths, rounding, saturation, and transaction
-semantics.
+which owns exact encodings, widths, overflow, and transaction semantics.
 
 The vocabulary is:
 
@@ -19,13 +18,17 @@ The vocabulary is:
 
 The central dataplane decision is:
 
-> At runtime, the schedule forms a target activation mantissa. A standard
-> fixed-point multiplier multiplies that target by one offline-aligned,
-> fixed-point weight element.
+> Runtime scale and activation element exponents establish temporal arrival.
+> For each active element, the schedule forms a three-bit target activation
+> fraction, restores its implicit leading one, and uses a standard multiplier
+> with an offline-aligned fixed-point weight element.
 
-This is not a runtime activation-digit × weight-digit engine. There is no
-recoded weight-digit stream, serial-parallel multiplier leaf, online-adder
-tree, custom stage-2 `down_proj` engine, or stage-1/stage-2 packet interface.
+Only the weight element exponent is spatially folded into the fixed-point
+operand. The activation element exponent remains a fine-delay code; it is not
+expanded into a wide activation word. This design has no runtime
+activation-digit × weight-digit engine, recoded weight-digit stream,
+serial-parallel multiplier leaf, custom stage-2 `down_proj` engine, or
+stage-1/stage-2 packet interface.
 
 ## 1. Architecture boundary
 
@@ -33,75 +36,90 @@ The custom tile covers the scheduled stage-1 projection work for
 `p in {gate_proj, up_proj}`:
 
 1. metadata prepass and local-window control;
-2. runtime target-activation formation;
+2. runtime three-bit target-activation formation;
 3. reads of offline-aligned fixed-point weights;
 4. standard fixed-point multiplication;
-5. block reduction and per-channel accumulation.
+5. temporal significance placement, block reduction, and channel
+   accumulation.
 
 SiLU, gate/up fusion, `down_proj`, and the rest of the model may be included as
 explicit common terms in an end-to-end evaluation, but they are outside this
 custom datapath. The design therefore makes no payload-compression,
 packetization, boundary-buffer, shard-routing, or queueing claim.
 
-The planning default retains block size `K = 32`. A tile has `N_lane` channel
-lanes; channels execute in parallel across lanes, while input blocks for one
-channel execute serially on reused arithmetic resources. Whether the two
-projection paths duplicate or time-share physical multiplier lanes is an
-implementation parameter to freeze before RTL.
+M1 fixes block size `K = 32`. A tile has `N_lane` channel lanes; channels
+execute in parallel across lanes, while input blocks for one channel execute
+serially on reused arithmetic resources. Lane count and gate/up path sharing
+remain M2 choices.
 
 ```text
                          METADATA / CONTROL PLANE
-ACT metadata ----------> scale prepass (active/shadow banks)
-WEIGHT metadata ------->        |
-                                 v
+activation beta_x -----> scale prepass (active/shadow banks) <----- beta_w
+                                      |
+                                      v
                          one-block-ahead window builder
-                                 |
-                                 v
-                         target-formation configuration
+                           D + activation element exponent
+                                      |
+                                      v
+                           R in {0, 1, 2, 3}
 
                            STAGE-1 DATA PLANE
-quantized activation --> target activation mantissa former ----+
-                                                               |
-offline-aligned weight store ----------------------------------+--> standard
-                                                                    fixed-point
-                                                                    multiplier
-                                                                         |
-                                                                         v
-                                                               block reduction
-                                                                         |
-                                                                         v
-                                                               channel accumulator
+activation sign/fraction --> three-bit target former --> restore implicit 1 --+
+                                                                              |
+offline-aligned signed 8-bit Q6 weight store --------------------------------+--> standard
+                                                                                   multiplier
+                                                                                       |
+                                                               arrival tau ------------+
+                                                                                       v
+                                                                    time-aligned reduction
+                                                                                       |
+                                                                                       v
+                                                                       channel accumulator
 ```
 
 ## 2. Hardware-visible schedule
 
 For token `n`, projection path `p`, output channel `c`, input block `b`, and
-element `k`, the existing scheduling abstraction provides:
+element `k`, runtime sees:
 
-- `beta_x[n,b]`: activation-block E8M0 exponent metadata;
-- `beta_w[p,c,b]`: weight-block E8M0 exponent metadata used by scheduling;
-- `lambda_x[n,b,k]`: activation-side fine-delay code;
+- `beta_x[n,b]`: activation-block scale exponent;
+- `beta_w[p,c,b]`: weight-block scale exponent;
+- `e_x[n,b,k]`: activation element exponent, decoded as
+  `floor(log2(abs(q_x)))`;
 - `H[p,c]`: calibrated path- and channel-specific horizon.
 
-The metadata plane may retain the symbolic relations:
+The frozen MXFP8 quantizer normalizes every nonzero block maximum to `448`,
+whose element exponent is `8`. That fixed reference gives:
 
 ```text
 E_raw[p,b,c] = beta_x[n,b] + beta_w[p,c,b]
 E_max[p,c]   = max_b E_raw[p,b,c]
 D[p,b,c]     = E_max[p,c] - E_raw[p,b,c]
-tau[p,b,k,c] = D[p,b,c] + lambda_x[n,b,k]
-L[p,b,k,c]   = max(0, H[p,c] - tau[p,b,k,c])
-W[p,b,k,c]   = [tau[p,b,k,c], H[p,c])
+
+lambda_x[n,b,k] = 8 - e_x[n,b,k]
+tau[p,b,k,c]    = D[p,b,c] + lambda_x[n,b,k]
+L[p,b,k,c]      = max(0, H[p,c] - tau[p,b,k,c])
+p_eff_frozen    = max(0, L[p,b,k,c] - 2)
+R[p,b,k,c]      = min(3, p_eff_frozen)
+W[p,b,k,c]      = [tau[p,b,k,c], H[p,c])
 ```
 
-These relations identify the local window and its useful length. They do not
-mean that the new multiplier runs for `L` digit cycles. The separate arithmetic
-contract must define exactly how `L` and the activation format determine the
-target activation mantissa.
+The activation and weight element-reference exponents are both fixed at 8, so
+their common contribution cancels from relative block delay. There are no
+runtime `rho_x`, `rho_w`, `gamma_x`, or `gamma_w` fields.
 
-Weight exponent metadata may still participate in schedule construction. That
-control-only use does not imply runtime shifting, recoding, or digit streaming
-of the stored weight operand.
+This split is binding:
+
+- `beta_x + beta_w` creates coarse block timing;
+- the activation element exponent creates fine timing through `lambda_x`;
+- the weight element exponent is already represented inside the stored
+  fixed-point word;
+- `R` controls how many of the three activation fraction positions survive.
+
+The constant two carries the origin of the frozen calibrated horizons. It is
+not standard-multiplier latency. These equations do not mean that the standard
+multiplier runs for `L` or `R` cycles; an active target causes one ordinary
+multiply under the M2 issue schedule.
 
 ## 3. Metadata prepass and block configuration
 
@@ -109,243 +127,231 @@ The control plane retains the useful part of the two-timescale organization.
 
 ### 3.1 Double-buffered scale prepass
 
-For the next token or channel assignment, the prepass scans block metadata,
-forms `E_raw`, tracks `E_max`, and resolves `D` into a shadow bank while the
-data plane consumes the active bank:
+For the next token or channel assignment, the prepass scans only `beta_x` and
+`beta_w`, forms `E_raw`, tracks `E_max`, and resolves `D` into a shadow bank
+while the data plane consumes the active bank:
 
 ```text
-delay_bank_active[p][b]   // current execution
-delay_bank_shadow[p][b]   // next execution
+delay_bank_active[p][b]
+delay_bank_shadow[p][b]
 rawexp_shadow[p][b]       // optional transient prepass state
 ```
 
-At a safe context boundary, the shadow and active roles swap. The prepass reads
-only metadata and uses narrow addition, max-reduction, and subtraction. It does
-not read activation or weight payload operands.
-
-Whether runtime `D` continues to include `beta_w` depends on the final offline
-weight-alignment contract. If that relation changes, the prepass equation must
-change explicitly rather than being inherited from the old datapath.
+At a safe context boundary, the banks exchange roles. The prepass performs
+only narrow exponent addition, maximum reduction, and subtraction. It does not
+read activation or weight payloads, decode a weight element exponent, or form
+a floating-point product.
 
 ### 3.2 One-block-ahead configuration
 
-For block `b+1`, the window builder combines `D`, `lambda_x`, and `H` and
-prepares a shadow configuration while block `b` executes. At minimum, the
-configuration contains:
+For block `b+1`, the window builder combines `D`, activation exponent-derived
+`lambda_x`, and `H` while block `b` executes. At minimum:
 
 ```text
 block_cfg[p,b,c] = {
     block_kill,
     active[K],
-    target_desc[K]
+    retained_fraction_count[K]  // R in [0, 3]
 }
 ```
 
-`target_desc[k]` carries the reviewed information needed to form
-`A_target[p,b,k,c]`; it may contain `L`, a retained-prefix length, or another
-equivalent descriptor after the arithmetic contract is frozen.
-
-The retired `start_ctr`, `rem_ctr`, product-digit pointers, subtree-live state,
-and residual-drain state are not required by this architecture. Active/shadow
-configuration buffering is retained only as an overlap mechanism.
+`R = 0` makes the element inactive. The retired product-digit pointer,
+`rem_ctr`, subtree-live state, and residual-drain state are not active fields.
+Whether active/shadow configuration storage is instantiated and how it is
+ported are M2 decisions.
 
 ## 4. Operand preparation
 
-The runtime/offline split must be visible in both the data format and the
-verification fixtures.
+### 4.1 Runtime three-bit target activation
 
-### 4.1 Runtime target activation mantissa
-
-For an active element, the runtime target former computes symbolically:
+Every nonzero E4M3FN activation can be written as:
 
 ```text
-A_target[p,b,k,c] = FormTarget(
-    A_quantized[n,b,k],
-    L[p,b,k,c],
-    activation_format,
-    target_format
-)
+q_x = sign_x * M_x_int * 2^(e_x - 3)
+M_x_int in [8, 15] = binary 1.xxx
 ```
 
-The target is the activation operand actually presented to the multiplier. A
-zero-length window produces no active element and therefore no multiplier
-issue. For `L > 0`, the target former emits one reviewed fixed-point operand.
+Subnormals are normalized to the same representation. `M_x_int[2:0]` are the
+three explicit fraction positions. For an active target, the former retains
+the `R` most-significant fraction positions and clears lower positions:
 
-The exact retained bits or digits, sign handling, zero encoding, width, binary
-point, and rounding rule are intentionally not invented here. They must match
-the active architecture contract and a bit-exact reference model.
+```text
+mask_R       = ((1 << R) - 1) << (3 - R)
+frac_target  = M_x_int[2:0] & mask_R
+A_sig_int    = {1'b1, frac_target}
+```
+
+The scheduled target payload is three bits. `A_sig_int` is a four-bit unsigned
+UQ1.3 magnitude because a conventional numeric multiplier must include the
+implicit leading one. Activation sign remains separate and is applied to the
+product. `R = 0` or zero activation forms no numeric target and causes no
+multiply contribution.
+
+This target rule is binary prefix clearing, not NAF recoding. A partial target
+cannot overshoot to `+2.0` and does not require a 20-bit activation input.
 
 ### 4.2 Offline-aligned fixed-point weight
 
-Before runtime, each quantized weight element is transformed and packed as:
+Offline preparation folds each weight sign, element exponent, and element
+mantissa into a word referenced to the fixed E4M3FN element exponent 8, then
+rounds once into the storage format:
 
 ```text
-W_aligned[p,c,b,k] = OfflineAlignAndEncode(
-    W_quantized[p,c,b,k],
-    weight_scale_metadata[p,c,b],
-    weight_format,
-    aligned_weight_format
-)
+W_aligned_value = sign(w) * m_w * 2^(e_w - 8)
+W_aligned_int   = RNE(W_aligned_value * 2^6)
+                = RNE_signed(decode_q9(w) / 2^11)
 ```
 
-`W_aligned` is a signed fixed-point element stored in the weight array. Runtime
-execution performs one element read and presents the stored word directly to
-the multiplier. It does not extract an element exponent, shift or recode the
-weight, walk a weight-digit pointer, or generate a weight-digit stream.
+The word is signed 8-bit Q6. Rounding is nearest with ties to even, symmetric
+for negative values. Every finite E4M3FN element maps into `[-112, 112]`, so
+legal conversion never saturates; sufficiently small weights may round to
+zero. Runtime reads the byte directly and separately reads `beta_w` for coarse
+scheduling. It does not extract `e_w`, shift or recode the word, walk a digit
+pointer, or generate a weight-digit stream.
 
-The offline alignment equation, stored width, binary point, packing, and
-overflow behavior must be frozen before generating model-scale weights or RTL
-fixtures.
+The logical artifact uses exactly one byte per element with no padding.
+Physical weight SRAM depth, banking, and ports remain M2 decisions.
 
 ## 5. Standard-multiplier data plane
 
-For every active element, the arithmetic leaf is:
+For every active element:
 
 ```text
-P_element[p,b,k,c] = FixedPointMultiply(
-    A_target[p,b,k,c],
-    W_aligned[p,c,b,k]
-)
+P_element_int = (-1)^sign_x * A_sig_int * W_aligned_int
 ```
 
-This is one conventional combinational or pipelined fixed-point multiplier
-issue. The selected implementation may have multiple multiplier lanes, a
-pipeline depth, and an initiation interval, but it is not an online or
-digit-serial multiply.
+The magnitude input is four-bit UQ1.3, derived from a three-bit target
+fraction, and the weight input is signed 8-bit Q6. The full result is signed
+12-bit Q9. This is one conventional combinational or pipelined multiplier
+issue, not an online multiply and not five- or twenty-bit activation data.
 
-A block engine contains:
+The selected implementation may realize the implicit-one term inside a
+four-bit multiplier or as an equivalent `W + fraction*W` structure. Either
+choice must match the same full product and is not permitted to change target
+semantics.
 
-- target-activation formation logic and local activation state;
-- an aligned-weight read port or bank;
-- `N_mul` standard fixed-point multiplier lanes;
-- a conventional fixed-point block-reduction network;
-- a per-path, per-channel accumulator;
-- valid/ready and clock-enable control needed by this local transaction.
+## 6. Time-domain placement and reduction
 
-Block execution is:
+Activation exponent alignment remains temporal after multiplication. The
+product belongs at arrival:
 
-1. accept the reviewed `block_cfg`;
-2. skip immediately if `block_kill` is set;
-3. form `A_target` for each active element;
-4. read one `W_aligned` word for that element;
-5. issue one standard multiply;
-6. reduce valid products in the specified finite-width order;
-7. update the channel accumulator once for the block if any product is valid.
+```text
+tau = D + lambda_x
+```
 
-The block service time is determined by the number of active elements,
-`N_mul`, multiplier initiation interval and latency, reduction pipeline, and
-accumulator handshake. It is not `H + t_drain`, and no old online-adder drain
-model may be reused.
+With `H <= 31`, offset two, and an active `R`, `tau <= 28`. For a bit-exact
+fixed-point oracle, common tail 28 represents the same placement as:
 
-## 6. Work suppression under the new datapath
+```text
+P_temporal_int = P_element_int << (28 - tau)
+```
 
-The schedule still exposes three algorithmic cases, but their circuit effects
-must be stated for a standard multiplier.
+This equation specifies significance, not a mandatory runtime barrel shifter.
+M2 must choose a cycle-tagged or otherwise bit-equivalent temporal
+placement/reduction organization.
+
+The corrected M1 formats are:
+
+| Item | Format |
+|---|---|
+| Target fraction | 3-bit unsigned prefix |
+| Active activation magnitude | 4-bit UQ1.3 plus sign |
+| Offline-aligned weight | signed 8-bit Q6 |
+| Element product | signed 12-bit Q9 |
+| Common-tail temporal product | signed 40-bit Q37 |
+| Exact 32-element block sum | signed 45-bit Q37 |
+| Channel accumulator | signed 52-bit Q37 |
+
+After the declared offline weight rounding, multiplication, temporal
+placement, block reduction, and channel accumulation are exact; no additional
+rounding occurs. The defensive accumulator saturates to the signed 52-bit
+range and raises sticky overflow, although legal 4096-element dots cannot
+overflow. The stage-1 output is interpreted as:
+
+```text
+output_value = accumulator_integer * 2^(E_max - 21)
+```
+
+M2 owns multiplier count and sharing, physical temporal placement, reduction
+topology, pipeline depth, initiation interval, and update schedule.
+
+## 7. Work suppression under the standard multiplier
 
 ### Whole-block skip
 
-If `L[p,b,k,c] = 0` for every `k`, the block performs no target formation,
-aligned-weight reads, multiplier issues, reduction, or accumulator update. The
-dispatcher may advance to the next block; any latency reduction must be
-measured under the selected lane schedule.
+If every element has `R = 0`, the block performs no target formation,
+aligned-weight reads, multiplier issues, reduction, or accumulator update.
 
 ### Element skip
 
-If one element has `L[p,b,k,c] = 0`, that element performs no target formation,
-weight read, or multiplier issue. The reduction network receives no valid
-product from it.
+If one element has `R = 0`, that element performs no target formation, weight
+read, or multiplier issue.
 
-### Partial window
+### Partial target
 
-If `0 < L[p,b,k,c] < H[p,c]`, the window changes the target activation
-mantissa and the work needed to form it. Once the target exists, the element
-still causes one aligned-weight read and one standard multiplication.
+If `0 < R < 3`, the target former retains only part of the three-bit activation
+fraction. Once formed, the element still causes one aligned-weight read and
+one standard multiplication. Partial targets may reduce activation-bit reads
+or formation activity but do not automatically reduce multiplier issue count.
 
-Partial windows therefore do not automatically reduce the multiplier-issue
-count. They may reduce activation-target formation reads or activity, and they
-may select a cheaper multiplier width class only if a width-classed design is
-explicitly implemented and characterized.
-
-The frozen **executed-digit ratio** remains the algorithmic work metric. It is
-not renamed into a standard-multiplier utilization or issue ratio.
-
-## 7. Reduction and accumulation
-
-Multiplier outputs feed a conventional fixed-point block reduction followed
-by a channel accumulator across serial blocks:
-
-```text
-block_sum[p,b,c] = Reduce_k(P_element[p,b,k,c] for valid k)
-acc[p,b+1,c]     = Accumulate(acc[p,b,c], block_sum[p,b,c])
-```
-
-The reduction topology, finite-width order, product width, accumulator width,
-pipeline placement, rounding, saturation, and overflow behavior remain part of
-the bit-level contract. A Python reference and RTL must agree on each element
-product, block sum, accumulated result, and accepted transaction order.
-
-The accumulated `gate_proj` and `up_proj` results leave the custom stage-1
-scope as ordinary fixed-point values. This design does not define a compressed
-BSD payload, timing header, elastic stage boundary, or local `down_proj`
-consumer.
-
-## 8. Storage and accounting boundary
-
-The custom storage inventory includes only state required by this stage-1
-path:
-
-- activation operand and metadata buffers;
-- `H` and retained schedule metadata;
-- active/shadow prepass and block-configuration banks, if selected;
-- offline-aligned fixed-point weight storage;
-- target-formation state;
-- multiplier pipeline, reduction, and channel-accumulator state.
-
-Completion payload stores, packet headers, boundary FIFOs, shard queues, and
-stage-2 output buffers are excluded.
-
-Hardware accounting keeps non-overlapping events:
+The frozen **executed-digit ratio** remains algorithmic evidence and is not
+renamed into multiplier utilization. Hardware accounting separately counts:
 
 ```text
 N_target_form
-N_activation_read
+N_activation_element_read
+N_activation_fraction_bit_read
 N_aligned_weight_read
 N_standard_multiply_issue
-N_reduction_input
+N_temporal_reduction_update
 N_accumulator_update
 N_block_skip
 N_cycle
 ```
 
-Counts must preserve projection identity and, if multiplier widths vary, the
-operand-width class. Area, timing, energy, and event evidence must retain their
-source labels; old serial-leaf or interface coefficients are not reusable.
+## 8. Storage and scope boundary
 
-## 9. Decisions required before implementation
+The active storage inventory may include only:
 
-This planning description intentionally leaves the following to the active
-contract and decision log:
+- activation source/sign/exponent/fraction and metadata buffers;
+- `H`, `beta_x`, `beta_w`, `D`, and retained target descriptors;
+- active/shadow prepass and configuration banks if selected;
+- offline-aligned 8-bit weight storage;
+- multiplier, temporal reduction, and channel-accumulator state.
 
-- exact mapping from `L` or `W` to `A_target`;
-- signed activation and weight encodings, widths, and binary points;
-- offline weight-alignment equation and packing;
-- product, reduction, and accumulation precision rules;
-- number and sharing of multiplier lanes;
-- multiplier pipeline depth and initiation interval;
-- reduction topology and transaction handshake;
-- whether the existing runtime `D` equation remains unchanged.
+Completion payload stores, headers, stage-boundary FIFOs, shard queues, and
+stage-2 output buffers are excluded.
+
+## 9. Remaining design work
+
+Corrected M1 is frozen by
+`hardware_sim/configs/operand_format_m1_v3.json`. M2 must still choose:
+
+- multiplier lane count and gate/up sharing;
+- physical temporal-placement and reduction organization;
+- pipeline latency, initiation interval, and block/channel completion;
+- transaction handshake, backpressure, reset, and ordering;
+- storage banking and ports;
+- clock, constraints, area/timing guardrails, power intent, test boundary,
+  hierarchy, synthesis top, and physical handoff boundary.
 
 No RTL datapath or model-scale ledger should silently choose these values.
 
 ## 10. Paper-facing hardware claim
 
 > We realize temporal significance scheduling with a metadata-first stage-1
-> micro-tile. A lightweight control plane translates MX metadata and calibrated
-> horizons into per-element target-formation descriptors. At runtime, each
-> active lane forms a target activation mantissa and multiplies it by an
-> offline-aligned fixed-point weight element using a standard fixed-point
-> multiplier, followed by conventional reduction and channel accumulation.
-> Empty blocks and elements issue no arithmetic work; partial windows alter
-> target formation rather than creating a runtime weight-digit stream. The
-> custom design covers `gate_proj` and `up_proj` only and requires no stage-2
-> packet interface.
+> micro-tile. Activation and weight block-scale exponents establish coarse
+> arrival, while the activation element exponent supplies the fine delay. The
+> weight element exponent is folded offline into a rounded signed 8-bit
+> fixed-point word.
+> For each active element, runtime forms a prefix over the three E4M3
+> activation fraction bits, restores the implicit leading one, and performs
+> one standard fixed-point multiply. The resulting product is placed at its
+> scheduled temporal significance before block reduction and channel
+> accumulation. Empty elements and blocks issue no arithmetic work; the
+> custom design covers `gate_proj` and `up_proj` only and requires no custom
+> stage-2 interface.
+
+This claim does not transfer frozen PPL to the revised arithmetic: the frozen
+quality experiment used the original MXFP8 weight elements and did not include
+the new offline 8-bit weight rounding.

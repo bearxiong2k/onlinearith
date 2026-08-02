@@ -1,14 +1,17 @@
 # Hardware simulation
 
-Status: active workspace; documentation and harness boundaries initialized
+Status: active workspace; corrected M1 arithmetic freeze complete, M2
+architecture freeze next
 Numerical source: frozen functional evidence from this repository and the
 sibling Transformers fork
 
 This directory owns all new work for the redesigned hardware realization of
 temporal significance scheduling. The custom scope is stage 1 only. Each
 scheduled target activation mantissa is multiplied by an offline-aligned
-fixed-point weight element using a standard fixed-point multiplier, followed
-by the applicable reduction and accumulation path.
+signed 8-bit Q6 weight element using a standard fixed-point multiplier,
+followed by the applicable reduction and accumulation path. The target carries
+three explicit E4M3 fraction positions; activation exponent alignment remains
+in the time domain.
 
 There is no custom stage-2 `down_proj` consumer, stage boundary, packetizer,
 payload FIFO, or shard queue in this design.
@@ -38,9 +41,11 @@ the always-read set.
 | `artifacts/` | Generated local outputs; ignored except for its policy README |
 | `reference/` | Extracted legacy candidates, excluded from active filelists |
 
-The empty implementation areas are intentional. First freeze operand widths,
-offline alignment, the schedule-to-target-mantissa mapping, and ledger schema;
-then add code in the phase order documented in `docs/development_plan.md`.
+The empty implementation areas are intentional. The current objective is one
+design-mature RTL release: freeze arithmetic and microarchitecture, build the
+bit-exact reference, close integrated RTL verification and mapped synthesis,
+then publish a reproducible design-freeze manifest. Layout work starts only
+after that gate, following the order in `docs/development_plan.md`.
 
 ## Independence rule
 

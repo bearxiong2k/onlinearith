@@ -1,0 +1,126 @@
+{
+  "schema_name": "tss_operand_format",
+  "schema_version": 3,
+  "config_id": "tss-m1-mxfp8-m3a4w8-p12-acc52-v3",
+  "status": "frozen",
+  "scope": "stage1_custom",
+  "source_format": {
+    "name": "MXFP8_E4M3FN",
+    "element_bits": 8,
+    "exponent_bits": 4,
+    "fraction_bits": 3,
+    "format_max": 448,
+    "element_reference_exponent": 8,
+    "block_size": 32,
+    "max_dot_elements": 4096,
+    "max_blocks_per_dot": 128,
+    "legal_nonzero_block_invariant": "the frozen max_abs/448 block quantizer makes the maximum normalized element magnitude 448, so the block element-reference exponent is 8",
+    "negative_zero_canonicalizes_to_positive_zero": true,
+    "nan_encodings_are_rejected": true
+  },
+  "element_decode": {
+    "integer_fraction_bits": 9,
+    "subnormal_magnitude_integer": "fraction_field",
+    "normal_magnitude_integer": "(8 + fraction_field) << (exponent_field - 1)",
+    "numeric_value": "signed_q9_integer * 2^-9",
+    "element_exponent": "floor(log2(abs(numeric_value))) for a nonzero element",
+    "normalized_significand_integer": "abs(numeric_value) * 2^(-element_exponent) * 2^3; exact integer in [8, 15]",
+    "normalized_significand_value": "normalized_significand_integer * 2^-3",
+    "sign_handling": "one sign sideband; zero has canonical positive sign"
+  },
+  "temporal_alignment": {
+    "block_scale_exponents": "beta_x and beta_w are decoded integer base-2 exponents; their wire encoding is an M2 decision",
+    "raw_contribution_exponent": "E_raw[b] = beta_x[b] + beta_w[b]",
+    "channel_reference_exponent": "E_max = max_b E_raw[b] over nonzero candidate blocks",
+    "coarse_delay": "D[b] = E_max - E_raw[b]",
+    "fine_delay": "lambda_x[k] = 8 - e_x[k] for a nonzero activation element",
+    "arrival": "tau[b,k] = D[b] + lambda_x[k]",
+    "constant_reference_exponents": "the activation and weight element-reference exponents are both 8; their sum is a common factor and therefore is not added to E_raw or stored per block",
+    "zero_fine_delay_code": 31,
+    "all_zero_block_policy": "kill; no element exponent or arrival is evaluated for numeric work",
+    "all_zero_dot_policy": "set E_max to canonical zero, return accumulator zero, and clear overflow",
+    "runtime_weight_metadata": "only beta_w contributes to D; no weight element exponent or per-block weight-reference exponent is decoded online"
+  },
+  "schedule_to_target": {
+    "horizon_min": 0,
+    "horizon_max": 31,
+    "calibration_origin_offset_positions": 2,
+    "window_length": "L = max(0, H - tau)",
+    "frozen_effective_precision": "p_eff_frozen = max(0, H - tau - 2)",
+    "retained_fraction_bits": "R = min(3, p_eff_frozen)",
+    "target_fraction": "for R > 0, retain the R most-significant bits of normalized_significand_integer[2:0] and clear the remaining low bits",
+    "target_significand": "for R > 0, A_sig_int = 8 | target_fraction; A_sig_int is unsigned UQ1.3",
+    "zero_rule": "R == 0 or x == 0 produces an invalid/zero target and no numeric contribution",
+    "sign_rule": "activation sign remains a one-bit sideband and is applied to the full product",
+    "issue_rule_owner": "the M2 microarchitecture config owns acceptance and issue timing; M1 defines one numeric multiply for an accepted nonzero target"
+  },
+  "formats": {
+    "activation_target_fraction": {
+      "encoding": "unsigned_binary_prefix",
+      "width_bits": 3,
+      "description": "the three explicit E4M3 fraction positions after prefix clearing"
+    },
+    "activation_significand": {
+      "encoding": "unsigned_fixed_point_with_implicit_leading_one",
+      "width_bits": 4,
+      "fraction_bits": 3,
+      "description": "multiplier magnitude operand; activation sign is a separate sideband"
+    },
+    "aligned_weight": {
+      "encoding": "twos_complement",
+      "width_bits": 8,
+      "fraction_bits": 6
+    },
+    "element_product": {
+      "encoding": "twos_complement",
+      "width_bits": 12,
+      "fraction_bits": 9
+    },
+    "temporally_aligned_product": {
+      "encoding": "twos_complement",
+      "width_bits": 40,
+      "fraction_bits": 37
+    },
+    "block_sum": {
+      "encoding": "twos_complement",
+      "width_bits": 45,
+      "fraction_bits": 37
+    },
+    "channel_accumulator": {
+      "encoding": "twos_complement",
+      "width_bits": 52,
+      "fraction_bits": 37
+    }
+  },
+  "offline_weight_encoding": {
+    "reference_exponent": 8,
+    "generic_equation": "W_aligned_int = RNE(sign(w) * m_w * 2^(e_w - 8) * 2^6)",
+    "e4m3fn_integer_equation": "W_aligned_int = RNE_signed(decode_q9(w) / 2^11)",
+    "rounding": "round to nearest, ties to even, symmetrically for negative values",
+    "overflow": "unreachable for finite E4M3FN; the exact rounded range is [-112, 112] inside signed 8 bits",
+    "logical_word_bits": 8,
+    "binary_file_word_bytes": 1,
+    "binary_file_byte_order": "not_applicable_single_byte",
+    "binary_file_padding": "none",
+    "element_order": "increasing k within increasing b, c, and projection order declared by the artifact"
+  },
+  "arithmetic": {
+    "multiply": "multiply unsigned 4-bit UQ1.3 A_sig_int by signed 8-bit Q6 W_aligned_int, then apply the activation sign; retain the full signed 12-bit Q9 product",
+    "maximum_active_arrival": 28,
+    "maximum_active_arrival_derivation": "H_max - calibration_origin_offset_positions - 1",
+    "temporal_reference_tail": 28,
+    "temporal_alignment": "for an active element, P_temporal_int = P_element_int << (28 - tau); this common-tail integer is a bit-exact oracle for time-domain placement, not a runtime activation barrel shift",
+    "temporal_alignment_rounding": "none",
+    "block_reduce": "sum up to 32 signed temporally aligned products exactly in signed 45-bit Q37",
+    "accumulate": "sign-extend each block sum and add in block-index order in signed 52-bit Q37",
+    "accumulator_overflow": "saturate after each update to the signed 52-bit range and set a sticky overflow flag",
+    "legal_input_overflow": "unreachable for at most 4096 legal source elements",
+    "output_value": "channel_accumulator_integer * 2^(E_max - 21)"
+  },
+  "frozen_software_boundary": {
+    "software_semantics": "NAF-prefix truncation of the activation-weight element product using the original MXFP8 weight",
+    "hardware_semantics": "binary prefix formation over the three normalized activation fraction bits, one standard multiply by the offline-aligned 8-bit weight, and placement at temporal arrival tau",
+    "schedule_bridge": "R_hardware = min(3, p_eff_frozen)",
+    "equivalence_claim": "none except for explicitly verified vectors; frozen quality and executed-digit evidence retain their original provenance and do not include the new 8-bit aligned-weight rounding"
+  }
+}

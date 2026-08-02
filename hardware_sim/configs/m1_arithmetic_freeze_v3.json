@@ -1,0 +1,61 @@
+{
+  "schema_name": "tss_m1_arithmetic_freeze",
+  "schema_version": 3,
+  "freeze_id": "tss-m1-arithmetic-freeze-v3",
+  "status": "frozen",
+  "date": "2026-08-01",
+  "scope": "stage1_custom_arithmetic_and_schedule",
+  "operand_format": {
+    "path": "hardware_sim/configs/operand_format_m1_v3.json",
+    "config_id": "tss-m1-mxfp8-m3a4w8-p12-acc52-v3",
+    "sha256": "1e71cd891e17fc0d5a4eae61dca0c418c6e856e7906090e3d95e1bd3175096c3"
+  },
+  "reviewed_fixture": {
+    "path": "hardware_sim/fixtures/m1_arithmetic_vectors_v3.json",
+    "fixture_id": "tss-m1-arithmetic-v3",
+    "sha256": "ab0bb34d42e3a7e6531dee449ad737fde1fdba9fbd1a2172bb71853fe7cf71fe"
+  },
+  "supersedes": {
+    "operand_format_config_id": "tss-m1-mxfp8-m3a4w19-p23-acc63-v2",
+    "freeze_id": "tss-m1-arithmetic-freeze-v2",
+    "reason": "the active hardware stores one signed 8-bit offline-aligned weight per element rather than the former exact signed 19-bit word"
+  },
+  "resolved_decisions": [
+    "HW-D014",
+    "HW-D015",
+    "HW-D017",
+    "HW-D018"
+  ],
+  "resolved_architecture_items": [
+    "OPEN-ARCH-001",
+    "OPEN-ARCH-002",
+    "OPEN-ARCH-003",
+    "OPEN-ARCH-004",
+    "OPEN-ARCH-005",
+    "OPEN-ARCH-008"
+  ],
+  "verification": {
+    "independent_methods": [
+      "raw_field_integer_decode_and_signed_rne",
+      "exact_rational_value_decomposition_and_nearest_even_selection"
+    ],
+    "finite_e4m3fn_encodings_exhaustively_checked": 254,
+    "element_vectors_checked": 17,
+    "offline_weight_rounding_vectors_checked": 10,
+    "temporal_reduction_vectors_checked": 1,
+    "saturating_accumulator_vectors_checked": 3,
+    "dot_corner_vectors_checked": 1,
+    "retained_fraction_counts_checked": [0, 1, 2, 3],
+    "maximum_active_arrival_checked": 28,
+    "aligned_weight_width_bits": 8,
+    "element_product_width_bits": 12,
+    "temporally_aligned_product_width_bits": 40,
+    "block_sum_width_bits": 45,
+    "maximum_legal_temporal_product_magnitude": 420906795008,
+    "maximum_legal_4096_element_sum_magnitude_bound": 1724034232352768,
+    "channel_accumulator_width_bits": 52,
+    "result": "pass"
+  },
+  "frozen_software_boundary": "the frozen PPL and executed-digit evidence used original MXFP8 weights and does not include the v3 signed 8-bit Q6 offline-weight rounding",
+  "change_control": "Any change to the source decode, weight rounding or packing, target formation, schedule bridge, width, binary point, temporal reference, reduction, output scale, saturation, or overflow rule requires a new operand-format config, fixture, decision entry, and freeze manifest and reopens M1."
+}
