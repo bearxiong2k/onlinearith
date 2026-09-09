@@ -1,0 +1,92 @@
+{
+  "model": "../Qwen3-1.7B",
+  "dataset": "wikitext/wikitext-2-raw-v1/test",
+  "config": {
+    "max_length": 4096,
+    "stride": 512,
+    "dtype": "torch.float16",
+    "world_size": 4,
+    "device_map": "none",
+    "max_memory": null,
+    "visible_cuda_devices": [
+      "4",
+      "5",
+      "6",
+      "7"
+    ],
+    "input_device": "cuda:0",
+    "hf_device_map": null,
+    "calibration_file": "../data/qwen3_final_experiments/fixed_sum17_ppl_stats300/qwen1_7b/snr17db/calib/calibration_MXFP8_fixed_sum_qwen1_7b_snr17db.json",
+    "text_manifest": null,
+    "limit_samples": null,
+    "stats": "off",
+    "msd_utilization_mode": false,
+    "load_stagger_sec": 8.0,
+    "figure5_layer_cycles": false
+  },
+  "config_snapshot": {
+    "use_mxfp8": true,
+    "mxfp8_block_size": 32,
+    "use_mxfp6": false,
+    "mxfp6_block_size": 32,
+    "mxfp6_format": "e2m3",
+    "use_mxfp4": false,
+    "mxfp4_block_size": 32,
+    "mxfp_use_chunked_exact": true,
+    "mxfp_chunk_target_mib": 256,
+    "mxfp_weight_cache_dtype": "float16",
+    "use_activation_nm_sparsity": false,
+    "activation_nm_n": 2,
+    "activation_nm_m": 4,
+    "use_msd_truncation": true,
+    "msd_cycle_budget": 16,
+    "msd_online_delay": 2,
+    "msd_budget_dynamic_scale": 0.0,
+    "msd_budget_dynamic_threshold": 0.0,
+    "msd_budget_dynamic_mode": "linear",
+    "msd_deep_pipeline": false,
+    "msd_pipeline_precision_loss": 2,
+    "msd_calibration_data": "<84 layers, 401408 channels>",
+    "msd_chunk_target_mib": 1536,
+    "msd_perf_stats_enabled": false,
+    "msd_perf_stats_lite": false,
+    "msd_figure5_layer_cycles": false,
+    "msd_compile_truncate": true
+  },
+  "metrics": {
+    "token_perplexity": 14.9315,
+    "word_perplexity": 28.5611,
+    "bits_per_byte": 0.8998,
+    "bits_per_char": 0.9012,
+    "mean_nll_nats": 2.7035
+  },
+  "reliability": {
+    "num_chunks": 578,
+    "chunk_nll_mean": 2.7047,
+    "chunk_nll_std": 0.4219,
+    "scored_tokens": 299078
+  },
+  "performance": {
+    "throughput_tokens_per_sec": 9.5,
+    "wall_time_sec": 31357.53,
+    "peak_memory": "11.88 GB",
+    "cuda_peak_memory": {
+      "cuda:0": {
+        "peak_alloc_gib": 11.8803,
+        "peak_reserved_gib": 14.4844
+      },
+      "cuda:1": {
+        "peak_alloc_gib": 0.0,
+        "peak_reserved_gib": 0.0
+      },
+      "cuda:2": {
+        "peak_alloc_gib": 0.0,
+        "peak_reserved_gib": 0.0
+      },
+      "cuda:3": {
+        "peak_alloc_gib": 0.0,
+        "peak_reserved_gib": 0.0
+      }
+    }
+  }
+}

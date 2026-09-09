@@ -1,0 +1,37 @@
+{
+  "target_snr": 15.0,
+  "eval_manifest": "/home/xzj/coding/6b/manifests/eval_B.json",
+  "freeze_granularity": "per_layer",
+  "budget_range": [
+    4,
+    48
+  ],
+  "reuse_existing_evals": true,
+  "force": false,
+  "methods": [
+    {
+      "key": "uniform",
+      "label": "uniform",
+      "calibration_file": "/home/xzj/coding/6c/calibrations/calibration_MXFP8_fig6c_uniform.json",
+      "eval_output_file": "/home/xzj/coding/6c/evals/ppl_fig6c_uniform.json"
+    },
+    {
+      "key": "weight_only",
+      "label": "weight-only",
+      "calibration_file": "/home/xzj/coding/6c/calibrations/calibration_MXFP8_fig6c_weight_only.json",
+      "eval_output_file": "/home/xzj/coding/6c/evals/ppl_fig6c_weight_only.json"
+    },
+    {
+      "key": "combined",
+      "label": "combined",
+      "calibration_file": "/home/xzj/coding/data/calib-data/15db/calibration_MXFP8.json",
+      "eval_output_file": "/home/xzj/coding/6c/evals/ppl_fig6c_combined.json"
+    },
+    {
+      "key": "fixed_sum",
+      "label": "fixed-sum",
+      "calibration_file": "/home/xzj/coding/data/calib-data/15db/calibration_MXFP8_fixed_sum.json",
+      "eval_output_file": "/home/xzj/coding/6c/evals/ppl_fig6c_fixed_sum.json"
+    }
+  ]
+}

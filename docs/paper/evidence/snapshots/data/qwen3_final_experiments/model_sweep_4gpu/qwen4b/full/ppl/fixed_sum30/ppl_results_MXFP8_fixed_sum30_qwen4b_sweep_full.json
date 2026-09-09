@@ -1,0 +1,91 @@
+{
+  "model": "../Qwen3-4B",
+  "dataset": "wikitext/wikitext-2-raw-v1/test",
+  "config": {
+    "max_length": 4096,
+    "stride": 512,
+    "dtype": "torch.float16",
+    "world_size": 4,
+    "device_map": "none",
+    "max_memory": null,
+    "visible_cuda_devices": [
+      "4",
+      "5",
+      "6",
+      "7"
+    ],
+    "input_device": "cuda:0",
+    "hf_device_map": null,
+    "calibration_file": "../data/qwen3_final_experiments/model_sweep_4gpu/qwen4b/artifacts/calib_fixed_sum_30db/calibration_MXFP8_fixed_sum_qwen4b_sweep.json",
+    "text_manifest": null,
+    "stats": "off",
+    "msd_utilization_mode": false,
+    "load_stagger_sec": 8.0,
+    "figure5_layer_cycles": false
+  },
+  "config_snapshot": {
+    "use_mxfp8": true,
+    "mxfp8_block_size": 32,
+    "use_mxfp6": false,
+    "mxfp6_block_size": 32,
+    "mxfp6_format": "e2m3",
+    "use_mxfp4": false,
+    "mxfp4_block_size": 32,
+    "mxfp_use_chunked_exact": true,
+    "mxfp_chunk_target_mib": 256,
+    "mxfp_weight_cache_dtype": "float16",
+    "use_activation_nm_sparsity": false,
+    "activation_nm_n": 2,
+    "activation_nm_m": 4,
+    "use_msd_truncation": true,
+    "msd_cycle_budget": 16,
+    "msd_online_delay": 2,
+    "msd_budget_dynamic_scale": 0.0,
+    "msd_budget_dynamic_threshold": 0.0,
+    "msd_budget_dynamic_mode": "linear",
+    "msd_deep_pipeline": false,
+    "msd_pipeline_precision_loss": 2,
+    "msd_calibration_data": "<108 layers, 792576 channels>",
+    "msd_chunk_target_mib": 1536,
+    "msd_perf_stats_enabled": false,
+    "msd_perf_stats_lite": false,
+    "msd_figure5_layer_cycles": false,
+    "msd_compile_truncate": true
+  },
+  "metrics": {
+    "token_perplexity": 11.2926,
+    "word_perplexity": 20.2004,
+    "bits_per_byte": 0.8068,
+    "bits_per_char": 0.8081,
+    "mean_nll_nats": 2.4241
+  },
+  "reliability": {
+    "num_chunks": 578,
+    "chunk_nll_mean": 2.4244,
+    "chunk_nll_std": 0.4037,
+    "scored_tokens": 299078
+  },
+  "performance": {
+    "throughput_tokens_per_sec": 3.7,
+    "wall_time_sec": 81562.68,
+    "peak_memory": "16.64 GB",
+    "cuda_peak_memory": {
+      "cuda:0": {
+        "peak_alloc_gib": 16.6407,
+        "peak_reserved_gib": 21.8262
+      },
+      "cuda:1": {
+        "peak_alloc_gib": 0.0,
+        "peak_reserved_gib": 0.0
+      },
+      "cuda:2": {
+        "peak_alloc_gib": 0.0,
+        "peak_reserved_gib": 0.0
+      },
+      "cuda:3": {
+        "peak_alloc_gib": 0.0,
+        "peak_reserved_gib": 0.0
+      }
+    }
+  }
+}

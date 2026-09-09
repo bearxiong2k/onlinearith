@@ -1,0 +1,161 @@
+IEEE/ACM ICCAD 2026 Paper #229 Reviews and Comments
+===========================================================================
+Paper #229 Temporal Significance Scheduling for MX-Quantized LLM FFN
+Inference on CIM
+
+
+Review #229A
+===========================================================================
+
+Paper summary (3-4 sentences)
+-----------------------------
+This paper proposes Temporal Significance Scheduling (TSS) to accelerate MX-quantized LLM FFN inference on CIM architectures. The key idea is to reinterpret the existing block-scale exponents and element-level metadata in MX quantization as arrival-time signals in an MSD-first online-arithmetic stream, thereby limiting the execution window of less significant computations. The authors further present a hardware implementation based on a metadata-first, two-plane FFN micro-tile that executes GLU-FFN layers using a channel-parallel, block-serial mapping. Experimental results on Qwen3-0.6B with MXFP8 quantization show that TSS can reduce the executed-digit ratio while maintaining perplexity close to the dense baseline, achieving approximately 22–25% reduction in FFN-layer latency.
+
+Strengths
+---------
+1. The idea of reformulating compute reduction as a temporal scheduling problem is a novel perspective. 
+2. The hardware design is complete, providing a concrete micro-tile architecture.
+
+Weaknesses
+----------
+1. The experiments are based on the simulation and with only one relatively small model. The feasibility, scalability, and capability of the proposed design are still not convincing. 
+2. The reported latency benefit is mainly evaluated under a block-serial, FFN-layer-level execution model. It remains unclear how much the proposed method would improve end-to-end LLM inference latency in a complete system.
+
+Comments for authors
+--------------------
+This paper presents Temporal Significance Scheduling, which is a valuable architectural idea. In particular, reinterpreting MX exponent metadata as arrival-time signals and transforming compute reduction from spatial masking into temporal truncation is an interesting and hardware-aware formulation. This design effectively avoids the routing and irregular control issues commonly introduced by flexible sparsity on CIM architectures. It also provides a unified scheduling framework that can express whole-block skipping, element skipping, and partial-window execution.
+
+However, the current evaluation is limited in terms of model and dataset coverage. Results on Qwen3-0.6B and WikiText-2 perplexity are useful as a proof of concept. Still, they may not be sufficient to represent different model scales, token distributions, downstream tasks, or practical long-sequence inference scenarios. The authors should include additional experiments on larger LLMs or different model families. Otherwise, the feasibility, scalability, and capability of the proposed design are still not convincing.
+
+In addition, the latency improvement is primarily demonstrated at the FFN layer level using a block-serial execution model. It remains unclear how much the proposed method would improve end-to-end LLM inference latency in a complete system. A more comprehensive system-level evaluation would clarify the practical impact of the proposed architecture.
+
+Rebuttal questions for authors
+------------------------------
+1. The evaluation is currently limited to Qwen3-0.6B on WikiText-2. Is TSS expected to generalize to larger LLMs or other model families? Please provide additional results or discussion.
+2. The reported 22–25% latency reduction is evaluated at the FFN layer level under the proposed block-serial execution model. Could you further explain how this layer-level improvement translates to end-to-end LLM inference latency in a complete system?
+
+
+
+Review #229B
+===========================================================================
+
+Paper summary (3-4 sentences)
+-----------------------------
+The paper proposes TSS, a novel approach that utilizes an alternative significance signal to natively support regular hardware mapping. By temporally bounding operation horizons based on data significance, TSS dynamically suppresses ineffectual computations without disrupting spatial regularity. TSS achieves a superior quality-compute tradeoff, maintaining near-dense baseline perplexity while executing only 50% of the workload.
+
+Strengths
+---------
+1. Practically useful.
+2. The idea of bridging regular CIM and irregular sparsity is compelling.
+
+Weaknesses
+----------
+1. End-to-end flow from model towards hardware is not discussed.
+
+Comments for authors
+--------------------
+1. Figure 2 lacks of e2e flow from model layer towards the HW.
+2. TSS's delay/pipeline stages can be evaluated/provided in details.
+3. E2E compiler or SW support for TSS can be elaborated.
+
+Rebuttal questions for authors
+------------------------------
+1. Can you please show the high level computation for the Figure 2(a)? Is it a fully-connected? If so, how does each input block correspond to the two operands of the computation?
+2. What is the TSS's overhead in terms of delay/frequency? It seems TSS is not on the critical path.
+3. Can the TSS's execution perfectly be pipelined with the following computations?
+4. Does the proposed method/architecture require any compiler support for automation the model lowering?
+
+
+
+Review #229C
+===========================================================================
+
+Paper summary (3-4 sentences)
+-----------------------------
+This paper presents a new LLM acceleration framework: Temporal Significance Scheduling (TSS). Unlike conventional static pruning, TSS is based on most-significant-digit-first online arithmetic and discards less influential computations by adjusting the execution horizon. The paper also evaluates the control plane, CIM data plane, and SRAM storage under a 28nm process. Experiments on the MXFP8-quantized Qwen3-0.6B model show that TSS achieves performance comparable to the dense baseline while executing only about 50% of the workload.
+
+Strengths
+---------
+1. The architecture is inherently well aligned with MSD-first and CIM.
+2. Simulations were conducted at the 28 nm node, with area and power consumption reported.
+3.The proposed method avoids the limitations of conventional mask-based workflows by shifting compute suppression from spatial masking to temporal scheduling.
+
+Weaknesses
+----------
+1. The baselines used for comparing large-model perplexity are mostly from 2023/2024 or earlier, which weakens the persuasiveness at the software level.
+2. The paper lacks system-level hardware comparisons with other baselines, making it difficult to demonstrate the proposed hardware advantages.
+3. The algorithmic description is very coarse-grained, for example, the computation of λx, the block quantization process, and the calibration-window procedure.
+4. The latency calculation in the paper relies on many assumptions and omissions, but these assumptions may not all hold in practice.
+
+Comments for authors
+--------------------
+I believe TSS is indeed a promising perspective. As the authors note, it only needs to control the computation window, and the framework naturally skips less important computation. However, I still have the following concerns, which affect my evaluation of the paper:
+1. Compared with static or dynamic masks, TSS has a simpler control mechanism and fewer scheduling variables. However, I am cautious about the conclusion in Figure 4 that TSS is superior in both hardware cost and model perplexity. From a numerical optimization perspective, TSS controls retained contributions by adjusting the execution horizon, essentially keeping prefix computations along the time order induced by the dataflow. In contrast, mask-based methods can decide more precisely  which elements participate in computation. Under the same compute budget and calibration effort, a sufficiently flexible mask method may have a higher software-level accuracy upper bound.
+2. Most of the paper emphasizes hardware efficiency, but the main hardware comparison with other methods is Table 1, which only reports the area overhead ratio of control logic and does not fully reflect system-level hardware cost. Similarly, Figure 4 uses executed-digit ratio as the compute metric, but this is still algorithm-level and does not directly represent hardware latency, energy, throughput, buffering, routing, or utilization. The benefits of TSS strongly depend on MSD-first online arithmetic and block-serial execution, while other mask methods may not use the same datapath or matrix-computation algorithm. Therefore, differences in matrix computation and underlying dataflow may significantly affect the final hardware gains.
+3. The latency model of TSS directly uses exponent differences and the fine-delay code λx to derive arrival time. In real hardware, λx decoding and broadcast, scale prepass, window builder, configuration RAM switching, and other processes may introduce extra overhead. I would therefore like the authors to clarify whether these non-ideal hardware delays are included in the TLM or hardware evaluation during simulation and calibration. If not, the execution horizons obtained from offline calibration may not match the effective windows in real hardware, which could affect both accuracy and latency evaluation.
+
+	​
+
+Rebuttal questions for authors
+------------------------------
+1. How does TSS compare with stronger and more recent flexible sparsity and CIM baselines under matched compute budgets, calibration effort, and hardware assumptions? 
+2. Could the authors provide a more direct system-level hardware comparison with competing methods beyond control-area overhead? Such a comparison should include latency, energy, throughput, and utilization under a common execution model or cost model.
+3. Could the authors clarify several key implementation details to improve reproducibility, including the derivation of $\lambda_x$, the offline weight recoding and alignment procedure, and the exact algorithm used for horizon calibration and layer-wise redistribution?
+4. Are non-ideal control-plane overheads fully included in the TLM and hardware evaluation, including scale prepass, $\lambda_x$ decoding and broadcasting, window construction, and configuration switching? If these overheads are not fully included, how would they affect the reported latency gains and the calibrated execution horizons?
+
+
+
+Review #229D
+===========================================================================
+
+Paper summary (3-4 sentences)
+-----------------------------
+This paper presents Temporal Significance Scheduling (TSS) , a novel execution paradigm for accelerating MX-quantized LLM FFN inference on compute-in-memory (CIM) architectures. The key idea is to replace spatial sparsity masks with temporal truncation of significance-ordered contribution streams, leveraging MX exponents as arrival-time signals in MSD-first online arithmetic.
+
+Strengths
+---------
+The reinterpretation of MX exponents as temporal arrival signals is creative and non-obvious.
+
+Weaknesses
+----------
+1. Only one model (Qwen3-0.6B) is evaluated. Add results for at least one larger model (e.g., LLaMA-7B or Qwen-7B) to demonstrate scalability.
+
+2. The three-stage calibration (uniform, SNR, L2) is effective but may be costly for many layers/channels. Report calibration runtime and discuss potential for online or lightweight per-input adaptation.
+
+3. Experiments use K=32 (MX default). Vary K (e.g., 16, 64) and report impact on quality, latency, and overhead.
+
+4. Minor suggestions.
+Figure 1: Slightly crowded; consider splitting into two subfigures.
+Equation (4): The piecewise definition is clear, but a small example would help.
+Table 1: Excellent comparison; add node size (28nm) for baselines where known.
+Typo: "Figure 2" missing first letter in caption (Page 3).
+
+
+
+Review #229E
+===========================================================================
+
+Paper summary (3-4 sentences)
+-----------------------------
+This paper introduces Temporal Significance Scheduling (TSS), a novel execution paradigm that accelerates quantized LLM Feed-Forward Network (FFN) inference on Compute-in-Memory (CIM) architectures by shifting compute-reduction from the spatial to the temporal domain. Leveraging the intrinsic block-scale and element-level exponent metadata of the MXFP8 quantization format as "arrival-time signals," TSS processes data in a Most Significant Digit (MSD)-first online-arithmetic stream, dynamically truncating less significant computations based on an offline-calibrated horizon. This temporal approach elegantly suppresses ineffectual operations while strictly preserving the hardware regularity demanded by CIM. Implemented via a metadata-first, two-plane FFN micro-tile, the scheduling logic utilizes lightweight integer arithmetic to manage the data plane's serial-parallel execution.
+
+Strengths
+---------
+CIM-Friendly Regularity: Compute-in-Memory (CIM) arrays notoriously hate divergent control flows. By mapping "sparsity" to a "temporal truncation" (clock-gating multipliers early), the spatial structure of the SRAM array remains perfectly intact.
+Strong Ablation Studies: Figure 6 effectively proves why their specific design choices matter, such as showing that using only weight metadata (W-only) destroys model perplexity, justifying the need for dynamic activation data.
+
+Weaknesses
+----------
+FFN-Only Bottleneck: The architecture exclusively targets the Feed-Forward Network (GLU-FFN) layers. While FFNs hold the majority of parameters, the Attention mechanism (especially the KV cache and Softmax) is often the true memory-bound bottleneck in LLMs for long contexts. Leaving Attention unoptimized limits the holistic system speedup.
+
+Comments for authors
+--------------------
+Please show the time distribution of FFN in several kinds of LLMs: To demonstrate the general applicability and impact of FFN acceleration across different model architectures.
+Please show the perplexity of full precision LLM instead of just showing Pareto frontier for MX-quantized Qwen3-0.6B FFN inference: To provide a rigorous baseline for evaluating the absolute quality degradation introduced by quantization and the proposed scheduling method.
+Use the same example for τ in Figure 2 (b) to avoid confusion: To maintain consistency between the numerical explanation and the visual representation, thereby improving clarity for the reader.
+Data plane leaf may occupy too much area in CIM: There’s a potential concern regarding hardware area efficiency and justify the trade-off between the digit-serial datapath complexity and the overall system performance
+
+Rebuttal questions for authors
+------------------------------
+What is the overhead to run the offline phase in the work?
+What is the overall latency improvement for the whole language model inference?

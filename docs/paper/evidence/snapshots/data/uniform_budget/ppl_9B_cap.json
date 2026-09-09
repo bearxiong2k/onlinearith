@@ -1,0 +1,909 @@
+{
+  "model": "../Qwen3-0.6B",
+  "dataset": "wikitext/wikitext-2-raw-v1/test",
+  "config": {
+    "max_length": 4096,
+    "stride": 512,
+    "dtype": "torch.float16",
+    "world_size": 1,
+    "calibration_file": null,
+    "text_manifest": null
+  },
+  "config_snapshot": {
+    "use_mxfp8": true,
+    "mxfp8_block_size": 32,
+    "use_mxfp6": false,
+    "mxfp6_block_size": 32,
+    "mxfp6_format": "e2m3",
+    "use_mxfp4": false,
+    "mxfp4_block_size": 32,
+    "use_activation_nm_sparsity": false,
+    "activation_nm_n": 2,
+    "activation_nm_m": 4,
+    "use_msd_truncation": true,
+    "msd_cycle_budget": 9,
+    "msd_online_delay": 2,
+    "msd_budget_dynamic_scale": 0.0,
+    "msd_budget_dynamic_threshold": 0.0,
+    "msd_budget_dynamic_mode": "linear",
+    "msd_deep_pipeline": false,
+    "msd_pipeline_precision_loss": 2,
+    "msd_calibration_data": null,
+    "msd_chunk_target_mib": 1536
+  },
+  "metrics": {
+    "token_perplexity": 16.5029,
+    "word_perplexity": 34.2077,
+    "bits_per_byte": 0.9895,
+    "bits_per_char": 0.992,
+    "mean_nll_nats": 2.8035
+  },
+  "reliability": {
+    "num_chunks": 37,
+    "chunk_nll_mean": 2.784,
+    "chunk_nll_std": 0.5048,
+    "scored_tokens": 22336
+  },
+  "performance": {
+    "throughput_tokens_per_sec": 1.7,
+    "wall_time_sec": 12879.48,
+    "peak_memory": "20.50 GB"
+  },
+  "msd_perf_stats": {
+    "global": {
+      "num_layers": 84,
+      "total_macs": 39995540766720,
+      "zero_element_percentage": 0.257709,
+      "zero_block_percentage": 0.007619,
+      "mac_sparsity": 0.257709,
+      "mean_effective_precision": 1.6852,
+      "global_utilization": 0.187248,
+      "hw_latency_overhead": 0.164953,
+      "zero_block_ratio": 0.007619,
+      "max_budget": 9.0,
+      "max_total_delay": 86.0
+    },
+    "per_layer": {
+      "layers.0.mlp.gate_proj": {
+        "utilization": 0.207568,
+        "hw_latency_overhead": 0.180175,
+        "zero_element_percentage": 0.189211,
+        "zero_block_percentage": 0.000232,
+        "zero_block_ratio": 0.000232,
+        "p_eff_mean": 1.8681,
+        "mac_sparsity": 0.189211,
+        "avg_max_latency": 9.0
+      },
+      "layers.0.mlp.up_proj": {
+        "utilization": 0.207204,
+        "hw_latency_overhead": 0.180052,
+        "zero_element_percentage": 0.189768,
+        "zero_block_percentage": 9.5e-05,
+        "zero_block_ratio": 9.5e-05,
+        "p_eff_mean": 1.8648,
+        "mac_sparsity": 0.189768,
+        "avg_max_latency": 9.0
+      },
+      "layers.0.mlp.down_proj": {
+        "utilization": 0.143634,
+        "hw_latency_overhead": 0.139551,
+        "zero_element_percentage": 0.372022,
+        "zero_block_percentage": 0.001023,
+        "zero_block_ratio": 0.001023,
+        "p_eff_mean": 1.2927,
+        "mac_sparsity": 0.372022,
+        "avg_max_latency": 9.0
+      },
+      "layers.1.mlp.gate_proj": {
+        "utilization": 0.144985,
+        "hw_latency_overhead": 0.150429,
+        "zero_element_percentage": 0.323071,
+        "zero_block_percentage": 0.001104,
+        "zero_block_ratio": 0.001104,
+        "p_eff_mean": 1.3049,
+        "mac_sparsity": 0.323071,
+        "avg_max_latency": 9.0
+      },
+      "layers.1.mlp.up_proj": {
+        "utilization": 0.146346,
+        "hw_latency_overhead": 0.151281,
+        "zero_element_percentage": 0.319237,
+        "zero_block_percentage": 0.001048,
+        "zero_block_ratio": 0.001048,
+        "p_eff_mean": 1.3171,
+        "mac_sparsity": 0.319237,
+        "avg_max_latency": 9.0
+      },
+      "layers.1.mlp.down_proj": {
+        "utilization": 0.161549,
+        "hw_latency_overhead": 0.148722,
+        "zero_element_percentage": 0.330752,
+        "zero_block_percentage": 0.000644,
+        "zero_block_ratio": 0.000644,
+        "p_eff_mean": 1.4539,
+        "mac_sparsity": 0.330752,
+        "avg_max_latency": 9.0
+      },
+      "layers.2.mlp.gate_proj": {
+        "utilization": 0.158715,
+        "hw_latency_overhead": 0.157955,
+        "zero_element_percentage": 0.289201,
+        "zero_block_percentage": 0.001348,
+        "zero_block_ratio": 0.001348,
+        "p_eff_mean": 1.4284,
+        "mac_sparsity": 0.289201,
+        "avg_max_latency": 9.0
+      },
+      "layers.2.mlp.up_proj": {
+        "utilization": 0.16222,
+        "hw_latency_overhead": 0.159934,
+        "zero_element_percentage": 0.280296,
+        "zero_block_percentage": 0.000784,
+        "zero_block_ratio": 0.000784,
+        "p_eff_mean": 1.46,
+        "mac_sparsity": 0.280296,
+        "avg_max_latency": 9.0
+      },
+      "layers.2.mlp.down_proj": {
+        "utilization": 0.190825,
+        "hw_latency_overhead": 0.167136,
+        "zero_element_percentage": 0.247886,
+        "zero_block_percentage": 0.000555,
+        "zero_block_ratio": 0.000555,
+        "p_eff_mean": 1.7174,
+        "mac_sparsity": 0.247886,
+        "avg_max_latency": 9.0
+      },
+      "layers.3.mlp.gate_proj": {
+        "utilization": 0.172226,
+        "hw_latency_overhead": 0.16455,
+        "zero_element_percentage": 0.259527,
+        "zero_block_percentage": 0.000637,
+        "zero_block_ratio": 0.000637,
+        "p_eff_mean": 1.55,
+        "mac_sparsity": 0.259527,
+        "avg_max_latency": 9.0
+      },
+      "layers.3.mlp.up_proj": {
+        "utilization": 0.179506,
+        "hw_latency_overhead": 0.168176,
+        "zero_element_percentage": 0.243208,
+        "zero_block_percentage": 0.000287,
+        "zero_block_ratio": 0.000287,
+        "p_eff_mean": 1.6156,
+        "mac_sparsity": 0.243208,
+        "avg_max_latency": 9.0
+      },
+      "layers.3.mlp.down_proj": {
+        "utilization": 0.161988,
+        "hw_latency_overhead": 0.152628,
+        "zero_element_percentage": 0.313175,
+        "zero_block_percentage": 0.000792,
+        "zero_block_ratio": 0.000792,
+        "p_eff_mean": 1.4579,
+        "mac_sparsity": 0.313175,
+        "avg_max_latency": 9.0
+      },
+      "layers.4.mlp.gate_proj": {
+        "utilization": 0.200923,
+        "hw_latency_overhead": 0.177752,
+        "zero_element_percentage": 0.200114,
+        "zero_block_percentage": 0.000743,
+        "zero_block_ratio": 0.000743,
+        "p_eff_mean": 1.8083,
+        "mac_sparsity": 0.200114,
+        "avg_max_latency": 9.0
+      },
+      "layers.4.mlp.up_proj": {
+        "utilization": 0.208097,
+        "hw_latency_overhead": 0.180963,
+        "zero_element_percentage": 0.185667,
+        "zero_block_percentage": 0.000128,
+        "zero_block_ratio": 0.000128,
+        "p_eff_mean": 1.8729,
+        "mac_sparsity": 0.185667,
+        "avg_max_latency": 9.0
+      },
+      "layers.4.mlp.down_proj": {
+        "utilization": 0.160593,
+        "hw_latency_overhead": 0.152095,
+        "zero_element_percentage": 0.315573,
+        "zero_block_percentage": 0.00128,
+        "zero_block_ratio": 0.00128,
+        "p_eff_mean": 1.4453,
+        "mac_sparsity": 0.315573,
+        "avg_max_latency": 9.0
+      },
+      "layers.5.mlp.gate_proj": {
+        "utilization": 0.215277,
+        "hw_latency_overhead": 0.183602,
+        "zero_element_percentage": 0.173791,
+        "zero_block_percentage": 0.000699,
+        "zero_block_ratio": 0.000699,
+        "p_eff_mean": 1.9375,
+        "mac_sparsity": 0.173791,
+        "avg_max_latency": 9.0
+      },
+      "layers.5.mlp.up_proj": {
+        "utilization": 0.220668,
+        "hw_latency_overhead": 0.185802,
+        "zero_element_percentage": 0.163891,
+        "zero_block_percentage": 0.000357,
+        "zero_block_ratio": 0.000357,
+        "p_eff_mean": 1.986,
+        "mac_sparsity": 0.163891,
+        "avg_max_latency": 9.0
+      },
+      "layers.5.mlp.down_proj": {
+        "utilization": 0.191122,
+        "hw_latency_overhead": 0.167463,
+        "zero_element_percentage": 0.246418,
+        "zero_block_percentage": 0.000364,
+        "zero_block_ratio": 0.000364,
+        "p_eff_mean": 1.7201,
+        "mac_sparsity": 0.246418,
+        "avg_max_latency": 9.0
+      },
+      "layers.6.mlp.gate_proj": {
+        "utilization": 0.217919,
+        "hw_latency_overhead": 0.184851,
+        "zero_element_percentage": 0.168169,
+        "zero_block_percentage": 0.000107,
+        "zero_block_ratio": 0.000107,
+        "p_eff_mean": 1.9613,
+        "mac_sparsity": 0.168169,
+        "avg_max_latency": 9.0
+      },
+      "layers.6.mlp.up_proj": {
+        "utilization": 0.225038,
+        "hw_latency_overhead": 0.18751,
+        "zero_element_percentage": 0.156206,
+        "zero_block_percentage": 0.000149,
+        "zero_block_ratio": 0.000149,
+        "p_eff_mean": 2.0253,
+        "mac_sparsity": 0.156206,
+        "avg_max_latency": 9.0
+      },
+      "layers.6.mlp.down_proj": {
+        "utilization": 0.190742,
+        "hw_latency_overhead": 0.167761,
+        "zero_element_percentage": 0.245074,
+        "zero_block_percentage": 0.000277,
+        "zero_block_ratio": 0.000277,
+        "p_eff_mean": 1.7167,
+        "mac_sparsity": 0.245074,
+        "avg_max_latency": 9.0
+      },
+      "layers.7.mlp.gate_proj": {
+        "utilization": 0.216844,
+        "hw_latency_overhead": 0.18449,
+        "zero_element_percentage": 0.169795,
+        "zero_block_percentage": 0.000345,
+        "zero_block_ratio": 0.000345,
+        "p_eff_mean": 1.9516,
+        "mac_sparsity": 0.169795,
+        "avg_max_latency": 9.0
+      },
+      "layers.7.mlp.up_proj": {
+        "utilization": 0.22297,
+        "hw_latency_overhead": 0.186869,
+        "zero_element_percentage": 0.15909,
+        "zero_block_percentage": 0.000313,
+        "zero_block_ratio": 0.000313,
+        "p_eff_mean": 2.0067,
+        "mac_sparsity": 0.15909,
+        "avg_max_latency": 9.0
+      },
+      "layers.7.mlp.down_proj": {
+        "utilization": 0.187506,
+        "hw_latency_overhead": 0.165862,
+        "zero_element_percentage": 0.253621,
+        "zero_block_percentage": 0.002468,
+        "zero_block_ratio": 0.002468,
+        "p_eff_mean": 1.6876,
+        "mac_sparsity": 0.253621,
+        "avg_max_latency": 9.0
+      },
+      "layers.8.mlp.gate_proj": {
+        "utilization": 0.217889,
+        "hw_latency_overhead": 0.184855,
+        "zero_element_percentage": 0.168154,
+        "zero_block_percentage": 0.000389,
+        "zero_block_ratio": 0.000389,
+        "p_eff_mean": 1.961,
+        "mac_sparsity": 0.168154,
+        "avg_max_latency": 9.0
+      },
+      "layers.8.mlp.up_proj": {
+        "utilization": 0.223618,
+        "hw_latency_overhead": 0.187089,
+        "zero_element_percentage": 0.158099,
+        "zero_block_percentage": 0.00022,
+        "zero_block_ratio": 0.00022,
+        "p_eff_mean": 2.0126,
+        "mac_sparsity": 0.158099,
+        "avg_max_latency": 9.0
+      },
+      "layers.8.mlp.down_proj": {
+        "utilization": 0.188087,
+        "hw_latency_overhead": 0.166046,
+        "zero_element_percentage": 0.252795,
+        "zero_block_percentage": 0.000196,
+        "zero_block_ratio": 0.000196,
+        "p_eff_mean": 1.6928,
+        "mac_sparsity": 0.252795,
+        "avg_max_latency": 9.0
+      },
+      "layers.9.mlp.gate_proj": {
+        "utilization": 0.19977,
+        "hw_latency_overhead": 0.177198,
+        "zero_element_percentage": 0.202607,
+        "zero_block_percentage": 0.000481,
+        "zero_block_ratio": 0.000481,
+        "p_eff_mean": 1.7979,
+        "mac_sparsity": 0.202607,
+        "avg_max_latency": 9.0
+      },
+      "layers.9.mlp.up_proj": {
+        "utilization": 0.205655,
+        "hw_latency_overhead": 0.179727,
+        "zero_element_percentage": 0.191228,
+        "zero_block_percentage": 0.000271,
+        "zero_block_ratio": 0.000271,
+        "p_eff_mean": 1.8509,
+        "mac_sparsity": 0.191228,
+        "avg_max_latency": 9.0
+      },
+      "layers.9.mlp.down_proj": {
+        "utilization": 0.188891,
+        "hw_latency_overhead": 0.166285,
+        "zero_element_percentage": 0.251716,
+        "zero_block_percentage": 0.00012,
+        "zero_block_ratio": 0.00012,
+        "p_eff_mean": 1.7,
+        "mac_sparsity": 0.251716,
+        "avg_max_latency": 9.0
+      },
+      "layers.10.mlp.gate_proj": {
+        "utilization": 0.195539,
+        "hw_latency_overhead": 0.17497,
+        "zero_element_percentage": 0.212636,
+        "zero_block_percentage": 0.001234,
+        "zero_block_ratio": 0.001234,
+        "p_eff_mean": 1.7599,
+        "mac_sparsity": 0.212636,
+        "avg_max_latency": 9.0
+      },
+      "layers.10.mlp.up_proj": {
+        "utilization": 0.20052,
+        "hw_latency_overhead": 0.177124,
+        "zero_element_percentage": 0.20294,
+        "zero_block_percentage": 0.001186,
+        "zero_block_ratio": 0.001186,
+        "p_eff_mean": 1.8047,
+        "mac_sparsity": 0.20294,
+        "avg_max_latency": 9.0
+      },
+      "layers.10.mlp.down_proj": {
+        "utilization": 0.178619,
+        "hw_latency_overhead": 0.159826,
+        "zero_element_percentage": 0.280781,
+        "zero_block_percentage": 0.00072,
+        "zero_block_ratio": 0.00072,
+        "p_eff_mean": 1.6076,
+        "mac_sparsity": 0.280781,
+        "avg_max_latency": 9.0
+      },
+      "layers.11.mlp.gate_proj": {
+        "utilization": 0.210825,
+        "hw_latency_overhead": 0.181608,
+        "zero_element_percentage": 0.182764,
+        "zero_block_percentage": 0.00039,
+        "zero_block_ratio": 0.00039,
+        "p_eff_mean": 1.8974,
+        "mac_sparsity": 0.182764,
+        "avg_max_latency": 9.0
+      },
+      "layers.11.mlp.up_proj": {
+        "utilization": 0.216103,
+        "hw_latency_overhead": 0.183763,
+        "zero_element_percentage": 0.173067,
+        "zero_block_percentage": 0.000208,
+        "zero_block_ratio": 0.000208,
+        "p_eff_mean": 1.9449,
+        "mac_sparsity": 0.173067,
+        "avg_max_latency": 9.0
+      },
+      "layers.11.mlp.down_proj": {
+        "utilization": 0.190736,
+        "hw_latency_overhead": 0.165147,
+        "zero_element_percentage": 0.256839,
+        "zero_block_percentage": 0.001127,
+        "zero_block_ratio": 0.001127,
+        "p_eff_mean": 1.7166,
+        "mac_sparsity": 0.256839,
+        "avg_max_latency": 9.0
+      },
+      "layers.12.mlp.gate_proj": {
+        "utilization": 0.206827,
+        "hw_latency_overhead": 0.179783,
+        "zero_element_percentage": 0.190978,
+        "zero_block_percentage": 0.000107,
+        "zero_block_ratio": 0.000107,
+        "p_eff_mean": 1.8614,
+        "mac_sparsity": 0.190978,
+        "avg_max_latency": 9.0
+      },
+      "layers.12.mlp.up_proj": {
+        "utilization": 0.213137,
+        "hw_latency_overhead": 0.182367,
+        "zero_element_percentage": 0.179348,
+        "zero_block_percentage": 5.7e-05,
+        "zero_block_ratio": 5.7e-05,
+        "p_eff_mean": 1.9182,
+        "mac_sparsity": 0.179348,
+        "avg_max_latency": 9.0
+      },
+      "layers.12.mlp.down_proj": {
+        "utilization": 0.196963,
+        "hw_latency_overhead": 0.167778,
+        "zero_element_percentage": 0.244997,
+        "zero_block_percentage": 7.5e-05,
+        "zero_block_ratio": 7.5e-05,
+        "p_eff_mean": 1.7727,
+        "mac_sparsity": 0.244997,
+        "avg_max_latency": 9.0
+      },
+      "layers.13.mlp.gate_proj": {
+        "utilization": 0.214636,
+        "hw_latency_overhead": 0.182759,
+        "zero_element_percentage": 0.177583,
+        "zero_block_percentage": 0.000141,
+        "zero_block_ratio": 0.000141,
+        "p_eff_mean": 1.9317,
+        "mac_sparsity": 0.177583,
+        "avg_max_latency": 9.0
+      },
+      "layers.13.mlp.up_proj": {
+        "utilization": 0.220217,
+        "hw_latency_overhead": 0.185076,
+        "zero_element_percentage": 0.167157,
+        "zero_block_percentage": 1.8e-05,
+        "zero_block_ratio": 1.8e-05,
+        "p_eff_mean": 1.982,
+        "mac_sparsity": 0.167157,
+        "avg_max_latency": 9.0
+      },
+      "layers.13.mlp.down_proj": {
+        "utilization": 0.188582,
+        "hw_latency_overhead": 0.163484,
+        "zero_element_percentage": 0.264321,
+        "zero_block_percentage": 4.4e-05,
+        "zero_block_ratio": 4.4e-05,
+        "p_eff_mean": 1.6972,
+        "mac_sparsity": 0.264321,
+        "avg_max_latency": 9.0
+      },
+      "layers.14.mlp.gate_proj": {
+        "utilization": 0.216856,
+        "hw_latency_overhead": 0.183584,
+        "zero_element_percentage": 0.173872,
+        "zero_block_percentage": 0.000621,
+        "zero_block_ratio": 0.000621,
+        "p_eff_mean": 1.9517,
+        "mac_sparsity": 0.173872,
+        "avg_max_latency": 9.0
+      },
+      "layers.14.mlp.up_proj": {
+        "utilization": 0.223315,
+        "hw_latency_overhead": 0.186302,
+        "zero_element_percentage": 0.161643,
+        "zero_block_percentage": 0.000133,
+        "zero_block_ratio": 0.000133,
+        "p_eff_mean": 2.0098,
+        "mac_sparsity": 0.161643,
+        "avg_max_latency": 9.0
+      },
+      "layers.14.mlp.down_proj": {
+        "utilization": 0.176884,
+        "hw_latency_overhead": 0.156342,
+        "zero_element_percentage": 0.296463,
+        "zero_block_percentage": 0.000229,
+        "zero_block_ratio": 0.000229,
+        "p_eff_mean": 1.592,
+        "mac_sparsity": 0.296463,
+        "avg_max_latency": 9.0
+      },
+      "layers.15.mlp.gate_proj": {
+        "utilization": 0.208473,
+        "hw_latency_overhead": 0.180028,
+        "zero_element_percentage": 0.189873,
+        "zero_block_percentage": 0.001102,
+        "zero_block_ratio": 0.001102,
+        "p_eff_mean": 1.8763,
+        "mac_sparsity": 0.189873,
+        "avg_max_latency": 9.0
+      },
+      "layers.15.mlp.up_proj": {
+        "utilization": 0.215519,
+        "hw_latency_overhead": 0.183101,
+        "zero_element_percentage": 0.176047,
+        "zero_block_percentage": 0.00026,
+        "zero_block_ratio": 0.00026,
+        "p_eff_mean": 1.9397,
+        "mac_sparsity": 0.176047,
+        "avg_max_latency": 9.0
+      },
+      "layers.15.mlp.down_proj": {
+        "utilization": 0.176394,
+        "hw_latency_overhead": 0.156559,
+        "zero_element_percentage": 0.295485,
+        "zero_block_percentage": 0.000112,
+        "zero_block_ratio": 0.000112,
+        "p_eff_mean": 1.5875,
+        "mac_sparsity": 0.295485,
+        "avg_max_latency": 9.0
+      },
+      "layers.16.mlp.gate_proj": {
+        "utilization": 0.207045,
+        "hw_latency_overhead": 0.179479,
+        "zero_element_percentage": 0.192345,
+        "zero_block_percentage": 0.001019,
+        "zero_block_ratio": 0.001019,
+        "p_eff_mean": 1.8634,
+        "mac_sparsity": 0.192345,
+        "avg_max_latency": 9.0
+      },
+      "layers.16.mlp.up_proj": {
+        "utilization": 0.211605,
+        "hw_latency_overhead": 0.180645,
+        "zero_element_percentage": 0.187098,
+        "zero_block_percentage": 0.003653,
+        "zero_block_ratio": 0.003653,
+        "p_eff_mean": 1.9044,
+        "mac_sparsity": 0.187098,
+        "avg_max_latency": 9.0
+      },
+      "layers.16.mlp.down_proj": {
+        "utilization": 0.154321,
+        "hw_latency_overhead": 0.141486,
+        "zero_element_percentage": 0.363312,
+        "zero_block_percentage": 0.001148,
+        "zero_block_ratio": 0.001148,
+        "p_eff_mean": 1.3889,
+        "mac_sparsity": 0.363312,
+        "avg_max_latency": 9.0
+      },
+      "layers.17.mlp.gate_proj": {
+        "utilization": 0.204979,
+        "hw_latency_overhead": 0.178256,
+        "zero_element_percentage": 0.197849,
+        "zero_block_percentage": 0.001681,
+        "zero_block_ratio": 0.001681,
+        "p_eff_mean": 1.8448,
+        "mac_sparsity": 0.197849,
+        "avg_max_latency": 9.0
+      },
+      "layers.17.mlp.up_proj": {
+        "utilization": 0.212307,
+        "hw_latency_overhead": 0.181761,
+        "zero_element_percentage": 0.182077,
+        "zero_block_percentage": 0.000358,
+        "zero_block_ratio": 0.000358,
+        "p_eff_mean": 1.9108,
+        "mac_sparsity": 0.182077,
+        "avg_max_latency": 9.0
+      },
+      "layers.17.mlp.down_proj": {
+        "utilization": 0.126587,
+        "hw_latency_overhead": 0.126162,
+        "zero_element_percentage": 0.432272,
+        "zero_block_percentage": 0.002631,
+        "zero_block_ratio": 0.002631,
+        "p_eff_mean": 1.1393,
+        "mac_sparsity": 0.432272,
+        "avg_max_latency": 9.0
+      },
+      "layers.18.mlp.gate_proj": {
+        "utilization": 0.209912,
+        "hw_latency_overhead": 0.18019,
+        "zero_element_percentage": 0.189147,
+        "zero_block_percentage": 0.002035,
+        "zero_block_ratio": 0.002035,
+        "p_eff_mean": 1.8892,
+        "mac_sparsity": 0.189147,
+        "avg_max_latency": 9.0
+      },
+      "layers.18.mlp.up_proj": {
+        "utilization": 0.21653,
+        "hw_latency_overhead": 0.183508,
+        "zero_element_percentage": 0.174214,
+        "zero_block_percentage": 0.000467,
+        "zero_block_ratio": 0.000467,
+        "p_eff_mean": 1.9488,
+        "mac_sparsity": 0.174214,
+        "avg_max_latency": 9.0
+      },
+      "layers.18.mlp.down_proj": {
+        "utilization": 0.130647,
+        "hw_latency_overhead": 0.128402,
+        "zero_element_percentage": 0.422191,
+        "zero_block_percentage": 0.003932,
+        "zero_block_ratio": 0.003932,
+        "p_eff_mean": 1.1758,
+        "mac_sparsity": 0.422191,
+        "avg_max_latency": 9.0
+      },
+      "layers.19.mlp.gate_proj": {
+        "utilization": 0.217474,
+        "hw_latency_overhead": 0.183571,
+        "zero_element_percentage": 0.17393,
+        "zero_block_percentage": 0.000947,
+        "zero_block_ratio": 0.000947,
+        "p_eff_mean": 1.9573,
+        "mac_sparsity": 0.17393,
+        "avg_max_latency": 9.0
+      },
+      "layers.19.mlp.up_proj": {
+        "utilization": 0.223368,
+        "hw_latency_overhead": 0.185948,
+        "zero_element_percentage": 0.163234,
+        "zero_block_percentage": 0.001205,
+        "zero_block_ratio": 0.001205,
+        "p_eff_mean": 2.0103,
+        "mac_sparsity": 0.163234,
+        "avg_max_latency": 9.0
+      },
+      "layers.19.mlp.down_proj": {
+        "utilization": 0.119838,
+        "hw_latency_overhead": 0.119604,
+        "zero_element_percentage": 0.461782,
+        "zero_block_percentage": 0.007051,
+        "zero_block_ratio": 0.007051,
+        "p_eff_mean": 1.0785,
+        "mac_sparsity": 0.461782,
+        "avg_max_latency": 9.0
+      },
+      "layers.20.mlp.gate_proj": {
+        "utilization": 0.222409,
+        "hw_latency_overhead": 0.185933,
+        "zero_element_percentage": 0.163302,
+        "zero_block_percentage": 0.000611,
+        "zero_block_ratio": 0.000611,
+        "p_eff_mean": 2.0017,
+        "mac_sparsity": 0.163302,
+        "avg_max_latency": 9.0
+      },
+      "layers.20.mlp.up_proj": {
+        "utilization": 0.227885,
+        "hw_latency_overhead": 0.187963,
+        "zero_element_percentage": 0.154165,
+        "zero_block_percentage": 0.0012,
+        "zero_block_ratio": 0.0012,
+        "p_eff_mean": 2.051,
+        "mac_sparsity": 0.154165,
+        "avg_max_latency": 9.0
+      },
+      "layers.20.mlp.down_proj": {
+        "utilization": 0.117714,
+        "hw_latency_overhead": 0.119447,
+        "zero_element_percentage": 0.462489,
+        "zero_block_percentage": 0.006133,
+        "zero_block_ratio": 0.006133,
+        "p_eff_mean": 1.0594,
+        "mac_sparsity": 0.462489,
+        "avg_max_latency": 9.0
+      },
+      "layers.21.mlp.gate_proj": {
+        "utilization": 0.22682,
+        "hw_latency_overhead": 0.18781,
+        "zero_element_percentage": 0.154853,
+        "zero_block_percentage": 0.000561,
+        "zero_block_ratio": 0.000561,
+        "p_eff_mean": 2.0414,
+        "mac_sparsity": 0.154853,
+        "avg_max_latency": 9.0
+      },
+      "layers.21.mlp.up_proj": {
+        "utilization": 0.233154,
+        "hw_latency_overhead": 0.190231,
+        "zero_element_percentage": 0.143961,
+        "zero_block_percentage": 0.000412,
+        "zero_block_ratio": 0.000412,
+        "p_eff_mean": 2.0984,
+        "mac_sparsity": 0.143961,
+        "avg_max_latency": 9.0
+      },
+      "layers.21.mlp.down_proj": {
+        "utilization": 0.090914,
+        "hw_latency_overhead": 0.09841,
+        "zero_element_percentage": 0.557155,
+        "zero_block_percentage": 0.015928,
+        "zero_block_ratio": 0.015928,
+        "p_eff_mean": 0.8182,
+        "mac_sparsity": 0.557155,
+        "avg_max_latency": 9.0
+      },
+      "layers.22.mlp.gate_proj": {
+        "utilization": 0.231717,
+        "hw_latency_overhead": 0.189732,
+        "zero_element_percentage": 0.146204,
+        "zero_block_percentage": 0.000401,
+        "zero_block_ratio": 0.000401,
+        "p_eff_mean": 2.0855,
+        "mac_sparsity": 0.146204,
+        "avg_max_latency": 9.0
+      },
+      "layers.22.mlp.up_proj": {
+        "utilization": 0.237811,
+        "hw_latency_overhead": 0.192048,
+        "zero_element_percentage": 0.135786,
+        "zero_block_percentage": 0.000131,
+        "zero_block_ratio": 0.000131,
+        "p_eff_mean": 2.1403,
+        "mac_sparsity": 0.135786,
+        "avg_max_latency": 9.0
+      },
+      "layers.22.mlp.down_proj": {
+        "utilization": 0.077358,
+        "hw_latency_overhead": 0.087908,
+        "zero_element_percentage": 0.604416,
+        "zero_block_percentage": 0.01655,
+        "zero_block_ratio": 0.01655,
+        "p_eff_mean": 0.6962,
+        "mac_sparsity": 0.604416,
+        "avg_max_latency": 9.0
+      },
+      "layers.23.mlp.gate_proj": {
+        "utilization": 0.230453,
+        "hw_latency_overhead": 0.189445,
+        "zero_element_percentage": 0.147498,
+        "zero_block_percentage": 0.000203,
+        "zero_block_ratio": 0.000203,
+        "p_eff_mean": 2.0741,
+        "mac_sparsity": 0.147498,
+        "avg_max_latency": 9.0
+      },
+      "layers.23.mlp.up_proj": {
+        "utilization": 0.236633,
+        "hw_latency_overhead": 0.191678,
+        "zero_element_percentage": 0.137448,
+        "zero_block_percentage": 9.9e-05,
+        "zero_block_ratio": 9.9e-05,
+        "p_eff_mean": 2.1297,
+        "mac_sparsity": 0.137448,
+        "avg_max_latency": 9.0
+      },
+      "layers.23.mlp.down_proj": {
+        "utilization": 0.080707,
+        "hw_latency_overhead": 0.09082,
+        "zero_element_percentage": 0.591312,
+        "zero_block_percentage": 0.015634,
+        "zero_block_ratio": 0.015634,
+        "p_eff_mean": 0.7264,
+        "mac_sparsity": 0.591312,
+        "avg_max_latency": 9.0
+      },
+      "layers.24.mlp.gate_proj": {
+        "utilization": 0.227383,
+        "hw_latency_overhead": 0.188038,
+        "zero_element_percentage": 0.153829,
+        "zero_block_percentage": 0.000374,
+        "zero_block_ratio": 0.000374,
+        "p_eff_mean": 2.0464,
+        "mac_sparsity": 0.153829,
+        "avg_max_latency": 9.0
+      },
+      "layers.24.mlp.up_proj": {
+        "utilization": 0.235938,
+        "hw_latency_overhead": 0.191252,
+        "zero_element_percentage": 0.139365,
+        "zero_block_percentage": 0.000163,
+        "zero_block_ratio": 0.000163,
+        "p_eff_mean": 2.1234,
+        "mac_sparsity": 0.139365,
+        "avg_max_latency": 9.0
+      },
+      "layers.24.mlp.down_proj": {
+        "utilization": 0.073063,
+        "hw_latency_overhead": 0.084682,
+        "zero_element_percentage": 0.618929,
+        "zero_block_percentage": 0.017267,
+        "zero_block_ratio": 0.017267,
+        "p_eff_mean": 0.6576,
+        "mac_sparsity": 0.618929,
+        "avg_max_latency": 9.0
+      },
+      "layers.25.mlp.gate_proj": {
+        "utilization": 0.216004,
+        "hw_latency_overhead": 0.183458,
+        "zero_element_percentage": 0.17444,
+        "zero_block_percentage": 0.000435,
+        "zero_block_ratio": 0.000435,
+        "p_eff_mean": 1.944,
+        "mac_sparsity": 0.17444,
+        "avg_max_latency": 9.0
+      },
+      "layers.25.mlp.up_proj": {
+        "utilization": 0.226584,
+        "hw_latency_overhead": 0.187549,
+        "zero_element_percentage": 0.156031,
+        "zero_block_percentage": 0.000479,
+        "zero_block_ratio": 0.000479,
+        "p_eff_mean": 2.0393,
+        "mac_sparsity": 0.156031,
+        "avg_max_latency": 9.0
+      },
+      "layers.25.mlp.down_proj": {
+        "utilization": 0.084762,
+        "hw_latency_overhead": 0.093819,
+        "zero_element_percentage": 0.577814,
+        "zero_block_percentage": 0.019937,
+        "zero_block_ratio": 0.019937,
+        "p_eff_mean": 0.7629,
+        "mac_sparsity": 0.577814,
+        "avg_max_latency": 9.0
+      },
+      "layers.26.mlp.gate_proj": {
+        "utilization": 0.197839,
+        "hw_latency_overhead": 0.17537,
+        "zero_element_percentage": 0.210833,
+        "zero_block_percentage": 0.001015,
+        "zero_block_ratio": 0.001015,
+        "p_eff_mean": 1.7806,
+        "mac_sparsity": 0.210833,
+        "avg_max_latency": 9.0
+      },
+      "layers.26.mlp.up_proj": {
+        "utilization": 0.202785,
+        "hw_latency_overhead": 0.17736,
+        "zero_element_percentage": 0.201879,
+        "zero_block_percentage": 0.001229,
+        "zero_block_ratio": 0.001229,
+        "p_eff_mean": 1.8251,
+        "mac_sparsity": 0.201879,
+        "avg_max_latency": 9.0
+      },
+      "layers.26.mlp.down_proj": {
+        "utilization": 0.08909,
+        "hw_latency_overhead": 0.095239,
+        "zero_element_percentage": 0.571426,
+        "zero_block_percentage": 0.011953,
+        "zero_block_ratio": 0.011953,
+        "p_eff_mean": 0.8018,
+        "mac_sparsity": 0.571426,
+        "avg_max_latency": 9.0
+      },
+      "layers.27.mlp.gate_proj": {
+        "utilization": 0.170193,
+        "hw_latency_overhead": 0.16188,
+        "zero_element_percentage": 0.271538,
+        "zero_block_percentage": 0.001503,
+        "zero_block_ratio": 0.001503,
+        "p_eff_mean": 1.5317,
+        "mac_sparsity": 0.271538,
+        "avg_max_latency": 9.0
+      },
+      "layers.27.mlp.up_proj": {
+        "utilization": 0.172624,
+        "hw_latency_overhead": 0.163331,
+        "zero_element_percentage": 0.265009,
+        "zero_block_percentage": 0.001261,
+        "zero_block_ratio": 0.001261,
+        "p_eff_mean": 1.5536,
+        "mac_sparsity": 0.265009,
+        "avg_max_latency": 9.0
+      },
+      "layers.27.mlp.down_proj": {
+        "utilization": 0.015835,
+        "hw_latency_overhead": 0.017269,
+        "zero_element_percentage": 0.922291,
+        "zero_block_percentage": 0.475137,
+        "zero_block_ratio": 0.475137,
+        "p_eff_mean": 0.1425,
+        "mac_sparsity": 0.922291,
+        "avg_max_latency": 9.0
+      }
+    }
+  }
+}

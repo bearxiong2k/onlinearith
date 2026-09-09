@@ -1,0 +1,51 @@
+****************************************
+Report : Averaged Power
+	-verbose
+Design : stage1_tile
+Version: V-2023.12-SP5-2
+Date   : Tue Aug 18 16:57:57 2026
+****************************************
+
+Library(s) Used:
+
+    scc28nhkcp_hdc35p140_rvt_tt_v0p9_25c_basic (File: /share/ScLib/smic/smic28hkmg/SCC28NHKCP_HDC35P140_RVT_CDK_V0.2/SCC28NHKCP_HDC35P140_RVT_V0p2/liberty/0.9v/scc28nhkcp_hdc35p140_rvt_tt_v0p9_25c_basic.db)
+    HS128X32_tt_ctypical_0p90v_0p90v_25c (File: /share/home/ST015_YRR/work/07_AI_work/HSS/stage1_tile/memory/HS128X32/db/HS128X32_tt_ctypical_0p90v_0p90v_25c.db)
+
+
+Operating Conditions: tt_v0p9_25c   Library: scc28nhkcp_hdc35p140_rvt_tt_v0p9_25c_basic
+Wire Load Model Mode: top
+
+<no wire load model is set>
+
+Power-specific unit information :
+    Voltage Units = 1 V
+    Capacitance Units = 1 pf
+    Time Units = 1 ns
+    Dynamic Power Units = 1 W
+    Leakage Power Units = 1 W
+
+
+
+  Attributes
+  ----------
+      i  -  Including register clock pin internal power
+      u  -  User defined power group
+
+                        Internal  Switching  Leakage    Total
+Power Group             Power     Power      Power      Power   (     %)  Attrs
+--------------------------------------------------------------------------------
+clock_network              0.0124    0.0000    0.0000    0.0124 (43.70%)  i
+register                3.341e-04 1.672e-04 7.848e-05 5.797e-04 ( 2.04%)  
+combinational           2.302e-03 1.521e-03 3.416e-04 4.164e-03 (14.66%)  
+sequential                 0.0000    0.0000    0.0000    0.0000 ( 0.00%)  
+memory                  9.513e-03 1.245e-04 1.607e-03    0.0112 (39.59%)  
+io_pad                     0.0000    0.0000    0.0000    0.0000 ( 0.00%)  
+black_box                  0.0000    0.0000    0.0000    0.0000 ( 0.00%)  
+
+  Net Switching Power  = 1.812e-03   ( 6.38%)
+  Cell Internal Power  =    0.0246   (86.48%)
+  Cell Leakage Power   = 2.027e-03   ( 7.14%)
+                         ---------
+Total Power            =    0.0284  (100.00%)
+
+1

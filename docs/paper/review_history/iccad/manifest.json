@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "collection": "iccad_2026_paper_229_review_history",
+  "recorded_date": "2026-09-09",
+  "source_root": "../rebuttal",
+  "source_git_revision": "e13339c996b3551deb9723567aca3e9bfc03868f",
+  "source_git_worktree_clean": true,
+  "copy_policy": "Exact byte copies with original filenames; source files unchanged. Historical response artifacts do not establish that they were posted or accepted.",
+  "file_count": 14,
+  "total_size_bytes": 1278826,
+  "entries": [
+    {
+      "source_path": "reiews.txt",
+      "destination_path": "docs/paper/review_history/iccad/reiews.txt",
+      "size_bytes": 14896,
+      "sha256": "bc3543021b15c6ca6e57b4aac215eb28cb55e3e9d3c31ef4a2659eea2999ba56",
+      "role": "reviewer_record"
+    },
+    {
+      "source_path": "TSS_ICCAD.pdf",
+      "destination_path": "docs/paper/review_history/iccad/TSS_ICCAD.pdf",
+      "size_bytes": 1154898,
+      "sha256": "be6c83eb2589fb0e3940663ae51d83d5528645619786010abaa2d71527653a08",
+      "role": "legacy_manuscript_pdf"
+    },
+    {
+      "source_path": "hotcrp-rebuttal-clean.md",
+      "destination_path": "docs/paper/review_history/iccad/hotcrp-rebuttal-clean.md",
+      "size_bytes": 11944,
+      "sha256": "97aa89ae24a8f575f129be690244cd8ec48d7c2a8b8ef25e9a00676e2e5e508a",
+      "role": "final_named_response"
+    },
+    {
+      "source_path": "final-rebuttal-draft.md",
+      "destination_path": "docs/paper/review_history/iccad/final-rebuttal-draft.md",
+      "size_bytes": 10670,
+      "sha256": "f34e0324dc61b837731c47557ef481bbd50c5dde67626a616f042e54ff823d23",
+      "role": "preceding_response_draft"
+    },
+    {
+      "source_path": "rebuttal-attachment.md",
+      "destination_path": "docs/paper/review_history/iccad/rebuttal-attachment.md",
+      "size_bytes": 5830,
+      "sha256": "839b54a716f36f210de87d80c96b61a96f004b429cc003c9d97ef168cdc15652",
+      "role": "supporting_attachment_markdown"
+    },
+    {
+      "source_path": "rebuttal-attachment.tex",
+      "destination_path": "docs/paper/review_history/iccad/rebuttal-attachment.tex",
+      "size_bytes": 7112,
+      "sha256": "f9a3b5d86a89e541d8c8966ada6bd90887bca5247e0be251180333f12ed5dbab",
+      "role": "supporting_attachment_tex"
+    },
+    {
+      "source_path": "rebuttal-attachment.pdf",
+      "destination_path": "docs/paper/review_history/iccad/rebuttal-attachment.pdf",
+      "size_bytes": 18640,
+      "sha256": "64478a8825457d349c7a8b8930772b7d24004f2945d36d754588c8fb60fef9d8",
+      "role": "supporting_attachment_pdf"
+    },
+    {
+      "source_path": "reviewer-coverage-checklist.md",
+      "destination_path": "docs/paper/review_history/iccad/reviewer-coverage-checklist.md",
+      "size_bytes": 4950,
+      "sha256": "d2a5452fa2a8feb15afb93e3b024c36e4b5a20a388a8e0b2c8f2759388f39d88",
+      "role": "historical_coverage_audit"
+    },
+    {
+      "source_path": "model_performance_results_summary.md",
+      "destination_path": "docs/paper/review_history/iccad/model_performance_results_summary.md",
+      "size_bytes": 5854,
+      "sha256": "643876c13d605dc9b4885bb859b5aa2f1cd10ece73d82c8be9ed5aa7c62c7c92",
+      "role": "historical_quality_scope_summary"
+    },
+    {
+      "source_path": "calibration_algorithm_summary.md",
+      "destination_path": "docs/paper/review_history/iccad/calibration_algorithm_summary.md",
+      "size_bytes": 5327,
+      "sha256": "c437c6b9dd54a1fb936c536142e6ed8780921bb4a6513e2704e34f15b7216bed",
+      "role": "historical_algorithm_summary"
+    },
+    {
+      "source_path": "control_plane_anchor_stats.md",
+      "destination_path": "docs/paper/review_history/iccad/control_plane_anchor_stats.md",
+      "size_bytes": 10912,
+      "sha256": "c5266716c75d3ec7e69d7bc209722dd5f400832341274a82cabdeb98996abb83",
+      "role": "retired_hardware_anchor_summary"
+    },
+    {
+      "source_path": "first-assessment.md",
+      "destination_path": "docs/paper/review_history/iccad/first-assessment.md",
+      "size_bytes": 13499,
+      "sha256": "046eff979fa844d6c2a3b15bf472f87c75b948eee0037a0234464eff755e61a2",
+      "role": "historical_editorial_assessment"
+    },
+    {
+      "source_path": "remaining-rebuttal-roadmap.md",
+      "destination_path": "docs/paper/review_history/iccad/remaining-rebuttal-roadmap.md",
+      "size_bytes": 5191,
+      "sha256": "f46bfdb2fa4169c27f6269af746a8cbe7f28e71ac2adedb93a74a3d8f4886b80",
+      "role": "historical_remaining_work_roadmap"
+    },
+    {
+      "source_path": "anchor-and-validation-improvement-requests.md",
+      "destination_path": "docs/paper/review_history/iccad/anchor-and-validation-improvement-requests.md",
+      "size_bytes": 9103,
+      "sha256": "03e32d7b9dc43ac63ab9d35d0abefdac6f5d5d3724ea4ea8e934b684a33d2184",
+      "role": "historical_validation_requirements"
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "recorded_on": "2026-09-09",
+  "source_root": "TSS_ICCAD",
+  "source_status": "user-supplied manuscript; initially untracked; preserved in place",
+  "host_revision_at_inspection": "0a50e2151da5f3ef0e6806fda70d0efd6b979d3b",
+  "entries": [
+    {
+      "source_path": "figures/figure1.pdf",
+      "destination_path": "TSS_ICCAD/figures/figure1.pdf",
+      "size_bytes": 121073,
+      "sha256": "7175b18af6311ab4b5d5d0474c75a7d6de841d2e1bc6622829f9755ea5e6f506"
+    },
+    {
+      "source_path": "figures/figure2.pdf",
+      "destination_path": "TSS_ICCAD/figures/figure2.pdf",
+      "size_bytes": 97176,
+      "sha256": "bae3c52cea6ed745723d1fd69355b2e0b4b5e855b8e79df45f8aa4480b0423a8"
+    },
+    {
+      "source_path": "figures/figure3.pdf",
+      "destination_path": "TSS_ICCAD/figures/figure3.pdf",
+      "size_bytes": 251331,
+      "sha256": "cd79079d4deedf078c27b40e90094d6e1267aaa7060f2a2c0e8b248f4aa04270"
+    },
+    {
+      "source_path": "figures/figure4.pdf",
+      "destination_path": "TSS_ICCAD/figures/figure4.pdf",
+      "size_bytes": 32558,
+      "sha256": "c33b881c9c437b4d6aee83f8de2f5e0aa571a47e0219e3a7c6d855b98f8ff255"
+    },
+    {
+      "source_path": "figures/figure5.pdf",
+      "destination_path": "TSS_ICCAD/figures/figure5.pdf",
+      "size_bytes": 33939,
+      "sha256": "0a7da1b62aa1dafad1f5ffac05fe2e9180930c0039768e063d0a080717e3a23c"
+    },
+    {
+      "source_path": "figures/figure6.pdf",
+      "destination_path": "TSS_ICCAD/figures/figure6.pdf",
+      "size_bytes": 34691,
+      "sha256": "02d96cd0c1215c9fe5ca22722041bb0dc6fb993693237b50943be9952c2bd68f"
+    },
+    {
+      "source_path": "figures/figure7.pdf",
+      "destination_path": "TSS_ICCAD/figures/figure7.pdf",
+      "size_bytes": 40582,
+      "sha256": "85c545361d104e89e5d413b56b95d55e7b52a6231fa3058783f04c402da6c2ef"
+    },
+    {
+      "source_path": "reference.bib",
+      "destination_path": "TSS_ICCAD/reference.bib",
+      "size_bytes": 20856,
+      "sha256": "86f60e79d59e7860e608aa06f599204ad0579c8f80785d0c90633587e53c19f5"
+    },
+    {
+      "source_path": "sample-sigconf.tex",
+      "destination_path": "TSS_ICCAD/sample-sigconf.tex",
+      "size_bytes": 39589,
+      "sha256": "1bf1e7cc9173f94579080066ac978f4aaa358822f091a95ac3fd9401ce5e1f7e"
+    }
+  ],
+  "excluded": [
+    {
+      "source_path": ".DS_Store",
+      "reason": "OS metadata, left in place and ignored; not manuscript content"
+    }
+  ]
+}

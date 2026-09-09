@@ -1,0 +1,32 @@
+{
+  "generated_at": "2026-05-28T23:30:42.826585+00:00",
+  "model": "../Qwen3-1.7B",
+  "dataset": "wikitext/wikitext-2-raw-v1/test",
+  "eval_config": {
+    "max_length": 4096,
+    "stride": 512,
+    "dtype": "torch.float16",
+    "limit_samples": null,
+    "window_shard": true,
+    "load_stagger_sec": 8.0
+  },
+  "world_size": 4,
+  "total_wall_time_sec": 790.43,
+  "setups_requested": 1,
+  "setups_completed": 1,
+  "results": [
+    {
+      "id": 1,
+      "tag": "MXFP8",
+      "description": "MXFP8 (E4M3FN)",
+      "token_perplexity": 20.9451,
+      "word_perplexity": 43.4524,
+      "bits_per_byte": 1.0125,
+      "bits_per_char": 1.014,
+      "mean_nll_nats": 3.0419,
+      "wall_time_sec": 767.54,
+      "peak_memory": "7.06 GB",
+      "status": "ok"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "dense": {
+    "output": "/home/xzj/coding/6c/evals/ppl_fig6c_dense_evalB.json",
+    "needs_run": false,
+    "compatibility_reason": "ok"
+  },
+  "methods": [
+    {
+      "method": "uniform",
+      "output": "/home/xzj/coding/6c/evals/ppl_fig6c_uniform.json",
+      "needs_run": true,
+      "compatibility_reason": "missing output file"
+    },
+    {
+      "method": "weight_only",
+      "output": "/home/xzj/coding/6c/evals/ppl_fig6c_weight_only.json",
+      "needs_run": true,
+      "compatibility_reason": "missing output file"
+    },
+    {
+      "method": "combined",
+      "output": "/home/xzj/coding/6c/evals/ppl_fig6c_combined.json",
+      "needs_run": true,
+      "compatibility_reason": "missing output file"
+    },
+    {
+      "method": "fixed_sum",
+      "output": "/home/xzj/coding/6c/evals/ppl_fig6c_fixed_sum.json",
+      "needs_run": true,
+      "compatibility_reason": "missing output file"
+    }
+  ]
+}

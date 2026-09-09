@@ -1,0 +1,68 @@
+{
+  "generated_at": "2026-04-07T19:06:54.938449+00:00",
+  "model": "/home/xzj/coding/Qwen3-0.6B",
+  "dataset": "wikitext/wikitext-2-raw-v1/test",
+  "eval_config": {
+    "max_length": 4096,
+    "stride": 512,
+    "dtype": "torch.float16"
+  },
+  "world_size": 4,
+  "total_wall_time_sec": 866.68,
+  "setups_requested": 4,
+  "setups_completed": 4,
+  "results": [
+    {
+      "id": 1,
+      "tag": "MXFP8",
+      "description": "MXFP8 (E4M3FN)",
+      "token_perplexity": 25.3574,
+      "word_perplexity": 55.0747,
+      "bits_per_byte": 1.0761,
+      "bits_per_char": 1.0778,
+      "mean_nll_nats": 3.2331,
+      "wall_time_sec": 841.64,
+      "peak_memory": "10.26 GB",
+      "status": "ok"
+    },
+    {
+      "id": 2,
+      "tag": "MXFP6_E2M3",
+      "description": "MXFP6 E2M3",
+      "token_perplexity": 26.3684,
+      "word_perplexity": 57.8103,
+      "bits_per_byte": 1.0891,
+      "bits_per_char": 1.0908,
+      "mean_nll_nats": 3.2722,
+      "wall_time_sec": 864.35,
+      "peak_memory": "10.26 GB",
+      "status": "ok"
+    },
+    {
+      "id": 3,
+      "tag": "MXFP6_E3M2",
+      "description": "MXFP6 E3M2",
+      "token_perplexity": 27.1532,
+      "word_perplexity": 59.9511,
+      "bits_per_byte": 1.0989,
+      "bits_per_char": 1.1006,
+      "mean_nll_nats": 3.3015,
+      "wall_time_sec": 863.67,
+      "peak_memory": "10.26 GB",
+      "status": "ok"
+    },
+    {
+      "id": 4,
+      "tag": "MXFP4",
+      "description": "MXFP4 (E2M1)",
+      "token_perplexity": 30.9603,
+      "word_perplexity": 70.5429,
+      "bits_per_byte": 1.1425,
+      "bits_per_char": 1.1443,
+      "mean_nll_nats": 3.4327,
+      "wall_time_sec": 866.06,
+      "peak_memory": "10.26 GB",
+      "status": "ok"
+    }
+  ]
+}

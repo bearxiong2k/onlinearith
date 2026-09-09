@@ -1,4 +1,10 @@
-# Temporal significance scheduling simulation workspace
+# Temporal significance scheduling research and writing workspace
+
+The writing-stage entry point is
+[`docs/paper/README.md`](docs/paper/README.md). It connects the ICCAD
+manuscript, reviewer feedback, curated figures and numerical evidence, and the
+separately archived hardware delivery. The next venue (DATE or ISCAS) is still
+undecided; no new conference template has been selected.
 
 This repository now hosts two deliberately separate parts of the same paper:
 
@@ -19,9 +25,11 @@ interface design.
 
 | Path | Purpose | Status |
 |---|---|---|
+| [`TSS_ICCAD/`](TSS_ICCAD/README.md) | Original manuscript source, bibliography, and seven figures | Preserved writing baseline |
 | [`functional_sim/`](functional_sim/README.md) | Canonical functional source, runners, scripts, tools, tests, docs, and evidence | Frozen |
 | [`hardware_sim/`](hardware_sim/README.md) | RTL/general-simulation harness and hardware documentation | Active |
-| [`docs/paper/`](docs/paper/README.md) | Paper-wide revision guidance | Active |
+| [`docs/paper/`](docs/paper/README.md) | Writing index, source audits, review history, figure assets, and curated numerical evidence | Active |
+| [`hardware_sim/reference/tss_delivery_20260909/`](hardware_sim/reference/tss_delivery_20260909/README.md) | Imported conventional-multiplier presentation prototype and supplied reports | Reference only; distinct arithmetic |
 | [`docs/archive/`](docs/archive/README.md) | Superseded paper and architecture planning | Historical |
 
 ## Functional commands
@@ -56,3 +64,9 @@ The hardware directories intentionally contain documentation and harness
 boundaries before implementation. Operand formats and the schedule-to-multiply
 translation must be frozen before active RTL or circuit-reference code is
 added.
+
+The September `TSS` delivery is available locally as a reference snapshot.
+It does not close the active design's M2 gate: its arithmetic and scheduling
+differ from the frozen M1 contract. Its supplied reports are mapped/pre-route;
+the delivered files do not include a layout. See the
+[delivery audit](hardware_sim/docs/reference/tss_delivery_audit.md).

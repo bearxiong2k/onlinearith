@@ -6,6 +6,11 @@ separate.
 
 ## Workstream routing
 
+- **Paper writing:** begin with `docs/paper/README.md`. Preserve the supplied
+  `TSS_ICCAD/` manuscript and imported source snapshots as the revision
+  baseline; use the audits and claim map before reusing old figures or numbers.
+  The next conference is undecided. Check provenance with
+  `python3 docs/paper/tools/verify_workspace.py`.
 - **Frozen functional simulation:** all canonical source, runners, scripts,
   tools, tests, baselines, documentation, and evidence live under
   `functional_sim/`. Before touching this workstream, read
@@ -16,6 +21,12 @@ separate.
   `hardware_sim/docs/README.md` before working there.
 - **Paper-wide material:** shared writing guidance lives under `docs/paper/`;
   superseded planning material lives under `docs/archive/`.
+
+The imported `hardware_sim/reference/tss_delivery_20260909/` is a separate
+presentation prototype, not the active M1 implementation. Do not use its
+mapped/pre-route reports as evidence of post-layout closure or frozen-model
+quality. Copied review and plotting sources retain historical wording and
+paths; their accompanying audits define the limits of reuse.
 
 The repository root is a project router, not a functional command surface.
 Invoke functional files through `functional_sim/...`; do not add root wrappers,

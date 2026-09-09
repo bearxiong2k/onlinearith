@@ -1,0 +1,1444 @@
+/bin/sh: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8)
+Info: [VCS_SAVE_RESTORE_INFO] ASLR (Address Space Layout Randomization) is detected on the machine. To enable $save functionality, ASLR will be switched off and simv re-executed.
+Please use '-no_save' simv switch to avoid this.
+
+                           Design Compiler Graphical 
+                                 DC Ultra (TM)
+                                  DFTMAX (TM)
+                              Power Compiler (TM)
+                                 DesignWare (R)
+                                 DC Expert (TM)
+                               Design Vision (TM)
+                               HDL Compiler (TM)
+                               VHDL Compiler (TM)
+                                  DFT Compiler
+                               Design Compiler(R)
+
+              Version W-2024.09-SP5-5 for linux64 - Oct 23, 2025 
+
+                    Copyright (c) 1988 - 2025 Synopsys, Inc.
+   This software and the associated documentation are proprietary to Synopsys,
+ Inc. This software may only be used in accordance with the terms and conditions
+ of a written license agreement with Synopsys, Inc. All other use, reproduction,
+   or distribution of this software is strictly prohibited.  Licensed Products
+     communicate with Synopsys servers for the purpose of providing software
+    updates, detecting software piracy and verifying that customers are using
+    Licensed Products in conformity with the applicable License Key for such
+  Licensed Products. Synopsys will use information gathered in connection with
+    this process to deliver software updates and pursue software pirates and
+                                   infringers.
+
+ Inclusivity & Diversity - Visit SolvNetPlus to read the "Synopsys Statement on
+            Inclusivity and Diversity" (Refer to article 000036315 at
+                        https://solvnetplus.synopsys.com)
+Initializing...
+Current time:       Fri Aug 14 17:12:40 2026
+Hostname:           mgt01
+CPU Model:          Intel(R) Xeon(R) Silver 4410Y
+CPU Details:        Cores = 1 : Sockets = 1 : Cache Size = 30720 KB : Freq = 0.80 GHz
+OS:                 Linux 3.10.0-1160.el7.x86_64
+RAM:                251 GB (Free  89 GB)
+Swap:                15 GB (Free  15 GB)
+Work Filesystem:    /share mounted to fs01
+Tmp Filesystem:     / mounted to /dev/mapper/centos-root
+Work Disk:          143079 GB (Free 49415 GB)
+Tmp Disk:           429 GB (Free 269 GB)
+
+CPU Load: 505%, Ram Free: 89 GB, Swap Free: 15 GB, Work Disk Free: 49415 GB, Tmp Disk Free: 269 GB
+set TOP stage1_tile
+stage1_tile
+set ROOT [file normalize .]
+/share/home/ST015_YRR/work/07_AI_work/HSS/stage1_tile
+set_svf synth/results/stage1_tile.svf
+1
+set STD_ROOT /share/ScLib/smic/smic28hkmg/SCC28NHKCP_HDC35P140_RVT_CDK_V0.2/SCC28NHKCP_HDC35P140_RVT_V0p2
+/share/ScLib/smic/smic28hkmg/SCC28NHKCP_HDC35P140_RVT_CDK_V0.2/SCC28NHKCP_HDC35P140_RVT_V0p2
+set STD_DB ${STD_ROOT}/liberty/0.9v/scc28nhkcp_hdc35p140_rvt_tt_v0p9_25c_basic.db
+/share/ScLib/smic/smic28hkmg/SCC28NHKCP_HDC35P140_RVT_CDK_V0.2/SCC28NHKCP_HDC35P140_RVT_V0p2/liberty/0.9v/scc28nhkcp_hdc35p140_rvt_tt_v0p9_25c_basic.db
+set MEM_DB ${ROOT}/memory/HS128X32/db/HS128X32_tt_ctypical_0p90v_0p90v_25c.db
+/share/home/ST015_YRR/work/07_AI_work/HSS/stage1_tile/memory/HS128X32/db/HS128X32_tt_ctypical_0p90v_0p90v_25c.db
+set_app_var target_library [list $STD_DB $MEM_DB]
+/share/ScLib/smic/smic28hkmg/SCC28NHKCP_HDC35P140_RVT_CDK_V0.2/SCC28NHKCP_HDC35P140_RVT_V0p2/liberty/0.9v/scc28nhkcp_hdc35p140_rvt_tt_v0p9_25c_basic.db /share/home/ST015_YRR/work/07_AI_work/HSS/stage1_tile/memory/HS128X32/db/HS128X32_tt_ctypical_0p90v_0p90v_25c.db
+set_app_var link_library [concat "*" $target_library]
+* /share/ScLib/smic/smic28hkmg/SCC28NHKCP_HDC35P140_RVT_CDK_V0.2/SCC28NHKCP_HDC35P140_RVT_V0p2/liberty/0.9v/scc28nhkcp_hdc35p140_rvt_tt_v0p9_25c_basic.db /share/home/ST015_YRR/work/07_AI_work/HSS/stage1_tile/memory/HS128X32/db/HS128X32_tt_ctypical_0p90v_0p90v_25c.db
+set_app_var hdlin_enable_upf_compatible_naming true
+true
+set_app_var compile_ultra_ungroup_dw false
+false
+file mkdir synth/work/WORK
+file mkdir synth/results
+file mkdir synth/reports
+define_design_lib WORK -path synth/work/WORK
+1
+set rtl_files [list]
+set fp [open filelists/synth_rtl.f r]
+file15
+while {[gets $fp line] >= 0} {
+  set line [string trim $line]
+  if {$line ne ""} {
+    lappend rtl_files $line
+  }
+}
+close $fp
+analyze -format sverilog -define SYNTHESIS $rtl_files
+Running PRESTO HDLC
+Compiling source file ./rtl/memory/HS128X32_blackbox.v
+Compiling source file ./rtl/memory/hs128x32_wrapper.sv
+Compiling source file ./rtl/memory/sram_bank_128x128.sv
+Compiling source file ./rtl/memory/sram_bank_128x256.sv
+Compiling source file ./rtl/memory/activation_dff_store.sv
+Compiling source file ./rtl/core/stage1_config_frontend.sv
+Compiling source file ./rtl/core/stage1_path_engine.sv
+Compiling source file ./rtl/core/stage1_lane_pair.sv
+Compiling source file ./rtl/core/stage1_tile.sv
+Presto compilation completed successfully.
+Loading db file '/share/ScLib/smic/smic28hkmg/SCC28NHKCP_HDC35P140_RVT_CDK_V0.2/SCC28NHKCP_HDC35P140_RVT_V0p2/liberty/0.9v/scc28nhkcp_hdc35p140_rvt_tt_v0p9_25c_basic.db'
+Loading db file '/share/home/ST015_YRR/work/07_AI_work/HSS/stage1_tile/memory/HS128X32/db/HS128X32_tt_ctypical_0p90v_0p90v_25c.db'
+1
+elaborate $TOP
+Loading db file '/share/apps/synopsys/syn_W-2024.09-SP5-5/libraries/syn/gtech.db'
+Loading db file '/share/apps/synopsys/syn_W-2024.09-SP5-5/libraries/syn/standard.sldb'
+  Loading link library 'scc28nhkcp_hdc35p140_rvt_tt_v0p9_25c_basic'
+  Loading link library 'HS128X32_tt_ctypical_0p90v_0p90v_25c'
+  Loading link library 'gtech'
+Running PRESTO HDLC
+Warning:  ./rtl/core/stage1_tile.sv:186: signed to unsigned part selection occurs. (VER-318)
+Warning:  ./rtl/core/stage1_tile.sv:188: signed to unsigned part selection occurs. (VER-318)
+Warning:  ./rtl/core/stage1_tile.sv:284: signed to unsigned assignment occurs. (VER-318)
+Warning:  ./rtl/core/stage1_tile.sv:285: signed to unsigned assignment occurs. (VER-318)
+
+Statistics for case statements in always block in file
+	'./rtl/core/stage1_tile.sv'
+============================================================
+|    Line    |  full/ parallel  |      block location      |
+============================================================
+|    313     |    auto/auto     | always block at line 289 |
+============================================================
+
+Inferred memory devices in process in routine 'stage1_tile' in file
+	 ./rtl/core/stage1_tile.sv'.
+=====================================================================================
+|     Register Name      |   Type    | Width | Bus | MB |  Set  | Reset | ST | Line |
+=====================================================================================
+|      state_q_reg       | Flip-flop |   4   |  Y  | N  | None  | None  | N  | 289  |
+|    block_idx_q_reg     | Flip-flop |   7   |  Y  | N  | None  | None  | N  | 289  |
+| active_lane_mask_q_reg | Flip-flop |   8   |  Y  | N  | None  | None  | N  | 289  |
+|    acc_clear_q_reg     | Flip-flop |   1   |  N  | N  | None  | None  | N  | 289  |
+|       done_o_reg       | Flip-flop |   1   |  N  | N  | None  | None  | N  | 289  |
+| delay_saturation_o_reg | Flip-flop |   1   |  N  | N  | None  | None  | N  | 289  |
+|    lambda_lut_q_reg    | Flip-flop |  64   |  Y  | N  | None  | None  | N  | 289  |
+|       emax_q_reg       | Flip-flop |  160  |  Y  | N  | None  | None  | N  | 289  |
+|     horizon_q_reg      | Flip-flop |  128  |  Y  | N  | None  | None  | N  | 289  |
+=====================================================================================
+Presto compilation completed successfully. (stage1_tile)
+Module: stage1_tile, Ports: 909, Input: 455, Output: 454, Inout: 0
+Module: stage1_tile, Registers: 374, Async set/reset: 0, Sync set/reset: 0
+Information: Module stage1_tile report end. (ELAB-965)
+Elaborated 1 design.
+Current design is now 'stage1_tile'.
+Information: Building the design 'stage1_config_frontend'. (HDL-193)
+
+Statistics for case statements in always block in file
+	'./rtl/core/stage1_config_frontend.sv'
+============================================================
+|    Line    |  full/ parallel  |      block location      |
+============================================================
+|     93     |    auto/auto     | always block at line 68  |
+|    160     |    auto/auto     | always block at line 143 |
+============================================================
+
+Inferred memory devices in process in routine 'stage1_config_frontend' in file
+	 ./rtl/core/stage1_config_frontend.sv'.
+==================================================================================
+|    Register Name    |   Type    | Width | Bus | MB |  Set  | Reset | ST | Line |
+==================================================================================
+|  seq_active_q_reg   | Flip-flop |   1   |  N  | N  | None  | None  | N  | 143  |
+|  seq_target_q_reg   | Flip-flop |   3   |  Y  | N  | None  | None  | N  | 143  |
+|   seq_bank_q_reg    | Flip-flop |   1   |  N  | N  | None  | None  | N  | 143  |
+|   seq_path_q_reg    | Flip-flop |   4   |  Y  | N  | None  | None  | N  | 143  |
+|   seq_addr_q_reg    | Flip-flop |   7   |  Y  | N  | None  | None  | N  | 143  |
+| expected_word_q_reg | Flip-flop |   4   |  Y  | N  | None  | None  | N  | 143  |
+|  value_stage_q_reg  | Flip-flop |  256  |  Y  | N  | None  | None  | N  | 143  |
+|  beta_stage_q_reg   | Flip-flop |  128  |  Y  | N  | None  | None  | N  | 143  |
+|   cfg_error_o_reg   | Flip-flop |   1   |  N  | N  | None  | None  | N  | 143  |
+==================================================================================
+Presto compilation completed successfully. (stage1_config_frontend)
+Module: stage1_config_frontend, Ports: 501, Input: 56, Output: 445, Inout: 0
+Module: stage1_config_frontend, Registers: 405, Async set/reset: 0, Sync set/reset: 0
+Information: Module stage1_config_frontend report end. (ELAB-965)
+Information: Building the design 'activation_dff_store'. (HDL-193)
+
+Inferred memory devices in process in routine 'activation_dff_store' in file
+	 ./rtl/memory/activation_dff_store.sv'.
+=====================================================================================
+|     Register Name      |   Type    | Width | Bus | MB |  Set  | Reset | ST | Line |
+=====================================================================================
+|      beta_x_q_reg      | Flip-flop | 1024  |  Y  | N  | None  | None  | N  |  28  |
+| beta_x_read_data_o_reg | Flip-flop |   8   |  Y  | N  | None  | None  | N  |  28  |
+| activation_fine_q_reg  | Flip-flop |  128  |  Y  | N  | None  | None  | N  |  28  |
+| activation_value_q_reg | Flip-flop |  256  |  Y  | N  | None  | None  | N  |  28  |
+=====================================================================================
+Statistics for MUX_OPs
+=============================================================
+|    block name/line      | Inputs | Outputs | # sel inputs |
+=============================================================
+| activation_dff_store/34 |  128   |    8    |      7       |
+=============================================================
+Presto compilation completed successfully. (activation_dff_store)
+Module: activation_dff_store, Ports: 802, Input: 410, Output: 392, Inout: 0
+Module: activation_dff_store, Registers: 1416, Async set/reset: 0, Sync set/reset: 0
+Information: Module activation_dff_store report end. (ELAB-965)
+Information: Building the design 'sram_bank_128x128'. (HDL-193)
+Presto compilation completed successfully. (sram_bank_128x128)
+Module: sram_bank_128x128, Ports: 266, Input: 138, Output: 128, Inout: 0
+Module: sram_bank_128x128, Registers: 0, Async set/reset: 0, Sync set/reset: 0
+Information: Module sram_bank_128x128 report end. (ELAB-965)
+Information: Building the design 'sram_bank_128x256'. (HDL-193)
+Presto compilation completed successfully. (sram_bank_128x256)
+Module: sram_bank_128x256, Ports: 522, Input: 266, Output: 256, Inout: 0
+Module: sram_bank_128x256, Registers: 0, Async set/reset: 0, Sync set/reset: 0
+Information: Module sram_bank_128x256 report end. (ELAB-965)
+Information: Building the design 'stage1_lane_pair'. (HDL-193)
+Presto compilation completed successfully. (stage1_lane_pair)
+Module: stage1_lane_pair, Ports: 1054, Input: 997, Output: 57, Inout: 0
+Module: stage1_lane_pair, Registers: 0, Async set/reset: 0, Sync set/reset: 0
+Information: Module stage1_lane_pair report end. (ELAB-965)
+Information: Building the design 'hs128x32_wrapper'. (HDL-193)
+Presto compilation completed successfully. (hs128x32_wrapper)
+Module: hs128x32_wrapper, Ports: 74, Input: 42, Output: 32, Inout: 0
+Module: hs128x32_wrapper, Registers: 0, Async set/reset: 0, Sync set/reset: 0
+Information: Module hs128x32_wrapper report end. (ELAB-965)
+Information: Building the design 'stage1_path_engine'. (HDL-193)
+
+Inferred memory devices in process in routine 'stage1_path_engine' in file
+	 ./rtl/core/stage1_path_engine.sv'.
+==================================================================================
+|    Register Name    |   Type    | Width | Bus | MB |  Set  | Reset | ST | Line |
+==================================================================================
+|    level4_q_reg     | Flip-flop |  40   |  Y  | N  | None  | None  | N  |  73  |
+| valid_product_q_reg | Flip-flop |   1   |  N  | N  | None  | None  | N  |  73  |
+|   valid_l2_q_reg    | Flip-flop |   1   |  N  | N  | None  | None  | N  |  73  |
+|   valid_l4_q_reg    | Flip-flop |   1   |  N  | N  | None  | None  | N  |  73  |
+|   valid_sum_q_reg   | Flip-flop |   1   |  N  | N  | None  | None  | N  |  73  |
+|    retire_o_reg     | Flip-flop |   1   |  N  | N  | None  | None  | N  |  73  |
+|   block_sum_q_reg   | Flip-flop |  21   |  Y  | N  | None  | None  | N  |  73  |
+|  accumulator_o_reg  | Flip-flop |  28   |  Y  | N  | None  | None  | N  |  73  |
+|    product_q_reg    | Flip-flop |  512  |  Y  | N  | None  | None  | N  |  73  |
+|    level2_q_reg     | Flip-flop |  144  |  Y  | N  | None  | None  | N  |  73  |
+==================================================================================
+Presto compilation completed successfully. (stage1_path_engine)
+Module: stage1_path_engine, Ports: 775, Input: 725, Output: 50, Inout: 0
+Module: stage1_path_engine, Registers: 750, Async set/reset: 0, Sync set/reset: 0
+Information: Module stage1_path_engine report end. (ELAB-965)
+1
+current_design $TOP
+Current design is 'stage1_tile'.
+{stage1_tile}
+link
+
+  Linking design 'stage1_tile'
+  Using the following designs and libraries:
+  --------------------------------------------------------------------------
+  * (8 designs)               /share/home/ST015_YRR/work/07_AI_work/HSS/stage1_tile/stage1_tile.db, etc
+  scc28nhkcp_hdc35p140_rvt_tt_v0p9_25c_basic (library) /share/ScLib/smic/smic28hkmg/SCC28NHKCP_HDC35P140_RVT_CDK_V0.2/SCC28NHKCP_HDC35P140_RVT_V0p2/liberty/0.9v/scc28nhkcp_hdc35p140_rvt_tt_v0p9_25c_basic.db
+  HS128X32_tt_ctypical_0p90v_0p90v_25c (library) /share/home/ST015_YRR/work/07_AI_work/HSS/stage1_tile/memory/HS128X32/db/HS128X32_tt_ctypical_0p90v_0p90v_25c.db
+
+1
+uniquify
+Information: Uniquified 2 instances of design 'sram_bank_128x128'. (OPT-1056)
+Information: Uniquified 16 instances of design 'sram_bank_128x256'. (OPT-1056)
+Information: Uniquified 8 instances of design 'stage1_lane_pair'. (OPT-1056)
+Information: Uniquified 136 instances of design 'hs128x32_wrapper'. (OPT-1056)
+Information: Uniquified 16 instances of design 'stage1_path_engine'. (OPT-1056)
+1
+source constraints/stage1_tile_4ns.sdc
+Warning: Design rule attributes from the driving cell will be set on the port 'rst_ni'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'start_i'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'active_lane_mask_i[7]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'active_lane_mask_i[6]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'active_lane_mask_i[5]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'active_lane_mask_i[4]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'active_lane_mask_i[3]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'active_lane_mask_i[2]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'active_lane_mask_i[1]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'active_lane_mask_i[0]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_valid_i'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_block_idx_i[6]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_block_idx_i[5]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_block_idx_i[4]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_block_idx_i[3]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_block_idx_i[2]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_block_idx_i[1]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_block_idx_i[0]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[255]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[254]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[253]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[252]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[251]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[250]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[249]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[248]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[247]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[246]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[245]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[244]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[243]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[242]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[241]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[240]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[239]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[238]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[237]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[236]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[235]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[234]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[233]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[232]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[231]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[230]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[229]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[228]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[227]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[226]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[225]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[224]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[223]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[222]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[221]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[220]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[219]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[218]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[217]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[216]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[215]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[214]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[213]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[212]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[211]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[210]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[209]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[208]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[207]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[206]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[205]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[204]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[203]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[202]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[201]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[200]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[199]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[198]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[197]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[196]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[195]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[194]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[193]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[192]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[191]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[190]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[189]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[188]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[187]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[186]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[185]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[184]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[183]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[182]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[181]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[180]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[179]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[178]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[177]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[176]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[175]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[174]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[173]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[172]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[171]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[170]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[169]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[168]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[167]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[166]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[165]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[164]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[163]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[162]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[161]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[160]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[159]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[158]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[157]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[156]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[155]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[154]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[153]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[152]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[151]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[150]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[149]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[148]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[147]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[146]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[145]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[144]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[143]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[142]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[141]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[140]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[139]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[138]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[137]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[136]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[135]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[134]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[133]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[132]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[131]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[130]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[129]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[128]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[127]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[126]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[125]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[124]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[123]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[122]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[121]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[120]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[119]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[118]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[117]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[116]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[115]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[114]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[113]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[112]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[111]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[110]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[109]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[108]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[107]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[106]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[105]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[104]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[103]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[102]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[101]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[100]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[99]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[98]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[97]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[96]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[95]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[94]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[93]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[92]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[91]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[90]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[89]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[88]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[87]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[86]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[85]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[84]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[83]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[82]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[81]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[80]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[79]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[78]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[77]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[76]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[75]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[74]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[73]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[72]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[71]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[70]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[69]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[68]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[67]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[66]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[65]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[64]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[63]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[62]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[61]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[60]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[59]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[58]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[57]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[56]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[55]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[54]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[53]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[52]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[51]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[50]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[49]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[48]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[47]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[46]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[45]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[44]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[43]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[42]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[41]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[40]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[39]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[38]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[37]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[36]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[35]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[34]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[33]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[32]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[31]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[30]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[29]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[28]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[27]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[26]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[25]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[24]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[23]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[22]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[21]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[20]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[19]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[18]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[17]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[16]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[15]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[14]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[13]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[12]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[11]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[10]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[9]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[8]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[7]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[6]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[5]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[4]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[3]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[2]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[1]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_value_i[0]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[127]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[126]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[125]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[124]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[123]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[122]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[121]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[120]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[119]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[118]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[117]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[116]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[115]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[114]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[113]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[112]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[111]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[110]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[109]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[108]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[107]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[106]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[105]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[104]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[103]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[102]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[101]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[100]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[99]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[98]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[97]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[96]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[95]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[94]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[93]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[92]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[91]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[90]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[89]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[88]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[87]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[86]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[85]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[84]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[83]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[82]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[81]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[80]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[79]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[78]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[77]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[76]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[75]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[74]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[73]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[72]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[71]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[70]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[69]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[68]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[67]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[66]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[65]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[64]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[63]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[62]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[61]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[60]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[59]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[58]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[57]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[56]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[55]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[54]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[53]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[52]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[51]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[50]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[49]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[48]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[47]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[46]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[45]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[44]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[43]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[42]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[41]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[40]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[39]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[38]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[37]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[36]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[35]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[34]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[33]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[32]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[31]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[30]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[29]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[28]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[27]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[26]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[25]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[24]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[23]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[22]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[21]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[20]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[19]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[18]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[17]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[16]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[15]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[14]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[13]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[12]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[11]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[10]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[9]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[8]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[7]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[6]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[5]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[4]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[3]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[2]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[1]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'act_fine_i[0]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_valid_i'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_target_i[2]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_target_i[1]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_target_i[0]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_bank_i'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_path_i[3]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_path_i[2]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_path_i[1]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_path_i[0]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_addr_i[6]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_addr_i[5]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_addr_i[4]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_addr_i[3]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_addr_i[2]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_addr_i[1]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_addr_i[0]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_word_i[3]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_word_i[2]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_word_i[1]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_word_i[0]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[31]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[30]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[29]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[28]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[27]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[26]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[25]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[24]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[23]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[22]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[21]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[20]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[19]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[18]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[17]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[16]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[15]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[14]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[13]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[12]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[11]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[10]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[9]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[8]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[7]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[6]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[5]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[4]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[3]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[2]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[1]'. (UID-401)
+Warning: Design rule attributes from the driving cell will be set on the port 'cfg_wdata_i[0]'. (UID-401)
+1
+set_dont_touch [get_cells -hierarchical -filter "ref_name == HS128X32"]
+1
+set_max_fanout 64 [current_design]
+Current design is 'stage1_tile'.
+1
+set_fix_multiple_port_nets -all -buffer_constants
+1
+check_design > synth/reports/check_design_precompile.rpt
+compile_ultra -no_autoungroup
+Loading db file '/share/apps/synopsys/syn_W-2024.09-SP5-5/libraries/syn/dw_foundation.sldb'
+Warning: DesignWare synthetic library dw_foundation.sldb is added to the synthetic_library in the current command. (UISN-40)
+Information: Performing leakage power optimization. (PWR-850)
+CPU Load: 11%, Ram Free: 88 GB, Swap Free: 15 GB, Work Disk Free: 49415 GB, Tmp Disk Free: 269 GB
+Alib files are up-to-date.
+Information: Evaluating DesignWare library utilization. (UISN-27)
+
+============================================================================
+| DesignWare Building Block Library  |         Version         | Available |
+============================================================================
+| Basic DW Building Blocks           | W-2024.09-DWBB_202409.5 |     *     |
+| Licensed DW Building Blocks        | W-2024.09-DWBB_202409.5 |     *     |
+============================================================================
+
+====================================================================================================
+| Flow Information                                                                                 |
+----------------------------------------------------------------------------------------------------
+| Flow         | Design Compiler WLM                                                               |
+| Command Line | compile_ultra -no_autoungroup                                                     |
+====================================================================================================
+| Design Information                                      | Value                                  |
+====================================================================================================
+| Number of Scenarios                                     | 0                                      |
+| Leaf Cell Count                                         | 26911                                  |
+| Number of User Hierarchies                              | 180                                    |
+| Sequential Cell Count                                   | 14331                                  |
+| Macro Count                                             | 0                                      |
+| Pad Count                                               | 0                                      |
+| Number of Power Domains                                 | 0                                      |
+| Number of Path Groups                                   | 2                                      |
+| Number of VT Class                                      | 1                                      |
+| Number of Clocks                                        | 1                                      |
+| Number of Dont Touch Cells                              | 6159                                   |
+| Number of Dont Touch Nets                               | 0                                      |
+| Number of Size Only Cells                               | 0                                      |
+| Design with Target Library Subset (with clock_path)     | false  (false )                        |
+| Design with UPF Data                                    | false                                  |
+----------------------------------------------------------------------------------------------------
+| Variables                                               | Value                                  |
+----------------------------------------------------------------------------------------------------
+| set_fix_multiple_port_nets                              | -all -buffer_constants                 |
+====================================================================================================
+Information: Sequential output inversion is enabled.  SVF file must be used for formal verification. (OPT-1208)
+
+Information: There are 981 potential problems in your design. Please run 'check_design' for more information. (LINT-99)
+
+  Simplifying Design 'stage1_tile'
+Information: The register 'g_pair[1].u_pair/u_gate/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[1].u_pair/u_gate/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[1].u_pair/u_up/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[1].u_pair/u_up/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[2].u_pair/u_gate/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[2].u_pair/u_gate/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[2].u_pair/u_up/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[2].u_pair/u_up/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[3].u_pair/u_gate/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[3].u_pair/u_gate/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[3].u_pair/u_up/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[3].u_pair/u_up/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[4].u_pair/u_gate/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[4].u_pair/u_gate/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[4].u_pair/u_up/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[4].u_pair/u_up/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[5].u_pair/u_gate/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[5].u_pair/u_gate/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[5].u_pair/u_up/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[5].u_pair/u_up/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[6].u_pair/u_gate/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[6].u_pair/u_gate/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[6].u_pair/u_up/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[6].u_pair/u_up/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[7].u_pair/u_gate/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[7].u_pair/u_gate/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[7].u_pair/u_up/retire_o_reg' will be removed. (OPT-1207)
+Information: The register 'g_pair[7].u_pair/u_up/retire_o_reg' will be removed. (OPT-1207)
+
+  Loading target library 'HS128X32_tt_ctypical_0p90v_0p90v_25c'
+Loaded alib file './alib-52/scc28nhkcp_hdc35p140_rvt_tt_v0p9_25c_basic.db.alib'
+Loaded alib file './alib-52/HS128X32_tt_ctypical_0p90v_0p90v_25c.db.alib' (placeholder)
+CPU Load: 11%, Ram Free: 88 GB, Swap Free: 15 GB, Work Disk Free: 49415 GB, Tmp Disk Free: 269 GB
+Information: State dependent leakage is now switched from on to off.
+
+  Beginning Pass 1 Mapping
+  ------------------------
+  Processing 'stage1_tile'
+Information: Added key list 'DesignWare' to design 'stage1_tile'. (DDB-72)
+Information: The register 'state_q_reg[3]' is a constant and will be removed. (OPT-1206)
+Information: The register 'emax_q_reg[0][9]' is a constant and will be removed. (OPT-1206)
+Information: The register 'emax_q_reg[1][9]' is a constant and will be removed. (OPT-1206)
+Information: The register 'emax_q_reg[2][9]' is a constant and will be removed. (OPT-1206)
+Information: The register 'emax_q_reg[3][9]' is a constant and will be removed. (OPT-1206)
+Information: The register 'emax_q_reg[4][9]' is a constant and will be removed. (OPT-1206)
+Information: The register 'emax_q_reg[5][9]' is a constant and will be removed. (OPT-1206)
+Information: The register 'emax_q_reg[6][9]' is a constant and will be removed. (OPT-1206)
+Information: The register 'emax_q_reg[7][9]' is a constant and will be removed. (OPT-1206)
+Information: The register 'emax_q_reg[8][9]' is a constant and will be removed. (OPT-1206)
+Information: The register 'emax_q_reg[9][9]' is a constant and will be removed. (OPT-1206)
+Information: The register 'emax_q_reg[10][9]' is a constant and will be removed. (OPT-1206)
+Information: The register 'emax_q_reg[11][9]' is a constant and will be removed. (OPT-1206)
+Information: The register 'emax_q_reg[12][9]' is a constant and will be removed. (OPT-1206)
+Information: The register 'emax_q_reg[13][9]' is a constant and will be removed. (OPT-1206)
+Information: The register 'emax_q_reg[14][9]' is a constant and will be removed. (OPT-1206)
+Information: The register 'emax_q_reg[15][9]' is a constant and will be removed. (OPT-1206)
+ Implement Synthetic for 'stage1_tile'.
+  Processing 'stage1_path_engine_14'
+ Implement Synthetic for 'stage1_path_engine_14'.
+  Processing 'stage1_path_engine_0'
+ Implement Synthetic for 'stage1_path_engine_0'.
+  Processing 'activation_dff_store'
+  Processing 'stage1_config_frontend'
+Information: Added key list 'DesignWare' to design 'stage1_config_frontend'. (DDB-72)
+  Processing 'stage1_lane_pair_7'
+  Processing 'stage1_lane_pair_0'
+  Processing 'sram_bank_128x256_0'
+  Processing 'sram_bank_128x128_0'
+  Processing 'sram_bank_128x128_1'
+  Processing 'hs128x32_wrapper_0'
+Memory usage for J1 task 632 Mbytes -- main task 632 Mbytes.
+Memory usage for J2 task 632 Mbytes -- main task 632 Mbytes.
+Memory usage for J3 task 632 Mbytes -- main task 632 Mbytes.
+Memory usage for J4 task 632 Mbytes -- main task 632 Mbytes.
+Memory usage for J5 task 632 Mbytes -- main task 632 Mbytes.
+Memory usage for J6 task 632 Mbytes -- main task 632 Mbytes.
+CPU Load: 10%, Ram Free: 88 GB, Swap Free: 15 GB, Work Disk Free: 49415 GB, Tmp Disk Free: 269 GB
+
+  Updating timing information
+Information: Updating design information... (UID-85)
+Information: The library cell 'PULL1_140P7T35R' in the library 'scc28nhkcp_hdc35p140_rvt_tt_v0p9_25c_basic' is not characterized for internal power. (PWR-536)
+Information: The library cell 'PULL0_140P7T35R' in the library 'scc28nhkcp_hdc35p140_rvt_tt_v0p9_25c_basic' is not characterized for internal power. (PWR-536)
+Information: The library cell 'BUSHOLD_140P7T35R' in the library 'scc28nhkcp_hdc35p140_rvt_tt_v0p9_25c_basic' is not characterized for internal power. (PWR-536)
+Information: The library cell 'BUSHOLDM_140P7T35R' in the library 'scc28nhkcp_hdc35p140_rvt_tt_v0p9_25c_basic' is not characterized for internal power. (PWR-536)
+Information: The target library(s) contains cell(s), other than black boxes, that are not characterized for internal power. (PWR-24)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_0'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_1'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_2'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_3'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_4'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_5'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_6'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_7'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'sram_bank_128x256_0'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_8'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_9'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_10'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_11'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_12'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_13'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_14'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_15'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'sram_bank_128x256_1'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_16'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_17'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_18'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_19'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_20'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_21'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_22'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_23'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'sram_bank_128x256_2'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_24'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_25'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_26'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_27'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_28'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_29'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_30'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_31'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'sram_bank_128x256_3'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_32'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_33'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_34'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_35'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_36'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_37'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_38'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_39'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'sram_bank_128x256_4'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_40'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_41'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_42'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_43'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_44'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_45'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_46'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_47'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'sram_bank_128x256_5'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_48'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_49'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_50'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_51'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_52'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_53'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_54'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_55'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'sram_bank_128x256_6'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_56'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_57'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_58'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_59'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_60'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_61'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_62'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_63'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'sram_bank_128x256_7'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_64'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_65'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_66'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_67'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_68'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_69'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_70'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_71'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'sram_bank_128x256_8'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_72'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_73'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_74'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_75'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_76'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_77'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_78'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_79'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'sram_bank_128x256_9'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_80'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_81'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_82'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_83'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_84'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_85'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_86'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_87'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'sram_bank_128x256_10'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_88'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_89'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_90'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_91'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_92'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_93'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_94'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_95'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'sram_bank_128x256_11'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_96'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_97'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_98'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_99'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_100'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_101'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_102'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_103'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'sram_bank_128x256_12'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_104'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_105'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_106'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_107'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_108'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_109'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_110'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_111'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'sram_bank_128x256_13'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_112'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_113'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_114'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_115'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_116'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_117'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_118'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_119'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'sram_bank_128x256_14'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_120'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_121'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_122'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_123'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_124'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_125'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_126'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'hs128x32_wrapper_127'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: Complementing port 'we_i' in design 'sram_bank_128x256_15'.
+	 The new name of the port is 'we_i_BAR'. (OPT-319)
+Information: The register 'u_config/seq_target_q_reg[2]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[97]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[98]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[99]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[100]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[101]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[102]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[103]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[104]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[105]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[106]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[107]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[108]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[109]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[110]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[111]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[112]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[113]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[114]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[115]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[116]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[117]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[118]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[119]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[120]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[121]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[122]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[123]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[124]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[125]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[126]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[127]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/beta_stage_q_reg[96]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[225]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[226]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[227]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[228]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[229]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[230]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[231]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[232]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[233]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[234]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[235]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[236]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[237]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[238]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[239]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[240]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[241]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[242]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[243]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[244]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[245]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[246]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[247]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[248]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[249]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[250]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[251]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[252]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[253]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[254]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[255]' is a constant and will be removed. (OPT-1206)
+Information: The register 'u_config/value_stage_q_reg[224]' is a constant and will be removed. (OPT-1206)
+
+Threshold voltage group cell usage:
+>> scc28nhkcp_hdc35p140_rvt 100.00%
+
+  Beginning Mapping Optimizations  (Ultra High effort)
+  -------------------------------
+  Mapping Optimization (Phase 1)
+
+                                  TOTAL                                                
+   ELAPSED            WORST NEG   SETUP    DESIGN                              LEAKAGE 
+    TIME      AREA      SLACK     COST    RULE COST         ENDPOINT            POWER  
+  --------- --------- --------- --------- --------- ------------------------- ---------
+    0:03:04  942651.9      0.00       0.0    4472.4                           2490.3804
+    0:03:12  942631.0      0.00       0.0    4472.4                           2490.3096
+
+Threshold voltage group cell usage:
+>> scc28nhkcp_hdc35p140_rvt 100.00%
+
+  Beginning Constant Register Removal
+  -----------------------------------
+    0:03:21  942631.0      0.00       0.0    4472.4                           2490.3096
+
+Threshold voltage group cell usage:
+>> scc28nhkcp_hdc35p140_rvt 100.00%
+
+  Beginning Global Optimizations
+  ------------------------------
+  Numerical Synthesis (Phase 1)
+  Numerical Synthesis (Phase 2)
+  Global Optimization (Phase 1)
+  Global Optimization (Phase 2)
+  Global Optimization (Phase 3)
+  Global Optimization (Phase 4)
+  Global Optimization (Phase 5)
+  Global Optimization (Phase 6)
+  Global Optimization (Phase 7)
+  Global Optimization (Phase 8)
+  Global Optimization (Phase 9)
+  Global Optimization (Phase 10)
+  Global Optimization (Phase 11)
+  Global Optimization (Phase 12)
+  Global Optimization (Phase 13)
+  Global Optimization (Phase 14)
+  Global Optimization (Phase 15)
+  Global Optimization (Phase 16)
+  Global Optimization (Phase 17)
+  Global Optimization (Phase 18)
+  Global Optimization (Phase 19)
+  Global Optimization (Phase 20)
+  Global Optimization (Phase 21)
+  Global Optimization (Phase 22)
+  Global Optimization (Phase 23)
+  Global Optimization (Phase 24)
+  Global Optimization (Phase 25)
+  Global Optimization (Phase 26)
+  Global Optimization (Phase 27)
+  Global Optimization (Phase 28)
+  Global Optimization (Phase 29)
+  Global Optimization (Phase 30)
+  Global Optimization (Phase 31)
+
+Threshold voltage group cell usage:
+>> scc28nhkcp_hdc35p140_rvt 100.00%
+
+  Beginning Isolate Ports
+  -----------------------
+
+Threshold voltage group cell usage:
+>> scc28nhkcp_hdc35p140_rvt 100.00%
+
+  Beginning Delay Optimization
+  ----------------------------
+    0:04:50  888445.6      0.00       0.0    7739.8                           2023.3662
+    0:04:50  888445.6      0.00       0.0    7739.8                           2023.3662
+    0:04:50  888445.6      0.00       0.0    7739.8                           2023.3662
+    0:04:50  888445.6      0.00       0.0    7739.8                           2023.3662
+
+Threshold voltage group cell usage:
+>> scc28nhkcp_hdc35p140_rvt 100.00%
+    0:05:06  888387.3      0.00       0.0    7739.8                           2023.3572
+    0:05:14  888387.3      0.00       0.0    7739.8                           2023.3572
+
+  Beginning WLM Backend Optimization
+  --------------------------------------
+    0:06:04  888156.8      0.00       0.0    7739.8                           2021.4956
+    0:06:15  888029.9      0.00       0.0    7739.8                           2020.6453
+    0:06:16  888029.9      0.00       0.0    7739.8                           2020.6453
+    0:06:16  888029.9      0.00       0.0    7739.8                           2020.6453
+    0:06:16  888029.9      0.00       0.0    7739.8                           2020.6453
+    0:06:17  888029.9      0.00       0.0    7739.8                           2020.6453
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+    0:06:30  887788.8      0.00       0.0    7740.1                           2018.9771
+
+
+  Beginning Design Rule Fixing  (max_transition)  (max_capacitance)
+  ----------------------------
+
+                                  TOTAL                                                
+   ELAPSED            WORST NEG   SETUP    DESIGN                              LEAKAGE 
+    TIME      AREA      SLACK     COST    RULE COST         ENDPOINT            POWER  
+  --------- --------- --------- --------- --------- ------------------------- ---------
+    0:06:31  887788.8      0.00       0.0    7740.1                           2018.9771
+  Global Optimization (Phase 32)
+  Global Optimization (Phase 33)
+  Global Optimization (Phase 34)
+    0:06:34  887823.3      0.00       0.0       0.0                           2019.1174
+    0:06:34  887823.3      0.00       0.0       0.0                           2019.1174
+    0:06:34  887823.3      0.00       0.0       0.0                           2019.1174
+    0:06:34  887823.3      0.00       0.0       0.0                           2019.1174
+    0:06:34  887823.3      0.00       0.0       0.0                           2019.1174
+    0:06:45  887823.2      0.00       0.0       0.0                           2019.1154
+    0:06:45  887823.2      0.00       0.0       0.0                           2019.1154
+    0:06:45  887823.2      0.00       0.0       0.0                           2019.1154
+    0:06:45  887823.2      0.00       0.0       0.0                           2019.1154
+    0:06:45  887823.2      0.00       0.0       0.0                           2019.1154
+    0:06:45  887823.2      0.00       0.0       0.0                           2019.1154
+    0:06:45  887823.2      0.00       0.0       0.0                           2019.1154
+    0:06:45  887823.2      0.00       0.0       0.0                           2019.1154
+    0:06:45  887823.2      0.00       0.0       0.0                           2019.1154
+    0:06:46  887823.2      0.00       0.0       0.0                           2019.1154
+    0:06:46  887823.2      0.00       0.0       0.0                           2019.1154
+    0:06:46  887823.2      0.00       0.0       0.0                           2019.1154
+    0:06:46  887823.2      0.00       0.0       0.0                           2019.1154
+    0:06:46  887823.2      0.00       0.0       0.0                           2019.1154
+    0:06:46  887823.2      0.00       0.0       0.0                           2019.1154
+    0:06:46  887823.2      0.00       0.0       0.0                           2019.1154
+    0:06:46  887823.2      0.00       0.0       0.0                           2019.1154
+    0:06:46  887823.2      0.00       0.0       0.0                           2019.1154
+    0:06:46  887823.2      0.00       0.0       0.0                           2019.1154
+
+                                  TOTAL                                                
+   ELAPSED            WORST NEG   SETUP    DESIGN                              LEAKAGE 
+    TIME      AREA      SLACK     COST    RULE COST         ENDPOINT            POWER  
+  --------- --------- --------- --------- --------- ------------------------- ---------
+    0:06:54  887823.2      0.00       0.0       0.0                           2019.1154
+    0:07:08  887822.0      0.00       0.0       0.0                           2019.1029
+    0:07:08  887822.0      0.00       0.0       0.0                           2019.1029
+    0:07:08  887822.0      0.00       0.0       0.0                           2019.1029
+    0:07:20  887822.0      0.00       0.0       0.0                           2019.1029
+    0:07:33  887810.0      0.00       0.0       0.0                           2019.0215
+    0:07:33  887809.9      0.00       0.0       0.0                           2019.0210
+    0:07:33  887809.9      0.00       0.0       0.0                           2019.0210
+    0:07:33  887809.9      0.00       0.0       0.0                           2019.0210
+    0:07:33  887809.9      0.00       0.0       0.0                           2019.0210
+    0:07:35  887809.9      0.00       0.0       0.0                           2019.0210
+    0:07:35  887809.9      0.00       0.0       0.0                           2019.0210
+    0:07:40  887809.4      0.00       0.0       0.0                           2019.0195
+CPU Load: 12%, Ram Free: 88 GB, Swap Free: 15 GB, Work Disk Free: 49415 GB, Tmp Disk Free: 269 GB
+Loading db file '/share/ScLib/smic/smic28hkmg/SCC28NHKCP_HDC35P140_RVT_CDK_V0.2/SCC28NHKCP_HDC35P140_RVT_V0p2/liberty/0.9v/scc28nhkcp_hdc35p140_rvt_tt_v0p9_25c_basic.db'
+Loading db file '/share/home/ST015_YRR/work/07_AI_work/HSS/stage1_tile/memory/HS128X32/db/HS128X32_tt_ctypical_0p90v_0p90v_25c.db'
+
+
+Note: Symbol # after min delay cost means estimated hold TNS across all active scenarios 
+
+
+  Optimization Complete
+  ---------------------
+Warning: Design 'stage1_tile' contains 1 high-fanout nets. A fanout number of 1000 will be used for delay calculations involving these nets. (TIM-134)
+     Net 'u_beta_w/g_bank[1].u_macro/clk_i': 14235 load(s), 1 driver(s)
+  Loading target library 'HS128X32_tt_ctypical_0p90v_0p90v_25c'
+Information: State dependent leakage is now switched from off to on.
+Information: Propagating switching activity (low effort zero delay simulation). (PWR-6)
+Warning: Design has unannotated black box outputs. (PWR-428)
+CPU Load: 10%, Ram Free: 88 GB, Swap Free: 15 GB, Work Disk Free: 49415 GB, Tmp Disk Free: 269 GB
+Information: Total number of MV cells in the design.
+----------------------------------------------------------------------------------------------------
+ MV Cells                                           Total Number                                   
+----------------------------------------------------------------------------------------------------
+ Level Shifter:                                     0                                             
+ Enable Level Shifter:                              0                                             
+ Isolation Cell:                                    0                                             
+ Retention Cell:                                    0                                             
+ Retention Clamp Cell:                              0                                             
+ Switch Cell:                                       0                                             
+ Always-On Cell:                                    0                                             
+ Repeater Cell:                                     0                                             
+
+----------------------------------------------------------------------------------------------------
+Unmapped MV Cells 
+----------------------------------------------------------------------------------------------------
+0 Isolation Cells are unmapped 
+0 Retention Clamp Cells are unmapped 
+----------------------------------------------------------------------------------------------------
+1
+set unmapped [get_cells -hierarchical -filter "is_unmapped == true"]
+if {[sizeof_collection $unmapped] > 0} {
+  report_cell $unmapped > synth/reports/unmapped_cells.rpt
+  echo "ERROR: unmapped cells remain after compile_ultra"
+  exit 2
+}
+change_names -rules verilog -hierarchy
+Warning: The specified replacement character (_) is conflicting with the specified allowed or restricted character.   (UCN-4)
+1
+check_design > synth/reports/check_design.rpt
+check_timing > synth/reports/check_timing.rpt
+report_clock > synth/reports/clock.rpt
+report_constraint -all_violators > synth/reports/constraint_violators.rpt
+report_area -hierarchy > synth/reports/area_hierarchy.rpt
+report_reference -hierarchy > synth/reports/reference_hierarchy.rpt
+report_port -verbose > synth/reports/ports.rpt
+report_net_fanout -threshold 32 > synth/reports/high_fanout.rpt
+report_qor > synth/reports/qor.rpt
+report_timing -delay_type max -max_paths 100 -nets -transition_time \
+  > synth/reports/timing_setup_100.rpt
+report_timing -delay_type min -max_paths 100 -nets -transition_time \
+  > synth/reports/timing_hold_100.rpt
+write -format verilog -hierarchy -output synth/results/${TOP}_mapped.v
+Writing verilog file '/share/home/ST015_YRR/work/07_AI_work/HSS/stage1_tile/synth/results/stage1_tile_mapped.v'.
+1
+write_sdc -nosplit synth/results/${TOP}.sdc
+1
+write -format ddc -hierarchy -output synth/results/${TOP}.ddc
+Writing ddc file 'synth/results/stage1_tile.ddc'.
+1
+set_svf -off
+1
+quit
+
+Memory usage for this session 1023 Mbytes.
+Memory usage for this session including child processes 1023 Mbytes.
+CPU usage for this session 504 seconds ( 0.14 hours ).
+Elapsed time for this session 510 seconds ( 0.14 hours ).
+
+Thank you...

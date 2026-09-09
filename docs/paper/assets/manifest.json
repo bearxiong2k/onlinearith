@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "imported_on": "2026-09-09",
+  "source_roots": [
+    {
+      "source_root": "../figure",
+      "revision": "40c5f10d6d4a5490dddcd88cb3b2ce6523ad204d",
+      "status": "clean"
+    }
+  ],
+  "entries": [
+    {
+      "source_root": "../figure",
+      "source_path": "FIGURE_PLOTTING_GUIDELINES.md",
+      "destination_path": "docs/paper/assets/snapshots/figure/FIGURE_PLOTTING_GUIDELINES.md",
+      "size_bytes": 2718,
+      "sha256": "1e2ccd2ff5ae1c125322678892866494d58a52ed177161c54a78653d07f66d63",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure4/datalocation.md",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure4/datalocation.md",
+      "size_bytes": 1567,
+      "sha256": "1b420ea0bbfe298013a3f870f015f2da3e0fcea90ec8de30d182bc944055b0b8",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure4/figure4_draft.png",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure4/figure4_draft.png",
+      "size_bytes": 258313,
+      "sha256": "678b382fde4189b23d623823da1c598bebb424abcb3de6827376dcb8f9192596",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure4/figure4_plot_data.csv",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure4/figure4_plot_data.csv",
+      "size_bytes": 3294,
+      "sha256": "6abd8cb92f9025d7ebeae2436603c819088cb8826a51fec65d4ea7beec2c9f16",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure4/figure4_revised.pdf",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure4/figure4_revised.pdf",
+      "size_bytes": 19994,
+      "sha256": "739711c3186bc6c9c24a8c8b4bb7d0b05f394676013de3c4146a18e97492a669",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure4/figure4_revised.png",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure4/figure4_revised.png",
+      "size_bytes": 165194,
+      "sha256": "e28fc9cba677eabfa0d68593acd0d09e8cffba3b1447e60f4e2bc9b3b5e26c99",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure4/plot_figure4.py",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure4/plot_figure4.py",
+      "size_bytes": 19467,
+      "sha256": "9ea4a006a7c9ac046b1fe047cb238476ef1172570f2edbac3dbcdd2b67a23c93",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure4/prepare_figure4_plot_data.py",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure4/prepare_figure4_plot_data.py",
+      "size_bytes": 7306,
+      "sha256": "a041ece011ef62cade914a2e1c29341e6de3a32c8586f6f250e4e70fbe43aac5",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure5/figure5_draft.png",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure5/figure5_draft.png",
+      "size_bytes": 309121,
+      "sha256": "5338806fc0ed83303f658ffbbd1846808518e9a7fdc7cbf98434ff0a68bd3859",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure5/figure5_plot_data.csv",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure5/figure5_plot_data.csv",
+      "size_bytes": 6192,
+      "sha256": "8140108fb393d8f3874dd916b071106d96d5505091ffd89f59f8392fa2d78cc8",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure5/figure5_revised.pdf",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure5/figure5_revised.pdf",
+      "size_bytes": 18262,
+      "sha256": "816da9d6670347cf462ae6e8eb2ab55d3613ece5a9acbec78a0531fdaa9dc4a2",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure5/figure5_revised.png",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure5/figure5_revised.png",
+      "size_bytes": 144006,
+      "sha256": "be97ffb9aaaeeb0eb986dba67e994c503bd00ce0d39efacd2622e4939a1f7dcf",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure5/figure5plan.md",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure5/figure5plan.md",
+      "size_bytes": 2379,
+      "sha256": "0f48a63a1495b3cee55eb7dd6462b9c2bd935244352f1c62738e6964c55eeb61",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure5/plot_figure5.py",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure5/plot_figure5.py",
+      "size_bytes": 11319,
+      "sha256": "b4d486093b98c7972e3210c99675d62ad1fee1312a12c7f900839fc05470dff1",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure6/figure6_draft.png",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure6/figure6_draft.png",
+      "size_bytes": 430263,
+      "sha256": "0f337c2a13c871a5f0044cb1cd72be2ba37e67ef1b763b4662d3336df71641f3",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure6/figure6_panel_a_data.csv",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure6/figure6_panel_a_data.csv",
+      "size_bytes": 3897,
+      "sha256": "87aada4ff0f3237585745d6a7b47e966b35fead438ee9378920ffd75a7ae29c2",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure6/figure6_panel_b_data.csv",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure6/figure6_panel_b_data.csv",
+      "size_bytes": 4885,
+      "sha256": "3299fd697d81ab94294b59b5666c0a4f4618dc71344c8c1abd0c8730cf65c3e8",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure6/figure6_panel_c_data.csv",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure6/figure6_panel_c_data.csv",
+      "size_bytes": 127,
+      "sha256": "ce08eb6aa1c34eccdb344da10a3fc6b25ca0a50c4700fbb1943c0891d8fca5f5",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure6/figure6_revised.pdf",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure6/figure6_revised.pdf",
+      "size_bytes": 18220,
+      "sha256": "22ecb78e4a936267f138a3f9c3db3eebd479601f681af876ed1461e1fe96022a",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure6/figure6_revised.png",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure6/figure6_revised.png",
+      "size_bytes": 158266,
+      "sha256": "94a3ab97b682cb8923ad3b3f59b5773e819423968f57378c9ae54c50470723de",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure6/plot_figure6.py",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure6/plot_figure6.py",
+      "size_bytes": 12729,
+      "sha256": "999a267edfd694a2f31909da03aefa50919d991fc996b58c3ba1334ebeffc8e9",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure7/figure7.pdf",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure7/figure7.pdf",
+      "size_bytes": 12240,
+      "sha256": "5cb6170bf9808e204a8474f3c809ac9b3087b63389d41295398722a0eb36b4ec",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "figure7/plot_figure7.py",
+      "destination_path": "docs/paper/assets/snapshots/figure/figure7/plot_figure7.py",
+      "size_bytes": 3524,
+      "sha256": "07eb88fcf5c0c5094839f1d81f2303b54725c81ca5bb5f6057bbbccd799bbdc2",
+      "category": "historical_figure_source_or_asset"
+    },
+    {
+      "source_root": "../figure",
+      "source_path": "template.tex",
+      "destination_path": "docs/paper/assets/snapshots/figure/template.tex",
+      "size_bytes": 32183,
+      "sha256": "3303fd9c44f8ef46101d87ef0d7d648a57b17bf340fc2ee9cedae798042a3c4f",
+      "category": "historical_figure_source_or_asset"
+    }
+  ],
+  "totals": {
+    "files": 24,
+    "size_bytes": 1645466
+  }
+}

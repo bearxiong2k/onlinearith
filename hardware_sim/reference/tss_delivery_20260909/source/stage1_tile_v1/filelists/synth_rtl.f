@@ -1,0 +1,9 @@
+rtl/memory/HS128X32_blackbox.v
+rtl/memory/hs128x32_wrapper.sv
+rtl/memory/sram_bank_128x128.sv
+rtl/memory/sram_bank_128x256.sv
+rtl/memory/activation_dff_store.sv
+rtl/core/stage1_config_frontend.sv
+rtl/core/stage1_path_engine.sv
+rtl/core/stage1_lane_pair.sv
+rtl/core/stage1_tile.sv

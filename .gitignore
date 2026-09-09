@@ -67,3 +67,22 @@ hardware_sim/**/*.sdf
 ../Qwen3-*/
 models/
 checkpoints/
+
+# Curated writing snapshots are intentional evidence, including result JSONs
+# and selected historical logs that the experiment-wide rules otherwise hide.
+!docs/paper/assets/snapshots/**/
+!docs/paper/assets/snapshots/**/*
+!docs/paper/evidence/snapshots/**/
+!docs/paper/evidence/snapshots/**/*
+!hardware_sim/reference/tss_delivery_20260909/source/**/
+!hardware_sim/reference/tss_delivery_20260909/source/**/*
+
+# Local compilation products for the preserved manuscript
+TSS_ICCAD/build/
+TSS_ICCAD/*.aux
+TSS_ICCAD/*.bbl
+TSS_ICCAD/*.blg
+TSS_ICCAD/*.fdb_latexmk
+TSS_ICCAD/*.fls
+TSS_ICCAD/*.out
+TSS_ICCAD/*.synctex.gz

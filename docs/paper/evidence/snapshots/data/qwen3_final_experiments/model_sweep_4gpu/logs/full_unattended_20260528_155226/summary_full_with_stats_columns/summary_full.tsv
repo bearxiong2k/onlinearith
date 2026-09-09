@@ -1,0 +1,17 @@
+model	step	status	token_perplexity	mean_nll_nats	scored_tokens	wall_time_sec	world_size	visible_cuda_devices	stats	msd_utilization_mode	figure5_layer_cycles	mean_effective_precision	plot_norm_digit_read	global_utilization	hw_latency_overhead	output
+qwen0_6b	mxfp8	ok	17.2754	2.8493	299078	362.96	4	4,5,6,7	off	False	False					../data/qwen3_final_experiments/model_sweep_4gpu/qwen0_6b/full/ppl/mxfp8/ppl_results_MXFP8_qwen0_6b_sweep_full.json
+qwen0_6b	fixed_sum	ok	17.3212	2.8519	299078	13875.4	4	4,5,6,7	off	False	False					../data/qwen3_final_experiments/model_sweep_4gpu/qwen0_6b/full/ppl/fixed_sum30/ppl_results_MXFP8_fixed_sum30_qwen0_6b_sweep_full.json
+qwen0_6b	wanda	ok	40.3042	3.6965	299078	181.82	4									../data/qwen3_final_experiments/model_sweep_4gpu/qwen0_6b/full/wanda_base/2-4/ppl_results_MXFP8_qwen0_6b_sweep_full.json
+qwen0_6b	act	ok	37.5716	3.6262	299078	207.82	4									../data/qwen3_final_experiments/model_sweep_4gpu/qwen0_6b/full/act_base/2-4/ppl_results_MXFP8.json
+qwen1_7b	mxfp8	ok	14.6248	2.6827	299078	718.04	4	4,5,6,7	off	False	False					../data/qwen3_final_experiments/model_sweep_4gpu/qwen1_7b/full/ppl/mxfp8/ppl_results_MXFP8_qwen1_7b_sweep_full.json
+qwen1_7b	fixed_sum	ok	14.4661	2.6718	299078	31355.66	4	4,5,6,7	off	False	False					../data/qwen3_final_experiments/model_sweep_4gpu/qwen1_7b/full/ppl/fixed_sum30/ppl_results_MXFP8_fixed_sum30_qwen1_7b_sweep_full.json
+qwen1_7b	wanda	ok	27.2134	3.3037	299078	716.24	4									../data/qwen3_final_experiments/model_sweep_4gpu/qwen1_7b/full/wanda_base/2-4/ppl_results_MXFP8_qwen1_7b_sweep_full.json
+qwen1_7b	act	ok	20.9451	3.0419	299078	767.54	4									../data/qwen3_final_experiments/model_sweep_4gpu/qwen1_7b/full/act_base/2-4/ppl_results_MXFP8.json
+qwen4b	mxfp8	ok	11.2757	2.4227	299078	1889.58	4	4,5,6,7	off	False	False					../data/qwen3_final_experiments/model_sweep_4gpu/qwen4b/full/ppl/mxfp8/ppl_results_MXFP8_qwen4b_sweep_full.json
+qwen4b	fixed_sum	ok	11.2926	2.4241	299078	81562.68	4	4,5,6,7	off	False	False					../data/qwen3_final_experiments/model_sweep_4gpu/qwen4b/full/ppl/fixed_sum30/ppl_results_MXFP8_fixed_sum30_qwen4b_sweep_full.json
+qwen4b	wanda	ok	18.7089	2.929	299078	1885.46	4									../data/qwen3_final_experiments/model_sweep_4gpu/qwen4b/full/wanda_base/2-4/ppl_results_MXFP8_qwen4b_sweep_full.json
+qwen4b	act	ok	16.5446	2.8061	299078	1981.1	4									../data/qwen3_final_experiments/model_sweep_4gpu/qwen4b/full/act_base/2-4/ppl_results_MXFP8.json
+qwen8b	mxfp8	ok	8.2964	2.1158	299078	2369.58	4	4,5,6,7	off	False	False					../data/qwen3_final_experiments/model_sweep_4gpu/qwen8b/full/ppl/mxfp8/ppl_results_MXFP8_qwen8b_sweep_full.json
+qwen8b	fixed_sum	ok	8.3177	2.1184	299078	162244.95	4	4,5,6,7	off	False	False					../data/qwen3_final_experiments/model_sweep_4gpu/qwen8b/full/ppl/fixed_sum30/ppl_results_MXFP8_fixed_sum30_qwen8b_sweep_full.json
+qwen8b	wanda	ok	12.4731	2.5236	299078	2374.75	4									../data/qwen3_final_experiments/model_sweep_4gpu/qwen8b/full/wanda_base/2-4/ppl_results_MXFP8_qwen8b_sweep_full.json
+qwen8b	act	ok	10.6433	2.3649	299078	2457.3	4									../data/qwen3_final_experiments/model_sweep_4gpu/qwen8b/full/act_base/2-4/ppl_results_MXFP8.json

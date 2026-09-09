@@ -1,0 +1,56 @@
+{
+  "metrics": {
+    "token_perplexity": 79.6343,
+    "word_perplexity": 227.6028,
+    "bits_per_byte": 1.457,
+    "bits_per_char": 1.4593,
+    "mean_nll_nats": 4.3774
+  },
+  "reliability": {
+    "num_chunks": 578,
+    "chunk_nll_mean": 4.3721,
+    "chunk_nll_std": 1.1688,
+    "scored_tokens": 299078
+  },
+  "performance": {
+    "throughput_tokens_per_sec": 351.7,
+    "wall_time_sec": 850.48,
+    "peak_memory": "9.25 GB"
+  },
+  "setup": {
+    "id": 3,
+    "tag": "MXFP6_E3M2",
+    "description": "MXFP6 E3M2",
+    "config_overrides": {
+      "use_mxfp6": true,
+      "mxfp6_format": "e3m2"
+    }
+  },
+  "model": "../Qwen3-0.6B",
+  "dataset": "wikitext/wikitext-2-raw-v1/test",
+  "config": {
+    "max_length": 4096,
+    "stride": 512,
+    "dtype": "torch.float16",
+    "world_size": 4
+  },
+  "config_snapshot": {
+    "use_mxfp8": false,
+    "mxfp8_block_size": 32,
+    "use_mxfp6": true,
+    "mxfp6_block_size": 32,
+    "mxfp6_format": "e3m2",
+    "use_mxfp4": false,
+    "mxfp4_block_size": 32,
+    "use_msd_truncation": false,
+    "msd_cycle_budget": 16,
+    "msd_online_delay": 2,
+    "msd_budget_dynamic_scale": 0.0,
+    "msd_budget_dynamic_threshold": 0.0,
+    "msd_budget_dynamic_mode": "linear",
+    "msd_deep_pipeline": false,
+    "msd_pipeline_precision_loss": 2,
+    "msd_calibration_data": null,
+    "msd_chunk_target_mib": 512
+  }
+}

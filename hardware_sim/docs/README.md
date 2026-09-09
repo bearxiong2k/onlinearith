@@ -17,6 +17,10 @@ working context.
 
 ## Read only when needed
 
+- [September TSS delivery audit](reference/tss_delivery_audit.md): imported
+  presentation-prototype RTL and mapped/pre-route reports, missing layout and
+  replay inputs, and differences from active M1. This reference does not close
+  the active architecture gates.
 - [Transition audit](reference/transition_audit.md): full audit of
   `onlinearith`, Transformers, `../anchors`, and `../rebuttal` at the redesign
   boundary.

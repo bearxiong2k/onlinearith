@@ -1,0 +1,91 @@
+{
+  "model": "../Qwen3-8B",
+  "dataset": "wikitext/wikitext-2-raw-v1/test",
+  "config": {
+    "max_length": 4096,
+    "stride": 512,
+    "dtype": "torch.float16",
+    "world_size": 4,
+    "device_map": "none",
+    "max_memory": null,
+    "visible_cuda_devices": [
+      "4",
+      "5",
+      "6",
+      "7"
+    ],
+    "input_device": "cuda:0",
+    "hf_device_map": null,
+    "calibration_file": null,
+    "text_manifest": null,
+    "stats": "off",
+    "msd_utilization_mode": false,
+    "load_stagger_sec": 8.0,
+    "figure5_layer_cycles": false
+  },
+  "config_snapshot": {
+    "use_mxfp8": true,
+    "mxfp8_block_size": 32,
+    "use_mxfp6": false,
+    "mxfp6_block_size": 32,
+    "mxfp6_format": "e2m3",
+    "use_mxfp4": false,
+    "mxfp4_block_size": 32,
+    "mxfp_use_chunked_exact": true,
+    "mxfp_chunk_target_mib": 256,
+    "mxfp_weight_cache_dtype": "float16",
+    "use_activation_nm_sparsity": false,
+    "activation_nm_n": 2,
+    "activation_nm_m": 4,
+    "use_msd_truncation": false,
+    "msd_cycle_budget": 16,
+    "msd_online_delay": 2,
+    "msd_budget_dynamic_scale": 0.0,
+    "msd_budget_dynamic_threshold": 0.0,
+    "msd_budget_dynamic_mode": "linear",
+    "msd_deep_pipeline": false,
+    "msd_pipeline_precision_loss": 2,
+    "msd_calibration_data": null,
+    "msd_chunk_target_mib": 1536,
+    "msd_perf_stats_enabled": false,
+    "msd_perf_stats_lite": false,
+    "msd_figure5_layer_cycles": false,
+    "msd_compile_truncate": false
+  },
+  "metrics": {
+    "token_perplexity": 8.2964,
+    "word_perplexity": 13.7827,
+    "bits_per_byte": 0.7042,
+    "bits_per_char": 0.7053,
+    "mean_nll_nats": 2.1158
+  },
+  "reliability": {
+    "num_chunks": 578,
+    "chunk_nll_mean": 2.1162,
+    "chunk_nll_std": 0.3706,
+    "scored_tokens": 299078
+  },
+  "performance": {
+    "throughput_tokens_per_sec": 126.2,
+    "wall_time_sec": 2369.58,
+    "peak_memory": "27.61 GB",
+    "cuda_peak_memory": {
+      "cuda:0": {
+        "peak_alloc_gib": 27.6147,
+        "peak_reserved_gib": 28.3066
+      },
+      "cuda:1": {
+        "peak_alloc_gib": 0.0,
+        "peak_reserved_gib": 0.0
+      },
+      "cuda:2": {
+        "peak_alloc_gib": 0.0,
+        "peak_reserved_gib": 0.0
+      },
+      "cuda:3": {
+        "peak_alloc_gib": 0.0,
+        "peak_reserved_gib": 0.0
+      }
+    }
+  }
+}

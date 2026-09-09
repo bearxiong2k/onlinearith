@@ -1,0 +1,35 @@
+include,family,method_label,operating_point,x,y,line_group,connect_order,point_label,nm_label,n,m,horizon_B,db,marker_style,line_style,source
+1,fixed_sum,fixed_sum_11db,11db,0.28206666666666666,44.1887,fixed_sum,11.0,11db,,,,,11,o,solid,cap100
+1,fixed_sum,fixed_sum_12db,12db,0.31206666666666666,33.1887,fixed_sum,12.0,12db,,,,,12,o,solid,cap100
+1,fixed_sum,fixed_sum_13db,13db,0.34156666666666663,25.6602,fixed_sum,13.0,13db,,,,,13,o,solid,full
+1,fixed_sum,fixed_sum_14db,14db,0.3751,21.9647,fixed_sum,14.0,14db,,,,,14,o,solid,cap100
+1,fixed_sum,fixed_sum_15db,15db,0.4133,20.5999,fixed_sum,15.0,15db,,,,,15,o,solid,cap100
+1,fixed_sum,fixed_sum_17db,17db,0.4864,19.2801,fixed_sum,17.0,17db,,,,,17,o,solid,cap100
+1,fixed_sum,fixed_sum_18db,18db,0.5170333333333333,18.6763,fixed_sum,18.0,18db,,,,,18,o,solid,cap100
+1,fixed_sum,fixed_sum_19db,19db,0.5512666666666667,18.26,fixed_sum,19.0,19db,,,,,19,o,solid,cap100
+1,fixed_sum,fixed_sum_20db,20db,0.5858333333333333,17.9614,fixed_sum,20.0,20db,,,,,20,o,solid,cap100
+1,fixed_sum,fixed_sum_21db,21db,0.6171666666666666,17.8252,fixed_sum,21.0,21db,,,,,21,o,solid,cap100
+1,fixed_sum,fixed_sum_22db,22db,0.6455333333333334,17.6374,fixed_sum,22.0,22db,,,,,22,o,solid,cap100
+1,fixed_sum,fixed_sum_23db,23db,0.6726666666666666,17.5532,fixed_sum,23.0,23db,,,,,23,o,solid,cap100
+1,fixed_sum,fixed_sum_25db,25db,0.7267666666666667,17.4049,fixed_sum,25.0,25db,,,,,25,o,solid,cap100
+1,fixed_sum,fixed_sum_30db,30db,0.87,17.3189,fixed_sum,30.0,30db,,,,,30,o,solid,cap100
+1,fixed_sum,fixed_sum_35db,35db,0.95,17.3089,fixed_sum,35.0,35db,,,,,35,o,solid,cap100
+1,uniform,uniform_H6,H6,0.20423333333333335,153821.4499,uniform,6.0,H=6,,,,6,,s,solid,cap100
+1,uniform,uniform_H7,H7,0.21493333333333334,154.3548,uniform,7.0,H=7,,,,7,,s,solid,cap100
+1,uniform,uniform_H8,H8,0.3585333333333333,24.2189,uniform,8.0,H=8,,,,8,,s,solid,cap100
+1,uniform,uniform_H9,H9,0.5617333333333333,18.5029,uniform,9.0,H=9,,,,9,,s,solid,cap100
+1,uniform,uniform_H10,H10,0.7104,17.5093,uniform,10.0,H=10,,,,10,,s,solid,cap100
+1,uniform,uniform_H11,H11,0.8271666666666667,17.3193,uniform,11.0,H=11,,,,11,,s,solid,cap100
+1,dense,dense_mx,dense,1.0,17.2755,,1.0,dense,,,,,,*,none,dense_anchor
+1,activation,activation_24-32,24-32,0.25,2449.0359,,0.25,act 24:32,24:32,24,32,,,^,none,nm_ratio
+1,activation,activation_20-32,20-32,0.375,54.7325,,0.375,act 20:32,20:32,20,32,,,^,none,nm_ratio
+1,activation,activation_2-4,2-4,0.5,37.57,,0.5,act 2:4,2:4,2,4,,,^,none,nm_ratio
+1,activation,activation_16-32,16-32,0.5,26.7021,,0.5,act 16:32,16:32,16,32,,,^,none,nm_ratio
+1,activation,activation_12-32,12-32,0.625,20.2212,,0.625,act 12:32,12:32,12,32,,,^,none,nm_ratio
+1,activation,activation_8-32,8-32,0.75,18.124,,0.75,act 8:32,8:32,8,32,,,^,none,nm_ratio
+1,wanda,wanda_24-32,24-32,0.25,30909.2459,,0.25,wanda 24:32,24:32,24,32,,,D,none,nm_ratio
+1,wanda,wanda_20-32,20-32,0.375,71.6858,,0.375,wanda 20:32,20:32,20,32,,,D,none,nm_ratio
+1,wanda,wanda_2-4,2-4,0.5,39.3111,,0.5,wanda 2:4,2:4,2,4,,,D,none,nm_ratio
+1,wanda,wanda_16-32,16-32,0.5,26.359,,0.5,wanda 16:32,16:32,16,32,,,D,none,nm_ratio
+1,wanda,wanda_12-32,12-32,0.625,19.9224,,0.625,wanda 12:32,12:32,12,32,,,D,none,nm_ratio
+1,wanda,wanda_8-32,8-32,0.75,17.9287,,0.75,wanda 8:32,8:32,8,32,,,D,none,nm_ratio

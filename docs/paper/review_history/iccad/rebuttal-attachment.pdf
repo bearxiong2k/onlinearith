@@ -1,0 +1,369 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 2 /Kids [6 0 R 8 0 R] >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Times-Bold >>
+endobj
+5 0 obj
+<< /Length 10448 >>
+stream
+BT /F2 15.00 Tf 34.00 561.28 Td (Attachment: Supporting Measurements for Paper #229) Tj ET
+BT /F1 9.00 Tf 34.00 542.28 Td (All perplexity values are WikiText-2 unless noted. Tables A4-A5 use measured GPU non-FFN timing combined with TLM/CIM FFN service ratios as described in the main response.) Tj ET
+BT /F2 10.00 Tf 34.00 525.28 Td (Table A1. Qwen Scale, High-Quality WikiText-2 PPL) Tj ET
+q 0.90 w 34.00 522.98 m 543.00 522.98 l S Q
+BT /F2 8.20 Tf 36.00 512.28 Td (Model) Tj ET
+BT /F2 8.20 Tf 176.66 512.28 Td (FP16) Tj ET
+BT /F2 8.20 Tf 236.82 512.28 Td (MXFP8) Tj ET
+BT /F2 8.20 Tf 342.06 512.28 Td (TSS 30 dB) Tj ET
+BT /F2 8.20 Tf 420.13 512.28 Td (WANDA 2:4) Tj ET
+BT /F2 8.20 Tf 505.25 512.28 Td (Act. 2:4) Tj ET
+q 0.55 w 34.00 502.23 m 543.00 502.23 l S Q
+BT /F1 8.20 Tf 36.00 491.83 Td (Qwen3-0.6B) Tj ET
+BT /F1 8.20 Tf 167.15 491.83 Td (17.3443) Tj ET
+BT /F1 8.20 Tf 237.15 491.83 Td (17.2754) Tj ET
+BT /F1 8.20 Tf 314.51 491.83 Td (17.3212 \(+0.0458\)) Tj ET
+BT /F1 8.20 Tf 439.15 491.83 Td (40.3042) Tj ET
+BT /F1 8.20 Tf 511.15 491.83 Td (37.5716) Tj ET
+BT /F1 8.20 Tf 36.00 481.83 Td (Qwen3-1.7B) Tj ET
+BT /F1 8.20 Tf 167.15 481.83 Td (14.6644) Tj ET
+BT /F1 8.20 Tf 237.15 481.83 Td (14.6248) Tj ET
+BT /F1 8.20 Tf 314.51 481.83 Td (14.4661 \(-0.1587\)) Tj ET
+BT /F1 8.20 Tf 439.15 481.83 Td (27.2134) Tj ET
+BT /F1 8.20 Tf 511.15 481.83 Td (20.9451) Tj ET
+BT /F1 8.20 Tf 36.00 471.83 Td (Qwen3-4B) Tj ET
+BT /F1 8.20 Tf 167.15 471.83 Td (11.2364) Tj ET
+BT /F1 8.20 Tf 237.15 471.83 Td (11.2757) Tj ET
+BT /F1 8.20 Tf 314.51 471.83 Td (11.2926 \(+0.0169\)) Tj ET
+BT /F1 8.20 Tf 439.15 471.83 Td (18.7089) Tj ET
+BT /F1 8.20 Tf 511.15 471.83 Td (16.5446) Tj ET
+BT /F1 8.20 Tf 36.00 461.83 Td (Qwen3-8B) Tj ET
+BT /F1 8.20 Tf 171.42 461.83 Td (8.2722) Tj ET
+BT /F1 8.20 Tf 241.42 461.83 Td (8.2964) Tj ET
+BT /F1 8.20 Tf 318.78 461.83 Td (8.3177 \(+0.0213\)) Tj ET
+BT /F1 8.20 Tf 439.15 461.83 Td (12.4731) Tj ET
+BT /F1 8.20 Tf 511.15 461.83 Td (10.6433) Tj ET
+q 0.90 w 34.00 455.83 m 543.00 455.83 l S Q
+BT /F2 10.00 Tf 34.00 438.83 Td (Table A2. Llama-3.2-3B Cross-Family PPL) Tj ET
+q 0.90 w 34.00 436.53 m 564.00 436.53 l S Q
+BT /F2 8.20 Tf 36.00 425.83 Td (Model) Tj ET
+BT /F2 8.20 Tf 191.82 425.83 Td (MXFP8) Tj ET
+BT /F2 8.20 Tf 262.06 425.83 Td (TSS 17 dB) Tj ET
+BT /F2 8.20 Tf 347.06 425.83 Td (TSS 30 dB) Tj ET
+BT /F2 8.20 Tf 433.13 425.83 Td (WANDA 2:4) Tj ET
+BT /F2 8.20 Tf 526.25 425.83 Td (Act. 2:4) Tj ET
+q 0.55 w 34.00 415.78 m 564.00 415.78 l S Q
+BT /F1 8.20 Tf 36.00 405.38 Td (Llama-3.2-3B) Tj ET
+BT /F1 8.20 Tf 196.42 405.38 Td (6.5173) Tj ET
+BT /F1 8.20 Tf 281.42 405.38 Td (6.7859) Tj ET
+BT /F1 8.20 Tf 366.42 405.38 Td (6.5271) Tj ET
+BT /F1 8.20 Tf 452.15 405.38 Td (15.1917) Tj ET
+BT /F1 8.20 Tf 532.15 405.38 Td (11.0518) Tj ET
+q 0.90 w 34.00 399.38 m 564.00 399.38 l S Q
+BT /F2 10.00 Tf 34.00 382.38 Td (Table A3. Qwen Lower-Work Operating Point, 17 dB) Tj ET
+q 0.90 w 34.00 380.08 m 436.00 380.08 l S Q
+BT /F2 8.20 Tf 36.00 369.38 Td (Model) Tj ET
+BT /F2 8.20 Tf 163.82 369.38 Td (MXFP8) Tj ET
+BT /F2 8.20 Tf 229.06 369.38 Td (TSS 17 dB) Tj ET
+BT /F2 8.20 Tf 310.13 369.38 Td (WANDA 2:4) Tj ET
+BT /F2 8.20 Tf 398.25 369.38 Td (Act. 2:4) Tj ET
+q 0.55 w 34.00 359.33 m 436.00 359.33 l S Q
+BT /F1 8.20 Tf 36.00 348.93 Td (Qwen3-0.6B) Tj ET
+BT /F1 8.20 Tf 164.15 348.93 Td (17.2754) Tj ET
+BT /F2 8.20 Tf 244.15 348.93 Td (19.4307) Tj ET
+BT /F1 8.20 Tf 329.15 348.93 Td (40.3042) Tj ET
+BT /F1 8.20 Tf 404.15 348.93 Td (37.5716) Tj ET
+BT /F1 8.20 Tf 36.00 338.93 Td (Qwen3-1.7B) Tj ET
+BT /F1 8.20 Tf 164.15 338.93 Td (14.6248) Tj ET
+BT /F2 8.20 Tf 244.15 338.93 Td (14.9315) Tj ET
+BT /F1 8.20 Tf 329.15 338.93 Td (27.2134) Tj ET
+BT /F1 8.20 Tf 404.15 338.93 Td (20.9451) Tj ET
+BT /F1 8.20 Tf 36.00 328.93 Td (Qwen3-4B) Tj ET
+BT /F1 8.20 Tf 164.15 328.93 Td (11.2757) Tj ET
+BT /F2 8.20 Tf 244.15 328.93 Td (13.7060) Tj ET
+BT /F1 8.20 Tf 329.15 328.93 Td (18.7089) Tj ET
+BT /F1 8.20 Tf 404.15 328.93 Td (16.5446) Tj ET
+BT /F1 8.20 Tf 36.00 318.93 Td (Qwen3-8B) Tj ET
+BT /F1 8.20 Tf 168.42 318.93 Td (8.2964) Tj ET
+BT /F1 8.20 Tf 244.15 318.93 Td (11.5926) Tj ET
+BT /F1 8.20 Tf 329.15 318.93 Td (12.4731) Tj ET
+BT /F2 8.20 Tf 404.15 318.93 Td (10.6433) Tj ET
+q 0.90 w 34.00 312.93 m 436.00 312.93 l S Q
+BT /F2 10.00 Tf 34.00 295.93 Td (Table A4. Full-GPU-Relative Hybrid E2E Latency) Tj ET
+BT /F1 7.00 Tf 34.00 282.93 Td (Measured GPU full/non-FFN times are combined with TLM/CIM FFN service ratios; each gain uses the measured full-GPU latency as the denominator.) Tj ET
+q 0.90 w 34.00 274.43 m 785.00 274.43 l S Q
+BT /F2 6.85 Tf 36.00 265.08 Td (Scenario) Tj ET
+BT /F2 6.85 Tf 118.00 265.08 Td (Method) Tj ET
+BT /F2 6.85 Tf 250.71 265.08 Td (GPU full ms) Tj ET
+BT /F2 6.85 Tf 317.91 265.08 Td (GPU non-FFN ms) Tj ET
+BT /F2 6.85 Tf 400.16 265.08 Td (GPU FFN ms) Tj ET
+BT /F2 6.85 Tf 465.83 265.08 Td (FFN share) Tj ET
+BT /F2 6.85 Tf 523.56 265.08 Td (TLM FFN ratio) Tj ET
+BT /F2 6.85 Tf 604.58 265.08 Td (Hybrid E2E ms) Tj ET
+BT /F2 6.85 Tf 680.78 265.08 Td (Norm. vs GPU) Tj ET
+BT /F2 6.85 Tf 767.38 265.08 Td (Gain) Tj ET
+q 0.55 w 34.00 256.38 m 785.00 256.38 l S Q
+BT /F1 6.85 Tf 36.00 247.33 Td (decode_s2048) Tj ET
+BT /F1 6.85 Tf 118.00 247.33 Td (GPU full baseline) Tj ET
+BT /F1 6.85 Tf 272.63 247.33 Td (22.799) Tj ET
+BT /F1 6.85 Tf 354.63 247.33 Td (20.710) Tj ET
+BT /F1 6.85 Tf 426.19 247.33 Td (2.088) Tj ET
+BT /F1 6.85 Tf 484.46 247.33 Td (9.2%) Tj ET
+BT /F1 6.85 Tf 551.50 247.33 Td (1.000000) Tj ET
+BT /F1 6.85 Tf 633.63 247.33 Td (22.799) Tj ET
+BT /F1 6.85 Tf 700.50 247.33 Td (1.000000) Tj ET
+BT /F1 6.85 Tf 758.34 247.33 Td (0.000%) Tj ET
+BT /F1 6.85 Tf 36.00 238.68 Td (decode_s2048) Tj ET
+BT /F1 6.85 Tf 118.00 238.68 Td (TSS 17 dB) Tj ET
+BT /F1 6.85 Tf 272.63 238.68 Td (22.799) Tj ET
+BT /F1 6.85 Tf 354.63 238.68 Td (20.710) Tj ET
+BT /F1 6.85 Tf 426.19 238.68 Td (2.088) Tj ET
+BT /F1 6.85 Tf 484.46 238.68 Td (9.2%) Tj ET
+BT /F1 6.85 Tf 551.50 238.68 Td (0.535680) Tj ET
+BT /F1 6.85 Tf 633.63 238.68 Td (21.829) Tj ET
+BT /F1 6.85 Tf 700.50 238.68 Td (0.957471) Tj ET
+BT /F1 6.85 Tf 758.34 238.68 Td (4.253%) Tj ET
+BT /F1 6.85 Tf 36.00 230.03 Td (decode_s2048) Tj ET
+BT /F1 6.85 Tf 118.00 230.03 Td (Mask-CIM 2:4) Tj ET
+BT /F1 6.85 Tf 272.63 230.03 Td (22.799) Tj ET
+BT /F1 6.85 Tf 354.63 230.03 Td (20.710) Tj ET
+BT /F1 6.85 Tf 426.19 230.03 Td (2.088) Tj ET
+BT /F1 6.85 Tf 484.46 230.03 Td (9.2%) Tj ET
+BT /F1 6.85 Tf 551.50 230.03 Td (0.875000) Tj ET
+BT /F1 6.85 Tf 633.63 230.03 Td (22.538) Tj ET
+BT /F1 6.85 Tf 700.50 230.03 Td (0.988551) Tj ET
+BT /F1 6.85 Tf 758.34 230.03 Td (1.145%) Tj ET
+BT /F1 6.85 Tf 36.00 221.38 Td (prefill_s512) Tj ET
+BT /F1 6.85 Tf 118.00 221.38 Td (GPU full baseline) Tj ET
+BT /F1 6.85 Tf 272.63 221.38 Td (24.904) Tj ET
+BT /F1 6.85 Tf 354.63 221.38 Td (20.606) Tj ET
+BT /F1 6.85 Tf 426.19 221.38 Td (4.299) Tj ET
+BT /F1 6.85 Tf 480.90 221.38 Td (17.3%) Tj ET
+BT /F1 6.85 Tf 551.50 221.38 Td (1.000000) Tj ET
+BT /F1 6.85 Tf 633.63 221.38 Td (24.904) Tj ET
+BT /F1 6.85 Tf 700.50 221.38 Td (1.000000) Tj ET
+BT /F1 6.85 Tf 758.34 221.38 Td (0.000%) Tj ET
+BT /F1 6.85 Tf 36.00 212.73 Td (prefill_s512) Tj ET
+BT /F1 6.85 Tf 118.00 212.73 Td (TSS 17 dB) Tj ET
+BT /F1 6.85 Tf 272.63 212.73 Td (24.904) Tj ET
+BT /F1 6.85 Tf 354.63 212.73 Td (20.606) Tj ET
+BT /F1 6.85 Tf 426.19 212.73 Td (4.299) Tj ET
+BT /F1 6.85 Tf 480.90 212.73 Td (17.3%) Tj ET
+BT /F1 6.85 Tf 551.50 212.73 Td (0.535680) Tj ET
+BT /F1 6.85 Tf 633.63 212.73 Td (22.908) Tj ET
+BT /F1 6.85 Tf 700.50 212.73 Td (0.919857) Tj ET
+BT /F1 6.85 Tf 758.34 212.73 Td (8.014%) Tj ET
+BT /F1 6.85 Tf 36.00 204.08 Td (prefill_s512) Tj ET
+BT /F1 6.85 Tf 118.00 204.08 Td (Mask-CIM 2:4) Tj ET
+BT /F1 6.85 Tf 272.63 204.08 Td (24.904) Tj ET
+BT /F1 6.85 Tf 354.63 204.08 Td (20.606) Tj ET
+BT /F1 6.85 Tf 426.19 204.08 Td (4.299) Tj ET
+BT /F1 6.85 Tf 480.90 204.08 Td (17.3%) Tj ET
+BT /F1 6.85 Tf 551.50 204.08 Td (0.875000) Tj ET
+BT /F1 6.85 Tf 633.63 204.08 Td (24.367) Tj ET
+BT /F1 6.85 Tf 700.50 204.08 Td (0.978425) Tj ET
+BT /F1 6.85 Tf 758.34 204.08 Td (2.158%) Tj ET
+q 0.90 w 34.00 199.43 m 785.00 199.43 l S Q
+BT /F2 10.00 Tf 34.00 182.43 Td (Table A5. Qwen3-1.7B Decode, Common-Interface Comparison) Tj ET
+BT /F1 7.00 Tf 34.00 169.43 Td (Arbitrary flexible-mask hardware is excluded unless a matched CIM routing/buffering/utilization model is available; Table A5b states the modeled 2:4 Mask-CIM assumptions.) Tj ET
+q 0.90 w 34.00 160.93 m 785.00 160.93 l S Q
+BT /F2 7.00 Tf 36.00 151.43 Td (Method) Tj ET
+BT /F2 7.00 Tf 156.88 151.43 Td (PPL) Tj ET
+BT /F2 7.00 Tf 192.20 151.43 Td (Norm. lat.) Tj ET
+BT /F2 7.00 Tf 250.84 151.43 Td (Lat. gain) Tj ET
+BT /F2 7.00 Tf 303.36 151.43 Td (Norm. throughput) Tj ET
+BT /F2 7.00 Tf 389.92 151.43 Td (Norm. energy) Tj ET
+BT /F2 7.00 Tf 455.56 151.43 Td (Energy red.) Tj ET
+BT /F2 7.00 Tf 517.20 151.43 Td (Norm. area) Tj ET
+BT /F2 7.00 Tf 559.00 151.43 Td (Basis) Tj ET
+q 0.55 w 34.00 142.58 m 785.00 142.58 l S Q
+BT /F1 7.00 Tf 36.00 133.38 Td (Dense MXFP8) Tj ET
+BT /F1 7.00 Tf 146.52 133.38 Td (14.6248) Tj ET
+BT /F1 7.00 Tf 211.80 133.38 Td (1.000) Tj ET
+BT /F1 7.00 Tf 267.08 133.38 Td (0.0%) Tj ET
+BT /F1 7.00 Tf 344.80 133.38 Td (1.000) Tj ET
+BT /F1 7.00 Tf 416.80 133.38 Td (1.000) Tj ET
+BT /F1 7.00 Tf 479.08 133.38 Td (0.0%) Tj ET
+BT /F1 7.00 Tf 536.80 133.38 Td (1.000) Tj ET
+BT /F1 7.00 Tf 559.00 133.38 Td (measured full-GPU denominator; dense simulator baseline) Tj ET
+BT /F1 7.00 Tf 36.00 124.58 Td (TSS 17 dB) Tj ET
+BT /F1 7.00 Tf 146.52 124.58 Td (14.9315) Tj ET
+BT /F1 7.00 Tf 211.80 124.58 Td (0.957) Tj ET
+BT /F1 7.00 Tf 267.08 124.58 Td (4.3%) Tj ET
+BT /F1 7.00 Tf 344.80 124.58 Td (1.044) Tj ET
+BT /F1 7.00 Tf 416.80 124.58 Td (0.884) Tj ET
+BT /F1 7.00 Tf 475.44 124.58 Td (11.6%) Tj ET
+BT /F1 7.00 Tf 536.80 124.58 Td (1.011) Tj ET
+BT /F1 7.00 Tf 559.00 124.58 Td (measured GPU split plus TLM FFN ratio; RTL timing/area; proxy) Tj ET
+BT /F1 7.00 Tf 559.00 116.38 Td (dynamic energy) Tj ET
+BT /F1 7.00 Tf 36.00 107.58 Td (Mask-CIM 2:4) Tj ET
+BT /F1 7.00 Tf 146.52 107.58 Td (20.9451) Tj ET
+BT /F1 7.00 Tf 211.80 107.58 Td (0.989) Tj ET
+BT /F1 7.00 Tf 267.08 107.58 Td (1.1%) Tj ET
+BT /F1 7.00 Tf 344.80 107.58 Td (1.012) Tj ET
+BT /F1 7.00 Tf 416.80 107.58 Td (0.925) Tj ET
+BT /F1 7.00 Tf 479.08 107.58 Td (7.5%) Tj ET
+BT /F1 7.00 Tf 536.80 107.58 Td (1.114) Tj ET
+BT /F1 7.00 Tf 559.00 107.58 Td (formula-backed mask ledger; dense reads/payload kept; no) Tj ET
+BT /F1 7.00 Tf 559.00 99.38 Td (packed-sparse issue) Tj ET
+q 0.90 w 34.00 94.58 m 785.00 94.58 l S Q
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 841.89 595.28] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Length 7237 >>
+stream
+BT /F2 10.00 Tf 34.00 561.28 Td (Table A5b. Mask-CIM 2:4 Modeling Assumptions) Tj ET
+q 0.90 w 34.00 558.38 m 764.00 558.38 l S Q
+BT /F2 7.60 Tf 36.00 548.28 Td (Component) Tj ET
+BT /F2 7.60 Tf 221.00 548.28 Td (Modeled treatment) Tj ET
+q 0.55 w 34.00 538.83 m 764.00 538.83 l S Q
+BT /F1 7.60 Tf 36.00 529.03 Td (Activation read) Tj ET
+BT /F1 7.60 Tf 221.00 529.03 Td (dense) Tj ET
+BT /F1 7.60 Tf 36.00 519.63 Td (Mask generation/control) Tj ET
+BT /F1 7.60 Tf 221.00 519.63 Td (counted) Tj ET
+BT /F1 7.60 Tf 36.00 510.23 Td (Weight read) Tj ET
+BT /F1 7.60 Tf 221.00 510.23 Td (selected 2-of-4 entries benefit) Tj ET
+BT /F1 7.60 Tf 36.00 500.83 Td (Local reduction tree) Tj ET
+BT /F1 7.60 Tf 221.00 500.83 Td (selected fan-in benefit) Tj ET
+BT /F1 7.60 Tf 36.00 491.43 Td (Fixed pipeline stages) Tj ET
+BT /F1 7.60 Tf 221.00 491.43 Td (dense) Tj ET
+BT /F1 7.60 Tf 36.00 482.03 Td (Output payload) Tj ET
+BT /F1 7.60 Tf 221.00 482.03 Td (dense) Tj ET
+BT /F1 7.60 Tf 36.00 472.63 Td (Utilization model) Tj ET
+BT /F1 7.60 Tf 221.00 472.63 Td (dense-lane issue; no packed sparse issue) Tj ET
+BT /F1 7.60 Tf 36.00 463.23 Td (Routing/buffering for arbitrary masks) Tj ET
+BT /F1 7.60 Tf 221.00 463.23 Td (not assigned without matched CIM design) Tj ET
+BT /F1 7.60 Tf 36.00 453.83 Td (Energy status) Tj ET
+BT /F1 7.60 Tf 221.00 453.83 Td (formula-backed mask ledger; TSS controller energy remains proxy where labeled) Tj ET
+BT /F1 7.60 Tf 36.00 444.43 Td (Latency ledger) Tj ET
+BT /F1 7.60 Tf 221.00 444.43 Td (dense fixed/access/payload/control terms; selected-read and local-tree terms receive 2-of-4 benefit) Tj ET
+BT /F1 7.60 Tf 36.00 435.03 Td (Energy ledger) Tj ET
+BT /F1 7.60 Tf 221.00 435.03 Td (activation read + compare + mask payload/control + selected weight/compute/tree + dense output payload) Tj ET
+q 0.90 w 34.00 429.63 m 764.00 429.63 l S Q
+BT /F2 10.00 Tf 34.00 412.63 Td (Table A6. Qwen3-1.7B K Sensitivity) Tj ET
+BT /F1 7.20 Tf 34.00 399.63 Td (A6 is a within-sweep ablation on the same fixed evaluation subset for all K rows; compare absolute PPL within A6, while A1 remains the full-test headline.) Tj ET
+q 0.90 w 34.00 390.93 m 674.00 390.93 l S Q
+BT /F2 7.60 Tf 76.53 380.83 Td (K) Tj ET
+BT /F2 7.60 Tf 143.66 380.83 Td (MXFP8 PPL) Tj ET
+BT /F2 7.60 Tf 279.98 380.83 Td (TSS 17 dB PPL) Tj ET
+BT /F2 7.60 Tf 407.25 380.83 Td (Digit-work proxy) Tj ET
+BT /F2 7.60 Tf 571.98 380.83 Td (Metadata entries vs K=32) Tj ET
+q 0.55 w 34.00 371.38 m 674.00 371.38 l S Q
+BT /F1 7.60 Tf 78.05 361.58 Td (8) Tj ET
+BT /F1 7.60 Tf 164.34 361.58 Td (13.6369) Tj ET
+BT /F1 7.60 Tf 274.82 361.58 Td (13.5499 \(-0.0870\)) Tj ET
+BT /F1 7.60 Tf 452.24 361.58 Td (0.465) Tj ET
+BT /F1 7.60 Tf 652.24 361.58 Td (4.00x) Tj ET
+BT /F1 7.60 Tf 74.10 352.18 Td (16) Tj ET
+BT /F1 7.60 Tf 164.34 352.18 Td (13.5906) Tj ET
+BT /F1 7.60 Tf 274.82 352.18 Td (13.5840 \(-0.0066\)) Tj ET
+BT /F1 7.60 Tf 452.24 352.18 Td (0.470) Tj ET
+BT /F1 7.60 Tf 652.24 352.18 Td (2.00x) Tj ET
+BT /F1 7.60 Tf 74.10 342.78 Td (32) Tj ET
+BT /F1 7.60 Tf 164.34 342.78 Td (13.5924) Tj ET
+BT /F1 7.60 Tf 274.82 342.78 Td (13.7575 \(+0.1651\)) Tj ET
+BT /F1 7.60 Tf 452.24 342.78 Td (0.473) Tj ET
+BT /F1 7.60 Tf 652.24 342.78 Td (1.00x) Tj ET
+BT /F1 7.60 Tf 74.10 333.38 Td (64) Tj ET
+BT /F1 7.60 Tf 164.34 333.38 Td (13.6242) Tj ET
+BT /F1 7.60 Tf 274.82 333.38 Td (13.7191 \(+0.0949\)) Tj ET
+BT /F1 7.60 Tf 452.24 333.38 Td (0.474) Tj ET
+BT /F1 7.60 Tf 652.24 333.38 Td (0.50x) Tj ET
+BT /F1 7.60 Tf 70.14 323.98 Td (128) Tj ET
+BT /F1 7.60 Tf 164.34 323.98 Td (13.5624) Tj ET
+BT /F1 7.60 Tf 274.82 323.98 Td (13.4459 \(-0.1165\)) Tj ET
+BT /F1 7.60 Tf 452.24 323.98 Td (0.474) Tj ET
+BT /F1 7.60 Tf 652.24 323.98 Td (0.25x) Tj ET
+q 0.90 w 34.00 318.58 m 674.00 318.58 l S Q
+BT /F2 10.00 Tf 34.00 301.58 Td (Table A7. Calibration Runtime Examples) Tj ET
+q 0.90 w 34.00 299.08 m 299.00 299.08 l S Q
+BT /F2 8.00 Tf 36.00 288.58 Td (Model/configuration) Tj ET
+BT /F2 8.00 Tf 266.28 288.58 Td (Runtime) Tj ET
+q 0.55 w 34.00 278.73 m 299.00 278.73 l S Q
+BT /F1 8.00 Tf 36.00 268.53 Td (Qwen3-1.7B, K=64, 17 dB) Tj ET
+BT /F1 8.00 Tf 263.72 268.53 Td (2802.9 s) Tj ET
+BT /F1 8.00 Tf 36.00 258.73 Td (Qwen3-1.7B, K=16, 17 dB) Tj ET
+BT /F1 8.00 Tf 263.72 258.73 Td (2963.4 s) Tj ET
+BT /F1 8.00 Tf 36.00 248.93 Td (Llama-3.2-3B, 17 dB) Tj ET
+BT /F1 8.00 Tf 263.72 248.93 Td (5584.0 s) Tj ET
+BT /F1 8.00 Tf 36.00 239.13 Td (Llama-3.2-3B, 20 dB) Tj ET
+BT /F1 8.00 Tf 263.72 239.13 Td (5692.0 s) Tj ET
+BT /F1 8.00 Tf 36.00 229.33 Td (Llama-3.2-3B, 30 dB) Tj ET
+BT /F1 8.00 Tf 263.72 229.33 Td (5868.7 s) Tj ET
+q 0.90 w 34.00 223.53 m 299.00 223.53 l S Q
+BT /F2 10.00 Tf 34.00 206.53 Td (Table A8. Control-Path Accounting) Tj ET
+BT /F1 7.40 Tf 34.00 193.53 Td (Control work is counted once and staged one block ahead. The table separates the counted control operations from the timing and storage anchors.) Tj ET
+q 0.90 w 34.00 184.63 m 709.00 184.63 l S Q
+BT /F2 7.80 Tf 36.00 174.33 Td (Category) Tj ET
+BT /F2 7.80 Tf 126.00 174.33 Td (Item) Tj ET
+BT /F2 7.80 Tf 276.00 174.33 Td (Accounting) Tj ET
+BT /F2 7.80 Tf 356.00 174.33 Td (Value / policy) Tj ET
+q 0.55 w 34.00 164.68 m 709.00 164.68 l S Q
+BT /F1 7.80 Tf 36.00 154.68 Td (Control work) Tj ET
+BT /F1 7.80 Tf 126.00 154.68 Td (Scale prepass) Tj ET
+BT /F1 7.80 Tf 276.00 154.68 Td (counted) Tj ET
+BT /F1 7.80 Tf 356.00 154.68 Td (computes scale offsets and block delay) Tj ET
+BT /F1 7.80 Tf 36.00 145.08 Td (Control work) Tj ET
+BT /F1 7.80 Tf 126.00 145.08 Td (Scheduler/window build) Tj ET
+BT /F1 7.80 Tf 276.00 145.08 Td (counted) Tj ET
+BT /F1 7.80 Tf 356.00 145.08 Td (consumes block delay, horizon, and input-delay terms) Tj ET
+BT /F1 7.80 Tf 36.00 135.48 Td (Control work) Tj ET
+BT /F1 7.80 Tf 126.00 135.48 Td (Input-delay decode/fanout) Tj ET
+BT /F1 7.80 Tf 276.00 135.48 Td (counted) Tj ET
+BT /F1 7.80 Tf 356.00 135.48 Td (included in controller path) Tj ET
+BT /F1 7.80 Tf 36.00 125.88 Td (Control work) Tj ET
+BT /F1 7.80 Tf 126.00 125.88 Td (Configuration switch) Tj ET
+BT /F1 7.80 Tf 276.00 125.88 Td (counted) Tj ET
+BT /F1 7.80 Tf 356.00 125.88 Td (active/shadow buffering) Tj ET
+BT /F1 7.80 Tf 36.00 116.28 Td (Timing anchor) Tj ET
+BT /F1 7.80 Tf 126.00 116.28 Td (Controller service) Tj ET
+BT /F1 7.80 Tf 276.00 116.28 Td (counted) Tj ET
+BT /F1 7.80 Tf 356.00 116.28 Td (3 staged control cycles) Tj ET
+BT /F1 7.80 Tf 36.00 106.68 Td (Timing anchor) Tj ET
+BT /F1 7.80 Tf 126.00 106.68 Td (Data-plane slot) Tj ET
+BT /F1 7.80 Tf 276.00 106.68 Td (reference) Tj ET
+BT /F1 7.80 Tf 356.00 106.68 Td (16 cycles/block) Tj ET
+BT /F1 7.80 Tf 36.00 97.08 Td (Timing anchor) Tj ET
+BT /F1 7.80 Tf 126.00 97.08 Td (Slack after fill) Tj ET
+BT /F1 7.80 Tf 276.00 97.08 Td (derived) Tj ET
+BT /F1 7.80 Tf 356.00 97.08 Td (about 13 cycles) Tj ET
+BT /F1 7.80 Tf 36.00 87.48 Td (Storage anchor) Tj ET
+BT /F1 7.80 Tf 126.00 87.48 Td (Horizon table) Tj ET
+BT /F1 7.80 Tf 276.00 87.48 Td (counted) Tj ET
+BT /F1 7.80 Tf 356.00 87.48 Td (1 integer/output channel) Tj ET
+BT /F1 7.80 Tf 36.00 77.88 Td (Storage anchor) Tj ET
+BT /F1 7.80 Tf 126.00 77.88 Td (Control/storage inventory) Tj ET
+BT /F1 7.80 Tf 276.00 77.88 Td (counted) Tj ET
+BT /F1 7.80 Tf 356.00 77.88 Td (80,032 bits; 81,153.208 square micrometers) Tj ET
+q 0.90 w 34.00 72.28 m 709.00 72.28 l S Q
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 841.89 595.28] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
+endobj
+xref
+0 9
+0000000000 65535 f
+0000000015 00000 n
+0000000064 00000 n
+0000000127 00000 n
+0000000199 00000 n
+0000000270 00000 n
+0000010771 00000 n
+0000010913 00000 n
+0000018202 00000 n
+trailer
+<< /Size 9 /Root 1 0 R /Title (Attachment: Supporting Measurements for Paper #229) >>
+startxref
+18344
+%%EOF
