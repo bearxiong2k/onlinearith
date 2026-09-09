@@ -12,6 +12,8 @@ and frozen simulation code were inspected read-only.
 | `../data` | No source-control revision; per-file SHA-256 | [Numerical evidence](evidence/README.md) | Selected quality/work/calibration JSON and tables; large tensor outputs remain external |
 | `../6b`, `../6c`, `../sup` | Ancillary figure/calibration/baseline sources | [Figure/data audit](figure_data_audit.md) | Follow exact figure dependencies; keep superseded or mislabeled baselines out of headline evidence |
 | `../TSS` | `dd6fe890c36effd248b4d0ae56947d7dadfb7dd1`, clean | [Hardware snapshot](../../hardware_sim/reference/tss_delivery_20260909/README.md) | Presentation contracts, RTL, filelists, netlist, constraints, synthesis and power reports |
+| `layout.jpg` | Added after initial intake; host revision and file SHA-256 in manifest | [Layout figure](../../hardware_sim/reference/layout_20260909/README.md) | Byte-identical PNG copy with corrected extension, for the new layout figure |
+| `../rebuttal/results/hybrid_full_model_gpu`, profiling script | Rebuttal revision above; per-file hashes include result outputs | [GPU timing source](../../hardware_sim/reference/rebuttal_gpu_20260909/README.md) | Four files supporting the requested GPU/end-to-end figure |
 | `docs/paper`, `docs/archive` | Host starting revision `0a50e2151da5f3ef0e6806fda70d0efd6b979d3b` | Existing locations plus this index | Preserve earlier guidance and distinguish superseded plans |
 | `functional_sim/` | Same host starting revision; frozen | [Functional map](../../functional_sim/README.md) | Read-only semantics and source map; no experiment rerun |
 | `hardware_sim/` | Same host starting revision | [Active architecture](../../hardware_sim/docs/architecture_contract.md) | Active M1/M2 contract, kept separate from imported prototype |
@@ -55,7 +57,9 @@ alternate remains external rather than creating another manuscript entry point.
   artifacts absent from the delivery. The
   [hardware audit](../../hardware_sim/docs/reference/tss_delivery_audit.md)
   lists them. No delivered GDS/DEF, extracted parasitics, or routed timing
-  establishes current-layout closure.
+  establishes current-layout closure. A layout image has since been supplied
+  and registered; its design/dimensions and connection to those reports remain
+  to be recorded.
 - The original manuscript has complete local graphics and bibliography
   references, but no TeX build tool was installed during inspection.
 - A new-conference working manuscript and template are intentionally deferred
@@ -63,10 +67,15 @@ alternate remains external rather than creating another manuscript entry point.
 
 ## Organization checks
 
-The collection has five provenance manifests covering **423 payload files,
+The initial collection had five provenance manifests covering **423 payload files,
 18,770,680 stored bytes**: nine manuscript originals, 14 review-history files,
 24 figure assets/sources, 337 numerical-evidence files, and 39 hardware-delivery
 files. Hardware compression preserves the original bytes and hashes.
+
+The author's writing-direction follow-up added two separate manifests: the
+layout PNG and four GPU-profile source files. The current collection therefore
+contains **seven manifests, 428 payload files, and 18,932,656 stored bytes**.
+The [current plan](current_revision_plan.md) defines their different roles.
 
 At intake, all preserved payloads matched their original source checksums;
 no curated payload was hidden by Git ignore rules. Maintained documentation

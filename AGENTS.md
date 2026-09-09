@@ -9,7 +9,11 @@ separate.
 - **Paper writing:** begin with `docs/paper/README.md`. Preserve the supplied
   `TSS_ICCAD/` manuscript and imported source snapshots as the revision
   baseline; use the audits and claim map before reusing old figures or numbers.
-  The next conference is undecided. Check provenance with
+  Follow `docs/paper/current_revision_plan.md` for the author's priorities:
+  larger-model evidence centered on Figure 4, necessary edits to other figures,
+  GPU attention/non-FFN end-to-end performance, whole-chip area/energy overhead,
+  and the supplied layout figure. Audit recommendations do not require a
+  general rewrite. The next conference is undecided. Check provenance with
   `python3 docs/paper/tools/verify_workspace.py`.
 - **Frozen functional simulation:** all canonical source, runners, scripts,
   tools, tests, baselines, documentation, and evidence live under

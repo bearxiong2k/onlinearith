@@ -76,6 +76,8 @@ checkpoints/
 !docs/paper/evidence/snapshots/**/*
 !hardware_sim/reference/tss_delivery_20260909/source/**/
 !hardware_sim/reference/tss_delivery_20260909/source/**/*
+!hardware_sim/reference/rebuttal_gpu_20260909/source/**/
+!hardware_sim/reference/rebuttal_gpu_20260909/source/**/*
 
 # Local compilation products for the preserved manuscript
 TSS_ICCAD/build/

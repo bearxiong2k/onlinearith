@@ -6,6 +6,11 @@ manuscript, reviewer feedback, curated figures and numerical evidence, and the
 separately archived hardware delivery. The next venue (DATE or ISCAS) is still
 undecided; no new conference template has been selected.
 
+The [current writing direction](docs/paper/current_revision_plan.md) prioritizes
+larger-model evidence in Figure 4, GPU attention/non-FFN end-to-end performance,
+whole-chip area and energy overhead, and the newly supplied layout figure.
+Other figure changes stay focused on what those additions require.
+
 This repository now hosts two deliberately separate parts of the same paper:
 
 1. a frozen functional-simulation harness for calibration, PPL, executed-digit
@@ -28,8 +33,9 @@ interface design.
 | [`TSS_ICCAD/`](TSS_ICCAD/README.md) | Original manuscript source, bibliography, and seven figures | Preserved writing baseline |
 | [`functional_sim/`](functional_sim/README.md) | Canonical functional source, runners, scripts, tools, tests, docs, and evidence | Frozen |
 | [`hardware_sim/`](hardware_sim/README.md) | RTL/general-simulation harness and hardware documentation | Active |
-| [`docs/paper/`](docs/paper/README.md) | Writing index, source audits, review history, figure assets, and curated numerical evidence | Active |
+| [`docs/paper/`](docs/paper/README.md) | Author-directed revision plan, source audits, review history, figure assets, and curated evidence | Active |
 | [`hardware_sim/reference/tss_delivery_20260909/`](hardware_sim/reference/tss_delivery_20260909/README.md) | Imported conventional-multiplier presentation prototype and supplied reports | Reference only; distinct arithmetic |
+| [`hardware_sim/reference/layout_20260909/`](hardware_sim/reference/layout_20260909/README.md) | Newly supplied layout figure and provenance | Paper figure; design/report association to record |
 | [`docs/archive/`](docs/archive/README.md) | Superseded paper and architecture planning | Historical |
 
 ## Functional commands
@@ -68,5 +74,8 @@ added.
 The September `TSS` delivery is available locally as a reference snapshot.
 It does not close the active design's M2 gate: its arithmetic and scheduling
 differ from the frozen M1 contract. Its supplied reports are mapped/pre-route;
-the delivered files do not include a layout. See the
-[delivery audit](hardware_sim/docs/reference/tss_delivery_audit.md).
+the original delivered files do not include a layout. The author subsequently
+added [a layout image](hardware_sim/reference/layout_20260909/README.md), now
+included in the paper plan. See the
+[delivery audit](hardware_sim/docs/reference/tss_delivery_audit.md) for the
+scope of the earlier reports.

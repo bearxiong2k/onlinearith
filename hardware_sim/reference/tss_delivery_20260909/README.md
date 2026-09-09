@@ -17,6 +17,10 @@ It contains **no layout database, layout figure, PnR report, extracted
 parasitics, testbench, or activity waveform**. Its power summary explicitly
 identifies the current estimate as pre-route.
 
+The author subsequently supplied a [layout image](../layout_20260909/README.md)
+outside this original delivery. It now has its own figure/provenance record
+for the paper; this snapshot's original inventory is unchanged.
+
 ## Contents and preservation
 
 | Path | Use |

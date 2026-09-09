@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "recorded_on": "2026-09-09",
+  "source_root": ".",
+  "source_git_revision": "2aa61a6f194abffef546d883df2d8d9ae0c39958",
+  "entries": [
+    {
+      "source_path": "layout.jpg",
+      "destination_path": "hardware_sim/reference/layout_20260909/layout.png",
+      "size_bytes": 130259,
+      "sha256": "3264db1d2867e84127bbbb2ae5a41c73ddb835634e55ae2a03d62b7047f7062c",
+      "role": "author-supplied layout figure",
+      "encoding": "identity"
+    }
+  ],
+  "image_format": "PNG",
+  "pixel_dimensions": [
+    735,
+    735
+  ],
+  "preservation": "Byte-identical copy; extension corrected from .jpg to actual .png format. Root source retained.",
+  "hardware_revision": null,
+  "die_dimensions_um": null,
+  "core_dimensions_um": null,
+  "report_association": "Awaiting author-provided layout design/revision and dimensions; no match inferred from pixels."
+}

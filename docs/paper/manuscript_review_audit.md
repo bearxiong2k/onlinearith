@@ -5,6 +5,12 @@ manuscript, frozen functional harness, sibling Transformers code, or source
 repositories. Venue selection remains open; this audit assumes no next-venue
 template or page budget.
 
+The author's subsequent [revision direction](current_revision_plan.md) sets
+the writing scope: prioritize larger-model Figure 4 evidence, GPU end-to-end
+performance, whole-chip area/energy reporting, and the supplied layout figure.
+The broader rewrite suggestions below remain audit options; other figures
+change only where needed.
+
 The current manuscript is the legacy online-arithmetic ICCAD version. Useful
 numerical evidence and reviewer-driven explanations are available, but the
 legacy datapath, revised arithmetic contract, and separate physical prototype

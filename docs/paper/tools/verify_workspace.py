@@ -18,6 +18,8 @@ MANIFESTS = (
     "docs/paper/assets/manifest.json",
     "docs/paper/evidence/manifest.json",
     "hardware_sim/reference/tss_delivery_20260909/manifest.json",
+    "hardware_sim/reference/layout_20260909/manifest.json",
+    "hardware_sim/reference/rebuttal_gpu_20260909/manifest.json",
 )
 EDITORIAL_FILES = (
     "README.md",
@@ -27,6 +29,8 @@ EDITORIAL_FILES = (
     "hardware_sim/reference/README.md",
     "hardware_sim/docs/reference/tss_delivery_audit.md",
     "hardware_sim/reference/tss_delivery_20260909/README.md",
+    "hardware_sim/reference/layout_20260909/README.md",
+    "hardware_sim/reference/rebuttal_gpu_20260909/README.md",
     "docs/paper/review_history/iccad/README.md",
     "docs/paper/assets/README.md",
     "docs/paper/evidence/README.md",

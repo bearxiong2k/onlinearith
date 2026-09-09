@@ -5,6 +5,11 @@ functional harness were read-only. Source evidence is now available as exact
 local snapshots; neither numerical semantics nor manuscript figures were
 changed.
 
+For how these sources will enter the paper, follow the author's
+[current revision plan](current_revision_plan.md). Larger-model rebuttal
+results are the primary Figure 4 addition; other figures receive necessary
+changes rather than equal expansion.
+
 ## What is ready for writing
 
 The strongest numerical foundation is the completed Qwen3 full-test scale
@@ -180,7 +185,9 @@ No report path or experiment ID is attached to these arrays. Preserve the
 old PDF/source as artwork provenance. The separately organized `hardware_sim/`
 delivery has mapped/pre-route prototype reports, whose limits are detailed in
 the [hardware audit](../../hardware_sim/docs/reference/tss_delivery_audit.md).
-No current layout evidence was supplied.
+At the initial audit no layout image was supplied; the author has since
+added the [layout figure](../../hardware_sim/reference/layout_20260909/README.md)
+for the hardware results.
 
 ## Provenance and excluded originals
 

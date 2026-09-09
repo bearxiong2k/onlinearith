@@ -6,6 +6,12 @@ and reports, verify copied bytes, and perform inexpensive syntax/elaboration.
 No model evaluation, calibration, synthesis, power replay, or layout flow was
 run.
 
+Writing-stage addendum: the author has since supplied a
+[layout image](../../reference/layout_20260909/README.md) for the new paper.
+The inventory below remains an audit of the original `../TSS` package. Its
+absence of a layout figure does not describe the updated writing collection;
+the image's design/dimensions and report association are recorded separately.
+
 ## Finding
 
 `../TSS` supplies a useful **Stage-1 conventional-multiplier presentation
@@ -187,10 +193,10 @@ check does not establish `rtl_sim` result parity, memory behavior, or timing.
 1. Use the snapshot now for source tracing, implementation illustrations, and
    explicitly scoped presentation-prototype area/power discussion. Keep the
    original conventional-multiplier label and the report limitations visible.
-2. Obtain the missing current-netlist physical, verification, activity, and
-   technology provenance package before adding a layout figure or claiming
-   route/signoff closure. Keep any older 162-macro/ping-pong implementation
-   under a different design identity.
+2. Use the subsequently supplied layout artwork in the writing plan and attach
+   its design identity to the caption. Obtain matching physical, verification,
+   activity, and technology reports for numerical route/signoff claims. Keep
+   any older 162-macro/ping-pong implementation under a different design identity.
 3. Decide the numerical hardware intended for the new paper. Adopting this
    delivery's arithmetic would require a new operand/configuration identity
    and explicit M1 change decisions. Retaining local M1 requires redesigning

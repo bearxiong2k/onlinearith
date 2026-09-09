@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "imported_on": "2026-09-09",
+  "source_root": "../rebuttal",
+  "source_git_revision": "e13339c996b3551deb9723567aca3e9bfc03868f",
+  "entries": [
+    {
+      "source_path": "results/hybrid_full_model_gpu/Qwen3-1.7B_gpu_nonffn_profile.json",
+      "destination_path": "hardware_sim/reference/rebuttal_gpu_20260909/source/results/hybrid_full_model_gpu/Qwen3-1.7B_gpu_nonffn_profile.json",
+      "size_bytes": 8585,
+      "sha256": "54b043f1da9264064ef1885749d96c73295a05c3bd305961064734b029b11afc"
+    },
+    {
+      "source_path": "results/hybrid_full_model_gpu/Qwen3-1.7B_hybrid_table.md",
+      "destination_path": "hardware_sim/reference/rebuttal_gpu_20260909/source/results/hybrid_full_model_gpu/Qwen3-1.7B_hybrid_table.md",
+      "size_bytes": 2422,
+      "sha256": "0e348a198b6db4fff9fe6c4d99e56f7879ee94117032987fa9f6563e7700ae05"
+    },
+    {
+      "source_path": "results/hybrid_full_model_gpu/Qwen3-1.7B_hybrid_table.tsv",
+      "destination_path": "hardware_sim/reference/rebuttal_gpu_20260909/source/results/hybrid_full_model_gpu/Qwen3-1.7B_hybrid_table.tsv",
+      "size_bytes": 2424,
+      "sha256": "eeb345852e8b4be1072ec22167235d72a4a89d9f54b09fffbaec311a0ddef820"
+    },
+    {
+      "source_path": "scripts/profile_gpu_nonffn.py",
+      "destination_path": "hardware_sim/reference/rebuttal_gpu_20260909/source/scripts/profile_gpu_nonffn.py",
+      "size_bytes": 18286,
+      "sha256": "5b5c54c9aeefc7bfe5fe78cdf91e849d918acab2e665e82d0a62a08c7841636d"
+    }
+  ],
+  "reuse": "timing_rows and profiling protocol for GPU attention/non-FFN baseline; hybrid_rows preserve legacy V4 formula results separately",
+  "snapshot_status": "source-only historical profile; profiling script not executed"
+}

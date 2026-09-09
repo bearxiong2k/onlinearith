@@ -4,52 +4,48 @@ Status: writing-stage audit, 2026-09-09. This map separates reusable evidence
 from claims that require correction or new supporting work. It does not change
 the frozen simulator or promote the imported prototype into the active design.
 
+The [current revision plan](current_revision_plan.md) records the author's
+subsequent priorities. Figure 4's larger-model evidence, GPU end-to-end context,
+whole-chip cost reporting, and the supplied layout are the intended additions;
+other figures receive only necessary changes.
+
 | Topic | Evidence available here | Reuse decision |
 |---|---|---|
 | Temporal significance scheduling and local execution windows on aligned contribution streams | Original method, rebuttal explanations, active architecture contract | Retain the abstraction; state which numerical realization each experiment uses |
-| Model quality across Qwen scales | Frozen full-test FP16/MXFP8/TSS results in the curated evidence | Promote beyond the original 0.6B-only story; identify configuration and actual full-test scope |
+| Model quality across Qwen scales | Frozen full-test FP16/MXFP8/TSS and sampled quality/work results | Primary Figure 4 expansion using 1.7B/4B/8B; identify configuration and actual full/sampled scope |
 | Roughly half executed-digit work | Frozen sampled statistics and separately sourced full-test PPL | Label both run scopes; do not equate executed-digit ratio with multiplier count, latency, or energy |
 | Generalization beyond Qwen | Llama-3.2-3B sampled results | Describe one additional tested family, with the sample limit visible |
 | Universal superiority over sparsity | Original manuscript assertion; later rebuttal comparisons | Rewrite: the tested Qwen3-8B near-half-work activation 2:4 point is stronger than TSS |
 | Calibration method, runtime, and block-size sensitivity | Frozen configurations/results and rebuttal summaries | Use actual outputs over stale progress summaries; correct the manuscript's split and sample/token terminology |
 | Plot provenance | Figure scripts, CSVs, exports, selected referenced raw files | Resolve reversed N:M semantics and inconsistent source/value mappings before creating new plots |
 | 22–25% FFN latency reduction | Original serial-stream model and Figure 5 | Historical only; neither revised M1 nor prototype inherits it |
-| 0.3% area / 2.5% power overhead | Original hybrid accounting and Figure 7 | Historical only; new overhead needs a matched baseline and explicit boundary |
+| Hardware area and energy overhead | Author corrects previous per-tile/per-channel attribution to whole-chip reporting | Correct experiment prose, Figure 7 and captions using chip-wide totals and explicit support/baseline denominators; distinguish power from energy |
 | Standard-multiplier stage-1 arithmetic | Active M1 contract and arithmetic fixtures | Specification evidence; frozen product-truncation PPL does not validate target-prefix/Q6-weight arithmetic |
 | Complete tile structure and SRAM integration | Imported presentation-prototype RTL/netlist and mapped reports | Useful structural reference for its own signed 8-by-8 design; it does not implement the active M1 arithmetic contract |
 | Prototype power | Supplied PrimeTime-PX reports and summary | Label as pre-route activity-based estimates, with corner, activity window, and missing activity provenance |
 | 249.5 MHz prototype estimate | Summary arithmetic from stated 4 ns constraint and −0.008 ns pre-CTS slack | Formula reported by the delivery; the cited pre-CTS source report is absent, so closure remains unverified |
-| Post-layout area, timing, or energy | No current physical-layout artifacts in the delivery | Unsupported by this collection |
-| End-to-end LLM speedup | Older GPU split and legacy FFN accounting | Retain the method/denominator only if verified; replace the hardware ratio and state unaccelerated work |
+| Layout figure | Newly supplied layout image, registered separately from the earlier delivery | Add physical implementation artwork; record design, dimensions and report association for its caption |
+| Post-layout numerical results | Layout image supplied; physical database/extracted reports still absent | Tie any numerical layout claim to matching reports; the picture is not a timing or energy measurement |
+| End-to-end LLM performance | Locally preserved Qwen3-1.7B GPU full/non-FFN profile plus legacy FFN ratio analysis | Add/adapt a figure with GPU attention and other non-FFN work, and explicitly sourced accelerated computation |
 
 Exact file references and numerical discrepancies are in the
 [manuscript/reviewer audit](manuscript_review_audit.md),
 [figure/data audit](figure_data_audit.md), and
 [hardware delivery audit](../../hardware_sim/docs/reference/tss_delivery_audit.md).
 
-## Revision order after organization
+## Author-directed revision order
 
-1. **Set the numerical and hardware story.** Decide which implementation the
-   new paper evaluates. Record the differences among frozen product-digit
-   truncation, active target-prefix multiplication, and the presentation
-   prototype before joining their results. This is a research-design decision,
-   not a directory cleanup.
-2. **Build source-backed quality/work tables.** Use final raw outputs and
-   explicit full/sampled columns. Carry FP16, dense MXFP8, and the two TSS
-   operating-point stories together. Repair plot mappings in new working
-   sources while preserving archived originals.
-3. **Rewrite the method and hardware explanation.** Give the GLU-to-block
-   mapping, all metadata equations, a consistent worked example, exact weight
-   encoding, target formation, and calibration procedure. Match Figure 3 to
-   the actual evaluated boundary.
-4. **Close hardware evidence gaps appropriate to that story.** Obtain or
-   generate the missing design-matched verification, activity, baseline, and
-   physical-design artifacts in a separate implementation task. This
-   collection does not establish numerical equivalence or layout
-   closure.
-5. **Select DATE or ISCAS and open the working revision.** Verify the chosen
-   venue's current official format and limits at that point; then budget
-   sections and replace the historical abstract, headline claims, and figures.
+1. Select larger-model rebuttal results and enrich Figure 4. Use full-test
+   quality and sampled curves with visible scope labels.
+2. Add or adapt the end-to-end GPU performance figure, keeping measured GPU
+   timing separate from the accelerated-component estimate.
+3. Correct hardware area/energy reporting to the complete chip and prepare the
+   new layout figure with matching caption/provenance information.
+4. Make focused wording and necessary figure corrections. The audit's broader
+   alternative rewrite suggestions are not a requirement to redraw everything
+   or implement the active M1 design during writing.
+5. Choose DATE or ISCAS after the content is clear, then verify its current
+   template and limits.
 
 ## Practical claim rules
 

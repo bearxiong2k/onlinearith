@@ -1,5 +1,11 @@
 # Paper Revision Lessons Extracted From the Rebuttal
 
+Current writing scope is set by the author's
+[revision plan](current_revision_plan.md): larger-model Figure 4 evidence,
+GPU end-to-end context, whole-chip overhead, and the supplied layout figure.
+The recommendations below are earlier guidance, not a requirement to change
+every figure or replace the paper's hardware story with the M1 development plan.
+
 Status: active writing guidance  
 Recorded: 2026-08-01  
 Source: the reviews, response drafts, attachment, coverage checklist, evidence
