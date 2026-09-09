@@ -114,14 +114,20 @@ Candidate experiment wording:
 
 > We evaluate the area and energy cost of temporal significance scheduling
 > over the complete accelerator chip, including its replicated compute and
-> memory blocks and shared scheduling support. End-to-end latency combines
-> the GPU attention and other non-FFN component with the separately evaluated
-> accelerated component under the stated system model. The layout figure
-> illustrates the hardware implementation used for the physical evaluation.
+> memory blocks and shared scheduling support. For the layout study, we use
+> the documented simplified stage-1 implementation: conventional signed
+> multipliers replace the serial-parallel online leaves, while the gate/up
+> mapping, stationary weights, metadata control, local reduction, and channel
+> accumulation are retained. Digit-level control, execution timing, and
+> external interfaces are simplified as specified in the layout-phase handoff.
+> End-to-end latency combines the GPU attention and other non-FFN component
+> with the separately evaluated accelerated component under the stated
+> system model.
 
-Finalize the last sentence and numeric overheads against the layout's design
-identity and matching reports. This is focused experiment wording, not a
-claim that a layout image establishes model-output equivalence.
+This documented simplification is the agreed scope of the physical study.
+Use each report's own measurement stage for its numbers, and the frozen
+model results for quality/work. The handoff does not require this layout
+implementation to reproduce the numerical or cycle-level software experiment.
 
 ## Supplied layout figure
 
@@ -131,14 +137,36 @@ despite its filename extension. A byte-identical
 registered under hardware reference material for reliable figure inclusion;
 the original is retained.
 
-The image supplies the previously missing layout artwork. It shows repeated
-rectangular regions and interconnect/placement structure, but carries no
-embedded design label, dimensional scale, legend, or report identifier.
-Record the design revision and die/core dimensions in the
-[layout record](../../hardware_sim/reference/layout_20260909/README.md) when
-provided. Use them for the final caption and the connection to the whole-chip
-cost results. The earlier statement that the `TSS` delivery had no layout
-figure describes that original package, not the now-updated project.
+The author confirms that the figure belongs to the documented simplified
+layout phase in `TSS`. The existing
+[phase handoff](../../hardware_sim/reference/tss_delivery_20260909/source/stage1_presentation_layout_contract.md)
+and [implementation contract](../../hardware_sim/reference/tss_delivery_20260909/source/stage1_tile_v1/docs/stage1_tile_architecture.md)
+are sufficient to describe and use it in the writing stage. This closes the
+earlier request for another phase/revision confirmation. Unreported die/core
+dimensions can be omitted from the caption; they do not delay figure use.
+
+The handoff records the intentional changes:
+
+| Aspect | Layout-study treatment |
+|---|---|
+| Multiplier | Conventional signed 8-by-8 leaves replacing serial-parallel online leaves |
+| Preserved organization | Eight owner-lane pairs, independent gate/up paths, stationary weights, metadata, local reduction and accumulation |
+| Scheduling/control | Metadata-derived leaf enable; digit counters, residual state, and cycle-accurate partial windows omitted |
+| Execution and interface | Simplified block pipeline and stage interface; the final implementation specifies streamed activation DFF storage |
+| Physical boundary | Stage-1 gate/up implementation; SiLU, gate/up fusion, down projection and system transport remain outside this layout phase |
+
+Use the final implementation contract for details refined after the initial
+handoff, including the streamed DFF activation storage and SRAM organization.
+The [layout record](../../hardware_sim/reference/layout_20260909/README.md)
+links these sources. Differences from active M1 describe the separate study's
+scope; they do not reopen hardware development during paper writing.
+
+Candidate caption:
+
+> Physical layout of the simplified stage-1 TSS implementation. The layout
+> study preserves the channel-parallel, block-serial gate/up organization and
+> local memory/reduction structure, using conventional fixed-point multiplier
+> leaves and the simplified control specified in the phase handoff.
 
 ## Next writing pass
 

@@ -35,7 +35,7 @@ interface design.
 | [`hardware_sim/`](hardware_sim/README.md) | RTL/general-simulation harness and hardware documentation | Active |
 | [`docs/paper/`](docs/paper/README.md) | Author-directed revision plan, source audits, review history, figure assets, and curated evidence | Active |
 | [`hardware_sim/reference/tss_delivery_20260909/`](hardware_sim/reference/tss_delivery_20260909/README.md) | Imported conventional-multiplier presentation prototype and supplied reports | Reference only; distinct arithmetic |
-| [`hardware_sim/reference/layout_20260909/`](hardware_sim/reference/layout_20260909/README.md) | Newly supplied layout figure and provenance | Paper figure; design/report association to record |
+| [`hardware_sim/reference/layout_20260909/`](hardware_sim/reference/layout_20260909/README.md) | Supplied layout figure and documented simplifications | Author-associated with the layout phase; ready for writing |
 | [`docs/archive/`](docs/archive/README.md) | Superseded paper and architecture planning | Historical |
 
 ## Functional commands

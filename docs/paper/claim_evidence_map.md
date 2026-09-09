@@ -24,7 +24,7 @@ other figures receive only necessary changes.
 | Complete tile structure and SRAM integration | Imported presentation-prototype RTL/netlist and mapped reports | Useful structural reference for its own signed 8-by-8 design; it does not implement the active M1 arithmetic contract |
 | Prototype power | Supplied PrimeTime-PX reports and summary | Label as pre-route activity-based estimates, with corner, activity window, and missing activity provenance |
 | 249.5 MHz prototype estimate | Summary arithmetic from stated 4 ns constraint and −0.008 ns pre-CTS slack | Formula reported by the delivery; the cited pre-CTS source report is absent, so closure remains unverified |
-| Layout figure | Newly supplied layout image, registered separately from the earlier delivery | Add physical implementation artwork; record design, dimensions and report association for its caption |
+| Layout figure | Author-associated with the simplified layout phase; existing handoff and implementation contract explain its scope | Include the figure with concise disclosure of conventional multipliers and simplified control/timing; no additional phase confirmation is needed |
 | Post-layout numerical results | Layout image supplied; physical database/extracted reports still absent | Tie any numerical layout claim to matching reports; the picture is not a timing or energy measurement |
 | End-to-end LLM performance | Locally preserved Qwen3-1.7B GPU full/non-FFN profile plus legacy FFN ratio analysis | Add/adapt a figure with GPU attention and other non-FFN work, and explicitly sourced accelerated computation |
 

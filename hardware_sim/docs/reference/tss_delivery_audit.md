@@ -10,7 +10,10 @@ Writing-stage addendum: the author has since supplied a
 [layout image](../../reference/layout_20260909/README.md) for the new paper.
 The inventory below remains an audit of the original `../TSS` package. Its
 absence of a layout figure does not describe the updated writing collection;
-the image's design/dimensions and report association are recorded separately.
+the image is associated by the author with the documented simplified layout
+phase. The existing phase handoff and implementation contract suffice for the
+paper's description of that phase. The implementation differences audited
+below are intentional simplifications, not a request to reopen this work.
 
 ## Finding
 

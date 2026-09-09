@@ -12,8 +12,11 @@ separate.
   Follow `docs/paper/current_revision_plan.md` for the author's priorities:
   larger-model evidence centered on Figure 4, necessary edits to other figures,
   GPU attention/non-FFN end-to-end performance, whole-chip area/energy overhead,
-  and the supplied layout figure. Audit recommendations do not require a
-  general rewrite. The next conference is undecided. Check provenance with
+  and the supplied layout figure. Its documented simplifications and existing
+  phase handoff are accepted for writing; do not require another phase
+  confirmation or active-M1 implementation before using it. Audit
+  recommendations do not require a general rewrite. The next conference is
+  undecided. Check provenance with
   `python3 docs/paper/tools/verify_workspace.py`.
 - **Frozen functional simulation:** all canonical source, runners, scripts,
   tools, tests, baselines, documentation, and evidence live under

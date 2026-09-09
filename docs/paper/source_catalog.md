@@ -57,9 +57,10 @@ alternate remains external rather than creating another manuscript entry point.
   artifacts absent from the delivery. The
   [hardware audit](../../hardware_sim/docs/reference/tss_delivery_audit.md)
   lists them. No delivered GDS/DEF, extracted parasitics, or routed timing
-  establishes current-layout closure. A layout image has since been supplied
-  and registered; its design/dimensions and connection to those reports remain
-  to be recorded.
+  establishes current-layout closure. The author has supplied a layout image
+  and associated it with the documented simplified phase; the existing handoff
+  is sufficient for that writing scope. Unreported physical dimensions can be
+  omitted from the figure caption.
 - The original manuscript has complete local graphics and bibliography
   references, but no TeX build tool was installed during inspection.
 - A new-conference working manuscript and template are intentionally deferred

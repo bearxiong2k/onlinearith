@@ -22,5 +22,15 @@
   "hardware_revision": null,
   "die_dimensions_um": null,
   "core_dimensions_um": null,
-  "report_association": "Awaiting author-provided layout design/revision and dimensions; no match inferred from pixels."
+  "report_association": "Author-associated with the TSS simplified layout phase. Use supplied reports under their stated measurement stages and boundaries; cite the phase handoff and implementation contract.",
+  "hardware_phase": "simplified stage-1 conventional-multiplier layout study",
+  "phase_association": {
+    "basis": "Author clarification in the writing task on 2026-09-09: the layout simulation used documented simplifications in TSS and the existing handoff is sufficient.",
+    "source_repository": "../TSS",
+    "inspected_repository_revision": "dd6fe890c36effd248b4d0ae56947d7dadfb7dd1",
+    "handoff_path": "hardware_sim/reference/tss_delivery_20260909/source/stage1_presentation_layout_contract.md",
+    "implementation_contract_path": "hardware_sim/reference/tss_delivery_20260909/source/stage1_tile_v1/docs/stage1_tile_architecture.md",
+    "writing_status": "accepted documented phase; no additional confirmation needed",
+    "dimension_policy": "Omit unreported die/core dimensions from the figure caption."
+  }
 }

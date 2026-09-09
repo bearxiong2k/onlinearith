@@ -43,10 +43,12 @@ There are three different hardware/numerical descriptions in these sources:
    rule or partial-window execution. The supplied reports are pre-route; the
    delivery contains no physical-layout database.
 
-The author subsequently supplied a layout image for the paper. It is recorded
-separately from the original delivery, with its design/report association to
-be added. The intended hardware area and energy reporting boundary is the
-complete accelerator chip; prior per-tile/per-channel wording is to be corrected.
+The author supplied a layout image and confirmed its association with the
+documented simplified layout phase. The phase handoff and implementation
+contract are sufficient for the writing description; explain their
+simplifications in the experiment text and caption. The intended hardware
+area and energy reporting boundary is the complete accelerator chip; prior
+per-tile/per-channel wording is to be corrected.
 
 Use **executed-digit ratio** for frozen algorithmic work. Keep hardware event
 counts, reads, latency, area, power, and energy separate, with the design ID,
